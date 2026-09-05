@@ -1,7 +1,26 @@
 # A route cannot say where it ends
 
-> Status: design gap, not a defect — the implementation matches the spec
+> Status: option A done 2026-09-05; option C open and still recommended
 > Origin: writing `spec/examples/03-warehouse-route.tu`
+
+## Progress
+
+Option A landed. `spec/scene-to-scene.md` now states the implication in §3.2, in
+the summary-table interpretation, and in §5, and `tests/route-completion.test.ts`
+pins both sides of it: a route with its final scene unmatched completes, and the
+same route with a `_` arm exhausts its transition budget instead. That test is
+the one option C flips.
+
+The trap was re-confirmed against the current implementation before documenting
+it. The code references below are stale — `route-executor.ts` and
+`route-pattern.ts` went with the TypeScript executor in Phase 12, and the logic
+is now `selectNextScene` and `matchPattern` in
+`packages/zig/scene-runner/src/route.zig`, with patterns lowered ahead of time in
+`route_ir.zig`. The behaviour is unchanged: `Pattern.any` returns the
+lowest-priority score rather than declining to match, so `selectNextScene` never
+returns null when a `_` arm is present.
+
+Option B is still worth doing after C, not before, for the reason given below.
 
 ## The problem
 
@@ -52,9 +71,10 @@ route "fulfilment" {
 
 C is the recommended direction, with A done immediately regardless, because the documentation is wrong-by-omission today and that is true under every option.
 
-Whoever picks up C must settle:
+Whoever picks up C must settle the first question below; the rest have answers
+already, recorded here so they are not re-litigated:
 
-- Where the terminal lives. A reserved scene id is the smallest change and needs no proto field, but it collides with any real scene of that name. A distinct token (`_ -> end`, with `end` a keyword) avoids collisions at the cost of a lexer entry.
+- **Open: where the terminal lives.** A reserved scene id is the smallest change and needs no proto field, but it collides with any real scene of that name. A distinct token (`_ -> end`, with `end` a keyword) avoids collisions at the cost of a lexer entry. This is a language-surface decision and the only thing blocking C.
 - Wire model. `MatchArm.target` is a string today. A reserved value keeps the proto unchanged, while a separate `terminal` flag does not. Prefer the former, consistent with the "no proto churn for surface features" line the recent syntax work held.
 - Runtime. `selectNextScene` returns `string | null` and null already means complete, so the executor needs no new state. The arm resolution just maps the terminal target to null. That is a small, well-isolated change.
 - Interaction with B. With C available, a `_` arm that targets a real scene becomes clearly suspicious, and the diagnostic in B gets much easier to justify.

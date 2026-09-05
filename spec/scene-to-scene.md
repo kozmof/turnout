@@ -113,6 +113,10 @@ Multiple path forms can be OR-joined within a single arm using `|`. All branches
 
 The `_` pattern matches any route history unconditionally. It MUST appear at most once per `match` block and SHOULD be the last arm.
 
+**A `match` block containing `_` can never complete.** Route completion is expressed by absence: the route ends when no arm matches (§5). Because `_` always matches, a route that declares one has no way to reach that state, and runs until it exceeds `maxRouteTransitions` and fails with `MaxRouteTransitionsExceeded`.
+
+This is the opposite of what `_` looks like. It reads as a `default:` case, and a `default:` does not normally mean "loop forever". Declare `_` only for a route that is meant to run until the host stops it. A route that should end on its own must leave its final scene unmatched.
+
 ### 3.3 Match Result
 
 `-> <scene_id>` specifies the next scene to enter. The named scene is entered starting from its declared `entry_action` (per `scene-graph.md §4`). A scene declares exactly one entry action, so route-driven entry and standalone scene execution always start from the same place.
@@ -134,6 +138,8 @@ When multiple patterns match the same history, the narrower pattern wins:
 ## 5. Terminal Behavior
 
 If no pattern matches and no `_` fallback is present, the route enters a terminal `completed` state, analogous to a scene with no matching next actions.
+
+Completion has no spelling of its own. It is declared by leaving a scene unmatched, which means a reader looking for where a route ends has to work out which paths are not covered. A `_` arm removes that possibility entirely (§3.2). Giving completion an explicit target is recorded as an open design question in `todo/route-completion.md`.
 
 ---
 
@@ -175,6 +181,8 @@ Interpretation:
 | anything else | `_` | `scene_other` |
 | no match, no `_` | (none) | route `completed` |
 
+With the `_` arm above, the last row is unreachable: this route never completes on its own. See §3.2.
+
 ---
 
 ## 7. Balance Rules (CAN / CAN'T)
@@ -185,7 +193,7 @@ Interpretation:
 - A path form can use one `*` wildcard before a terminal action_id (`scene_id.*.<action_id>`).
 - Multiple arms (or `|` branches) can target the same scene ID.
 - A narrower eligible arm declared after a broader eligible arm still wins (priority overrides declaration order).
-- Omitting `_` is valid. The route simply completes if no arm matches.
+- Omitting `_` is valid, and is how a route is made to complete. The route ends when no arm matches.
 - A `|` expression can combine any number of path forms within a single arm.
 
 ### CAN'T (NG)
