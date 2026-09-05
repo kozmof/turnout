@@ -18,7 +18,7 @@ The package splits into feature layers that mirror the TypeScript packages. Each
 | `turnout_scene_runner` | `scene-runner/src` | `packages/ts/scene-runner` |
 | `turnout_wasm_abi` | `wasm/src` | the ABI both packages call through |
 
-`turnout_runtime` holds Values, preset functions, and the compute graph. It never imports the scene-runner layer. `turnout_scene_runner` holds the model, STATE, and the action, scene, and route drivers, and it imports `turnout_runtime`. The dependency runs one way. `turnout_wasm_abi` composes both layers into the exported WASM surface.
+`turnout_runtime` holds Values, preset functions, the lowered program form, and the authoring engine that backs the TypeScript builder API. Execution reaches `preset/` and `program/`; `authoring/` is off that path. It never imports the scene-runner layer. `turnout_scene_runner` holds the model, STATE, and the action, scene, and route drivers, and it imports `turnout_runtime`. The dependency runs one way. `turnout_wasm_abi` composes both layers into the exported WASM surface.
 
 Cross-layer code imports the module rather than the file. Inside `scene-runner/src`, reach a Value type through `@import("turnout_runtime").value`.
 
@@ -37,8 +37,9 @@ Cross-layer code imports the module rather than the file. Inside `scene-runner/s
 - Stable effect IDs and resume misuse checks
 - Cancellation as a terminal state
 - Compute, action, scene, and route execution
+- Model lowering: scenes, actions, routes, compute programs, and STATE schemas are resolved once when a model is created, and executed from that form
 - Versioned WASM allocation, lifecycle, and effect-result APIs
-- Native and WASM execution of the same 130 core tests
+- Native and WASM execution of the same 145 core tests
 
 The build produces the freestanding WASM module packaged by `runtime`. The runtime package build validates and copies that artifact into its distribution. `turnout-scene-runner` imports the shared client instead of shipping another copy.
 

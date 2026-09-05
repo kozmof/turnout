@@ -55,6 +55,9 @@ Native measurements, ReleaseFast, against the tree interpreter at `30c2cfa`:
 
 ## Step 8: where the time actually goes
 
+The full figures, method, and environment are in
+`packages/zig/docs/performance-redesign.md`. The summary follows.
+
 Re-measuring the `performance-baseline.md` workload through the WASM host --
 1000 runners, one 20-action scene, three bindings per action -- gave a result the
 rest of this plan did not predict.

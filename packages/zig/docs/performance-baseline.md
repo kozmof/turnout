@@ -2,6 +2,8 @@
 
 This baseline compares full scene execution through the TypeScript and Zig/WASM engines. It is a local reference for the migration, not a release threshold.
 
+The Zig/WASM figure below was the evidence that prompted the runtime redesign. What that redesign changed, and what re-running this workload afterwards showed, are in [performance-redesign.md](./performance-redesign.md).
+
 ## Method
 
 The migration benchmark command was removed with the TypeScript executor. The method and results below are retained as the final dual-engine baseline. Recreate an equivalent comparison only from a revision that still contains both engines.
