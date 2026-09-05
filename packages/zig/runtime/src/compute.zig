@@ -1,7 +1,13 @@
 const std = @import("std");
-const fn_aliases = @import("generated/fn_aliases.zig");
-const preset = @import("preset.zig");
+const eval = @import("program/eval.zig");
+const ir = @import("program/ir.zig");
+const load = @import("program/load.zig");
 const value = @import("value.zig");
+
+pub const Program = ir.Program;
+pub const OwnedProgram = ir.OwnedProgram;
+pub const loadProgram = load.program;
+pub const loadProgramInto = load.into;
 
 pub const max_program_bindings: usize = 50_000;
 pub const max_program_expression_nodes: usize = 50_000;
@@ -60,16 +66,7 @@ pub const LoadedCompute = struct {
     }
 };
 
-pub const ProgramResult = struct {
-    bindings: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
-    root: value.OwnedTaggedValue,
-
-    pub fn deinit(self: *ProgramResult, allocator: std.mem.Allocator) void {
-        deinitValues(&self.bindings, allocator);
-        self.root.deinit(allocator);
-        self.* = undefined;
-    }
-};
+pub const ProgramResult = eval.Result;
 
 pub fn executeJson(
     compute: std.json.Value,
@@ -88,10 +85,16 @@ pub fn executeProgram(
     allocator: std.mem.Allocator,
 ) !value.OwnedTaggedValue {
     var result = try executeProgramWithBindings(prog, output_name, inputs, allocator);
-    deinitValues(&result.bindings, allocator);
+    for (result.bindings.values()) |*item| item.deinit(allocator);
+    result.bindings.deinit(allocator);
     return result.root;
 }
 
+/// Validates, lowers, and runs `prog`.
+///
+/// The lowered program is discarded afterwards, so this path pays the lowering
+/// cost on every call. It is for one-off execution; anything that runs the same
+/// program repeatedly should lower once and use `executeLoadedWithBindings`.
 pub fn executeProgramWithBindings(
     prog: std.json.Value,
     output_name: []const u8,
@@ -99,242 +102,30 @@ pub fn executeProgramWithBindings(
     allocator: std.mem.Allocator,
 ) !ProgramResult {
     try validateProgram(prog, output_name, allocator);
-    var values: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue) = .empty;
-    errdefer deinitValues(&values, allocator);
-    const bindings = prog.object.get("bindings").?.array.items;
-    for (bindings) |binding| {
-        const object = binding.object;
-        const name = object.get("name").?.string;
-        var result = if (object.get("expr")) |expression|
-            try executeExpression(expression, &values, allocator)
-        else if (inputs.get(name)) |input|
-            try value.build(input.value, input.tags, allocator)
-        else if (object.get("value")) |literal|
-            try ownedJsonValue(literal, allocator)
-        else
-            return error.MissingBindingValue;
-        values.put(allocator, name, result) catch |err| {
-            result.deinit(allocator);
-            return err;
-        };
-    }
-    const root = if (output_name.len == 0)
-        try value.buildNull(.missing, &.{}, allocator)
-    else blk: {
-        const found = values.getPtr(output_name) orelse return error.MissingRootBinding;
-        break :blk try value.build(found.value, found.tags, allocator);
-    };
-    return .{ .bindings = values, .root = root };
+    var program = try load.program(prog, output_name, allocator);
+    defer program.deinit();
+    return eval.run(&program.program, inputs, allocator);
 }
 
-fn deinitValues(values: *std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue), allocator: std.mem.Allocator) void {
-    for (values.values()) |*item| item.deinit(allocator);
-    values.deinit(allocator);
+/// Runs a program that was lowered ahead of time. This is the hot path: no JSON
+/// walk, no validation, no allocation beyond the values produced.
+pub fn executeLoadedWithBindings(
+    program: *const Program,
+    inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
+    allocator: std.mem.Allocator,
+) !ProgramResult {
+    return eval.run(program, inputs, allocator);
 }
 
-fn ownedJsonValue(json: std.json.Value, allocator: std.mem.Allocator) !value.OwnedTaggedValue {
-    var converted = try value.fromJson(allocator, json);
-    errdefer value.deinitValue(&converted, allocator);
-    return .{ .value = converted, .tags = try allocator.alloc([]const u8, 0) };
-}
-
-fn executeExpression(
-    expression: std.json.Value,
-    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
+pub fn executeLoaded(
+    program: *const Program,
+    inputs: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
     allocator: std.mem.Allocator,
 ) !value.OwnedTaggedValue {
-    if (expression.object.get("combine")) |combine| return executeCombine(combine, values, allocator);
-    if (expression.object.get("pipe")) |pipe| return executePipe(pipe, values, allocator);
-    return executeConditional(expression.object.get("cond").?, values, allocator);
-}
-
-fn executePipe(
-    pipe: std.json.Value,
-    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
-    allocator: std.mem.Allocator,
-) !value.OwnedTaggedValue {
-    if (pipe != .object) return error.InvalidExpression;
-    const params_value = pipe.object.get("params") orelse return error.InvalidExpression;
-    const steps_value = pipe.object.get("steps") orelse return error.InvalidExpression;
-    if (params_value != .array or steps_value != .array) return error.InvalidExpression;
-    if (steps_value.array.items.len == 0) return error.EmptyPipe;
-
-    var params: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue) = .empty;
-    defer deinitValues(&params, allocator);
-    for (params_value.array.items) |param| {
-        if (param != .object) return error.InvalidArgument;
-        const name = param.object.get("paramName") orelse return error.InvalidArgument;
-        const source = param.object.get("sourceIdent") orelse return error.InvalidArgument;
-        if (name != .string or name.string.len == 0 or source != .string) return error.InvalidArgument;
-        if (params.contains(name.string)) return error.DuplicateParameter;
-        const source_value = values.get(source.string) orelse return error.MissingReference;
-        var cloned = try value.build(source_value.value, source_value.tags, allocator);
-        params.put(allocator, name.string, cloned) catch |err| {
-            cloned.deinit(allocator);
-            return err;
-        };
-    }
-
-    var step_results = std.ArrayList(value.OwnedTaggedValue).empty;
-    defer {
-        for (step_results.items) |*result| result.deinit(allocator);
-        step_results.deinit(allocator);
-    }
-    for (steps_value.array.items) |step| {
-        if (step != .object) return error.InvalidExpression;
-        const fn_value = step.object.get("fn") orelse return error.InvalidExpression;
-        const args_value = step.object.get("args") orelse return error.InvalidExpression;
-        if (fn_value != .string or args_value != .array) return error.InvalidExpression;
-        var owned_args = std.ArrayList(value.OwnedTaggedValue).empty;
-        defer {
-            for (owned_args.items) |*arg| arg.deinit(allocator);
-            owned_args.deinit(allocator);
-        }
-        var args = std.ArrayList(value.TaggedValue).empty;
-        defer args.deinit(allocator);
-        for (args_value.array.items) |arg| {
-            try owned_args.ensureUnusedCapacity(allocator, 1);
-            owned_args.appendAssumeCapacity(try resolvePipeArgument(arg, &params, values, step_results.items, allocator));
-            try args.append(allocator, owned_args.items[owned_args.items.len - 1].borrowed());
-        }
-        const function_name = fn_aliases.resolve(fn_value.string) orelse fn_value.string;
-        try step_results.ensureUnusedCapacity(allocator, 1);
-        step_results.appendAssumeCapacity(try preset.call(function_name, args.items, allocator));
-    }
-    const final = &step_results.items[step_results.items.len - 1];
-    return value.build(final.value, final.tags, allocator);
-}
-
-fn resolvePipeArgument(
-    arg: std.json.Value,
-    params: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
-    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
-    step_results: []const value.OwnedTaggedValue,
-    allocator: std.mem.Allocator,
-) !value.OwnedTaggedValue {
-    if (arg != .object) return error.InvalidArgument;
-    var variants: usize = 0;
-    inline for (.{ "ref", "funcRef", "lit", "stepRef", "transform" }) |name| {
-        if (arg.object.contains(name)) variants += 1;
-    }
-    if (variants != 1) return error.InvalidArgument;
-    if (arg.object.get("stepRef")) |step_ref| {
-        if (step_ref != .integer or step_ref.integer < 0) return error.InvalidStepReference;
-        const index: usize = @intCast(step_ref.integer);
-        if (index >= step_results.len) return error.InvalidStepReference;
-        return value.build(step_results[index].value, step_results[index].tags, allocator);
-    }
-    if (arg.object.get("ref") orelse arg.object.get("funcRef")) |reference| {
-        if (reference != .string) return error.InvalidArgument;
-        const resolved = params.get(reference.string) orelse values.get(reference.string) orelse return error.MissingReference;
-        return value.build(resolved.value, resolved.tags, allocator);
-    }
-    if (arg.object.get("lit")) |literal| return ownedJsonValue(literal, allocator);
-    if (arg.object.get("transform")) |transform| {
-        if (transform != .object) return error.InvalidArgument;
-        const reference = transform.object.get("ref") orelse return error.InvalidArgument;
-        const functions = transform.object.get("fn") orelse return error.InvalidArgument;
-        if (reference != .string) return error.InvalidArgument;
-        const source = params.get(reference.string) orelse values.get(reference.string) orelse return error.MissingReference;
-        return applyTransforms(source, functions, allocator);
-    }
-    return error.UnsupportedArgument;
-}
-
-fn executeCombine(
-    combine: std.json.Value,
-    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
-    allocator: std.mem.Allocator,
-) !value.OwnedTaggedValue {
-    if (combine != .object) return error.InvalidExpression;
-    const fn_value = combine.object.get("fn") orelse return error.InvalidExpression;
-    const args_value = combine.object.get("args") orelse return error.InvalidExpression;
-    if (fn_value != .string or args_value != .array) return error.InvalidExpression;
-
-    var owned_args = std.ArrayList(value.OwnedTaggedValue).empty;
-    defer {
-        for (owned_args.items) |*arg| arg.deinit(allocator);
-        owned_args.deinit(allocator);
-    }
-    var args = std.ArrayList(value.TaggedValue).empty;
-    defer args.deinit(allocator);
-    for (args_value.array.items) |arg| {
-        try owned_args.ensureUnusedCapacity(allocator, 1);
-        owned_args.appendAssumeCapacity(try resolveArgument(arg, values, allocator, true));
-        try args.append(allocator, owned_args.items[owned_args.items.len - 1].borrowed());
-    }
-    const function_name = fn_aliases.resolve(fn_value.string) orelse fn_value.string;
-    return preset.call(function_name, args.items, allocator);
-}
-
-fn executeConditional(
-    conditional: std.json.Value,
-    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
-    allocator: std.mem.Allocator,
-) !value.OwnedTaggedValue {
-    if (conditional != .object) return error.InvalidExpression;
-    const condition_arg = conditional.object.get("condition") orelse return error.InvalidExpression;
-    const then_arg = conditional.object.get("then") orelse return error.InvalidExpression;
-    const else_arg = conditional.object.get("elseBranch") orelse return error.InvalidExpression;
-    var condition = try resolveArgument(condition_arg, values, allocator, false);
-    defer condition.deinit(allocator);
-    if (condition.value != .boolean) return error.ConditionTypeMismatch;
-    return resolveArgument(if (condition.value.boolean) then_arg else else_arg, values, allocator, false);
-}
-
-fn resolveArgument(
-    arg: std.json.Value,
-    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
-    allocator: std.mem.Allocator,
-    allow_transform: bool,
-) !value.OwnedTaggedValue {
-    if (arg != .object) return error.InvalidArgument;
-    var variants: usize = 0;
-    inline for (.{ "ref", "funcRef", "lit", "stepRef", "transform" }) |name| {
-        if (arg.object.contains(name)) variants += 1;
-    }
-    if (variants != 1) return error.InvalidArgument;
-    if (arg.object.get("ref") orelse arg.object.get("funcRef")) |reference| {
-        if (reference != .string) return error.InvalidArgument;
-        const resolved = values.get(reference.string) orelse return error.MissingReference;
-        return value.build(resolved.value, resolved.tags, allocator);
-    }
-    if (arg.object.get("lit")) |literal| return ownedJsonValue(literal, allocator);
-    if (arg.object.get("transform")) |transform| {
-        if (!allow_transform) return error.UnsupportedArgument;
-        return executeTransform(transform, values, allocator);
-    }
-    return error.UnsupportedArgument;
-}
-
-fn executeTransform(
-    transform: std.json.Value,
-    values: *const std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
-    allocator: std.mem.Allocator,
-) !value.OwnedTaggedValue {
-    if (transform != .object) return error.InvalidArgument;
-    const reference = transform.object.get("ref") orelse return error.InvalidArgument;
-    const functions = transform.object.get("fn") orelse return error.InvalidArgument;
-    if (reference != .string or functions != .array) return error.InvalidArgument;
-    const source = values.get(reference.string) orelse return error.MissingReference;
-    return applyTransforms(source, functions, allocator);
-}
-
-fn applyTransforms(
-    source: value.OwnedTaggedValue,
-    functions: std.json.Value,
-    allocator: std.mem.Allocator,
-) !value.OwnedTaggedValue {
-    if (functions != .array) return error.InvalidArgument;
-    var current = try value.build(source.value, source.tags, allocator);
-    errdefer current.deinit(allocator);
-    for (functions.array.items) |function| {
-        if (function != .string) return error.InvalidArgument;
-        const next = try preset.call(function.string, &.{current.borrowed()}, allocator);
-        current.deinit(allocator);
-        current = next;
-    }
-    return current;
+    var result = try executeLoadedWithBindings(program, inputs, allocator);
+    for (result.bindings.values()) |*item| item.deinit(allocator);
+    result.bindings.deinit(allocator);
+    return result.root;
 }
 
 pub fn validate(compute: std.json.Value, allocator: std.mem.Allocator) LoadError!void {

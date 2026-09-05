@@ -56,20 +56,155 @@ pub const EffectSchedule = struct {
     }
 };
 
+/// Identifies one lowered program inside a model: an action's own compute, or
+/// the compute of one of its next rules.
+const ProgramKey = struct {
+    scene: []const u8,
+    action: []const u8,
+    /// `action_compute` for the action itself, otherwise the rule index.
+    rule: u32,
+
+    const action_compute: u32 = std.math.maxInt(u32);
+
+    const Context = struct {
+        pub fn hash(_: Context, key: ProgramKey) u64 {
+            var hasher = std.hash.Wyhash.init(0);
+            hasher.update(key.scene);
+            hasher.update(&.{0});
+            hasher.update(key.action);
+            hasher.update(std.mem.asBytes(&key.rule));
+            return hasher.final();
+        }
+
+        pub fn eql(_: Context, a: ProgramKey, b: ProgramKey) bool {
+            return a.rule == b.rule and
+                std.mem.eql(u8, a.scene, b.scene) and
+                std.mem.eql(u8, a.action, b.action);
+        }
+    };
+};
+
+/// Every compute program in the model, lowered once when the model is created.
+///
+/// Lowering is the expensive half of running a program; evaluating the lowered
+/// form is several times cheaper than walking the JSON. Doing it per execution
+/// would be slower than the tree interpreter it replaced, so it happens here,
+/// alongside the validation pass that already visits every program.
+///
+/// Keys borrow scene and action ids from the parsed tree, and every program is
+/// lowered into one arena, so releasing the cache is a single free.
+const ProgramCache = struct {
+    arena: std.heap.ArenaAllocator,
+    entries: std.HashMapUnmanaged(
+        ProgramKey,
+        compute_runtime.Program,
+        ProgramKey.Context,
+        std.hash_map.default_max_load_percentage,
+    ) = .empty,
+
+    fn deinit(self: *ProgramCache) void {
+        self.arena.deinit();
+        self.* = undefined;
+    }
+
+    fn get(self: *const ProgramCache, key: ProgramKey) ?*const compute_runtime.Program {
+        return self.entries.getPtr(key);
+    }
+};
+
+/// Lowers every action compute and next-rule compute in the model.
+///
+/// A program that is absent or malformed is simply not cached; execution falls
+/// back to the JSON path, which reports the same errors it always did.
+fn buildProgramCache(root: std.json.ObjectMap, parent: std.mem.Allocator) ValidationError!ProgramCache {
+    var cache: ProgramCache = .{ .arena = .init(parent) };
+    errdefer cache.deinit();
+    const allocator = cache.arena.allocator();
+
+    const scenes = root.get("scenes") orelse return cache;
+    if (scenes != .array) return cache;
+    for (scenes.array.items) |scene_value| {
+        if (scene_value != .object) continue;
+        const scene_id = stringOf(scene_value.object.get("id")) orelse continue;
+        const actions = scene_value.object.get("actions") orelse continue;
+        if (actions != .array) continue;
+        for (actions.array.items) |action_value| {
+            if (action_value != .object) continue;
+            const action_id = stringOf(action_value.object.get("id")) orelse continue;
+            if (action_value.object.get("compute")) |action_compute|
+                try cacheProgram(&cache, allocator, .{
+                    .scene = scene_id,
+                    .action = action_id,
+                    .rule = ProgramKey.action_compute,
+                }, action_compute, "root");
+            const rules = action_value.object.get("next") orelse continue;
+            if (rules != .array) continue;
+            for (rules.array.items, 0..) |rule, index| {
+                if (rule != .object) continue;
+                const rule_compute = rule.object.get("compute") orelse continue;
+                try cacheProgram(&cache, allocator, .{
+                    .scene = scene_id,
+                    .action = action_id,
+                    .rule = @intCast(index),
+                }, rule_compute, "condition");
+            }
+        }
+    }
+    return cache;
+}
+
+fn cacheProgram(
+    cache: *ProgramCache,
+    allocator: std.mem.Allocator,
+    key: ProgramKey,
+    model_compute: std.json.Value,
+    output_field: []const u8,
+) ValidationError!void {
+    if (model_compute != .object) return;
+    const prog = model_compute.object.get("prog") orelse return;
+    const output = model_compute.object.get(output_field) orelse std.json.Value{ .string = "" };
+    if (output != .string) return;
+    const lowered = compute_runtime.loadProgramInto(prog, output.string, allocator) catch |err| switch (err) {
+        error.OutOfMemory => return error.OutOfMemory,
+        else => return,
+    };
+    try cache.entries.put(allocator, key, lowered);
+}
+
+fn stringOf(field: ?std.json.Value) ?[]const u8 {
+    const value = field orelse return null;
+    return if (value == .string) value.string else null;
+}
+
 pub const RuntimeModel = struct {
     parsed: std.json.Parsed(std.json.Value),
+    programs: ProgramCache,
 
     pub fn init(allocator: std.mem.Allocator, bytes: []const u8, limits: Limits) ValidationError!RuntimeModel {
         try validateJson(allocator, bytes, limits);
         const parsed = std.json.parseFromSlice(std.json.Value, allocator, bytes, .{
             .max_value_len = limits.max_model_bytes,
         }) catch return error.InvalidJson;
-        return .{ .parsed = parsed };
+        errdefer parsed.deinit();
+        return .{
+            .parsed = parsed,
+            .programs = try buildProgramCache(parsed.value.object, allocator),
+        };
     }
 
     pub fn deinit(self: *RuntimeModel) void {
+        self.programs.deinit();
         self.parsed.deinit();
         self.* = undefined;
+    }
+
+    /// The lowered program for an action's own compute, when there is one.
+    fn actionProgram(self: *const RuntimeModel, scene_id: []const u8, action_id: []const u8) ?*const compute_runtime.Program {
+        return self.programs.get(.{
+            .scene = scene_id,
+            .action = action_id,
+            .rule = ProgramKey.action_compute,
+        });
     }
 
     pub fn root(self: *const RuntimeModel) std.json.ObjectMap {
@@ -102,6 +237,8 @@ pub const RuntimeModel = struct {
         const action_compute = action.get("compute") orelse return turnout_value.buildNull(.missing, &.{}, allocator);
         if (action_compute != .object or !action_compute.object.contains("prog"))
             return turnout_value.buildNull(.missing, &.{}, allocator);
+        if (self.actionProgram(scene_id, action_id)) |lowered|
+            return compute_runtime.executeLoaded(lowered, inputs, allocator);
         return compute_runtime.executeJson(action_compute, inputs, allocator);
     }
 
@@ -113,7 +250,7 @@ pub const RuntimeModel = struct {
         allocator: std.mem.Allocator,
     ) !action_runtime.Result {
         const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
-        return action_runtime.execute(.{ .object = action }, state, allocator);
+        return action_runtime.execute(.{ .object = action }, self.actionProgram(scene_id, action_id), state, allocator);
     }
 
     pub fn executeActionWithPrepared(
@@ -125,7 +262,13 @@ pub const RuntimeModel = struct {
         allocator: std.mem.Allocator,
     ) !action_runtime.Result {
         const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
-        return action_runtime.executeWithPrepared(.{ .object = action }, state, prepared, allocator);
+        return action_runtime.executeWithPrepared(
+            .{ .object = action },
+            self.actionProgram(scene_id, action_id),
+            state,
+            prepared,
+            allocator,
+        );
     }
 
     pub fn actionEffectSchedule(
@@ -237,7 +380,11 @@ pub const RuntimeModel = struct {
         const prog = next_compute.object.get("prog") orelse return .missing_program;
         const condition = next_compute.object.get("condition") orelse std.json.Value{ .string = "" };
         if (condition != .string) return .{ .invalid_type = "undefined" };
-        var result = try compute_runtime.executeProgram(prog, condition.string, inputs, allocator);
+        const key: ProgramKey = .{ .scene = scene_id, .action = action_id, .rule = @intCast(rule_index) };
+        var result = if (self.programs.get(key)) |lowered|
+            try compute_runtime.executeLoaded(lowered, inputs, allocator)
+        else
+            try compute_runtime.executeProgram(prog, condition.string, inputs, allocator);
         defer result.deinit(allocator);
         if (result.value != .boolean or result.tags.len != 0) return .{ .invalid_type = if (result.value == .null_value) "null" else @tagName(result.value) };
         return .{ .matched = result.value.boolean };

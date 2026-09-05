@@ -35,15 +35,23 @@ pub const Result = struct {
 
 pub fn execute(
     action: std.json.Value,
+    program: ?*const compute.Program,
     state: *const state_runtime.State,
     allocator: std.mem.Allocator,
 ) !Result {
     const prepared_hooks: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
-    return executeWithPrepared(action, state, &prepared_hooks, allocator);
+    return executeWithPrepared(action, program, state, &prepared_hooks, allocator);
 }
 
+/// Runs one action: resolve its prepared bindings, evaluate its compute, then
+/// merge the declared bindings into STATE as a single batch.
+///
+/// `program` is the action's compute lowered ahead of time. When it is null the
+/// program is lowered from `action` on the spot, which is the path ad-hoc
+/// callers and tests take.
 pub fn executeWithPrepared(
     action: std.json.Value,
+    program: ?*const compute.Program,
     state: *const state_runtime.State,
     prepared_hooks: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
     allocator: std.mem.Allocator,
@@ -88,7 +96,10 @@ pub fn executeWithPrepared(
         }
     }
 
-    var computed = try compute.executeProgramWithBindings(prog, root_value.string, &prepared, allocator);
+    var computed = if (program) |lowered|
+        try compute.executeLoadedWithBindings(lowered, &prepared, allocator)
+    else
+        try compute.executeProgramWithBindings(prog, root_value.string, &prepared, allocator);
     errdefer computed.deinit(allocator);
     var warnings = std.ArrayList(MergeWarning).empty;
     errdefer warnings.deinit(allocator);
@@ -172,7 +183,7 @@ test "hook-free action prepares computes and merges" {
     var state = try state_runtime.State.initUnchecked(&initial, allocator);
     defer state.deinit(allocator);
 
-    var result = try execute(parsed.value, &state, allocator);
+    var result = try execute(parsed.value, null, &state, allocator);
     defer result.deinit(allocator);
     try std.testing.expectEqual(@as(f64, 5), result.compute_root.value.number);
     try std.testing.expectEqual(@as(f64, 5), result.binding_values.get("result").?.value.number);
@@ -198,7 +209,7 @@ test "action reports absent merge bindings and rejects hooks" {
     const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
     var state = try state_runtime.State.initUnchecked(&empty, allocator);
     defer state.deinit(allocator);
-    var result = try execute(warning_json.value, &state, allocator);
+    var result = try execute(warning_json.value, null, &state, allocator);
     defer result.deinit(allocator);
     try std.testing.expectEqual(@as(usize, 1), result.merge_warnings.len);
     try std.testing.expectEqualStrings("ghost", result.merge_warnings[0].binding);
@@ -213,7 +224,7 @@ test "action reports absent merge bindings and rejects hooks" {
     ;
     const hook_json = try std.json.parseFromSlice(std.json.Value, allocator, hook_source, .{});
     defer hook_json.deinit();
-    try std.testing.expectError(error.HookRequired, execute(hook_json.value, &state, allocator));
+    try std.testing.expectError(error.HookRequired, execute(hook_json.value, null, &state, allocator));
 }
 
 test "action without compute is a no-op" {
@@ -223,7 +234,7 @@ test "action without compute is a no-op" {
     const empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
     var state = try state_runtime.State.initUnchecked(&empty, allocator);
     defer state.deinit(allocator);
-    var result = try execute(parsed.value, &state, allocator);
+    var result = try execute(parsed.value, null, &state, allocator);
     defer result.deinit(allocator);
     try std.testing.expectEqual(value.NullReason.missing, result.compute_root.value.null_value);
     try std.testing.expectEqual(@as(usize, 0), result.binding_values.count());
@@ -248,7 +259,7 @@ test "action consumes resumed prepare values by binding" {
     defer prepared.deinit(allocator);
     try prepared.put(allocator, "input", .{ .value = .{ .number = 5 }, .tags = &.{"host"} });
 
-    var result = try executeWithPrepared(parsed.value, &state, &prepared, allocator);
+    var result = try executeWithPrepared(parsed.value, null, &state, &prepared, allocator);
     defer result.deinit(allocator);
     try std.testing.expectEqual(@as(f64, 7), result.compute_root.value.number);
     try std.testing.expect(value.hasTag(result.binding_values.getPtr("input").?.borrowed(), "host"));
