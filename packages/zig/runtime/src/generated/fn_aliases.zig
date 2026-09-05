@@ -45,11 +45,50 @@ pub const aliases = [_]Alias{
     .{ .hcl = "record_set", .runtime = "combineFnRecord::set" },
 };
 
+/// Comptime perfect hash over the same table. Alias resolution happens once
+/// per program load, so this never runs on the execution path.
+const by_hcl = std.StaticStringMap([]const u8).initComptime(.{
+    .{ "add", "combineFnNumber::add" },
+    .{ "sub", "combineFnNumber::minus" },
+    .{ "mul", "combineFnNumber::multiply" },
+    .{ "div", "combineFnNumber::divide" },
+    .{ "mod", "combineFnNumber::mod" },
+    .{ "max", "combineFnNumber::max" },
+    .{ "min", "combineFnNumber::min" },
+    .{ "gt", "combineFnNumber::greaterThan" },
+    .{ "gte", "combineFnNumber::greaterThanOrEqual" },
+    .{ "lt", "combineFnNumber::lessThan" },
+    .{ "lte", "combineFnNumber::lessThanOrEqual" },
+    .{ "bool_and", "combineFnBoolean::and" },
+    .{ "bool_or", "combineFnBoolean::or" },
+    .{ "bool_xor", "combineFnBoolean::xor" },
+    .{ "str_concat", "combineFnString::concat" },
+    .{ "str_includes", "combineFnString::includes" },
+    .{ "str_starts", "combineFnString::startsWith" },
+    .{ "str_ends", "combineFnString::endsWith" },
+    .{ "template_extract", "combineFnString::extract" },
+    .{ "template_extract_num", "combineFnString::extractNum" },
+    .{ "eq", "combineFnGeneric::isEqual" },
+    .{ "neq", "combineFnGeneric::isNotEqual" },
+    .{ "arr_concat", "combineFnArray::concat" },
+    .{ "arr_get", "combineFnArray::getNumber" },
+    .{ "arr_get_number", "combineFnArray::getNumber" },
+    .{ "arr_get_str", "combineFnArray::getString" },
+    .{ "arr_get_bool", "combineFnArray::getBoolean" },
+    .{ "arr_get_array", "combineFnArray::getArray" },
+    .{ "arr_get_record", "combineFnArray::getRecord" },
+    .{ "arr_includes", "combineFnArray::includes" },
+    .{ "record_get", "combineFnRecord::getNumber" },
+    .{ "record_get_number", "combineFnRecord::getNumber" },
+    .{ "record_get_str", "combineFnRecord::getString" },
+    .{ "record_get_bool", "combineFnRecord::getBoolean" },
+    .{ "record_get_array", "combineFnRecord::getArray" },
+    .{ "record_get_record", "combineFnRecord::getRecord" },
+    .{ "record_set", "combineFnRecord::set" },
+});
+
 pub fn resolve(name: []const u8) ?[]const u8 {
-    for (aliases) |alias| {
-        if (std.mem.eql(u8, alias.hcl, name)) return alias.runtime;
-    }
-    return null;
+    return by_hcl.get(name);
 }
 
 test "aliases resolve from the shared specification" {

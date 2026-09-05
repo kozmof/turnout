@@ -13,6 +13,9 @@ const aliases = JSON.parse(readFileSync(resolve(root, "spec/fn-aliases.json"), "
 const zigLines = aliases.map(({ hcl, runtime }) => {
   return `    .{ .hcl = "${hcl}", .runtime = "${runtime}" },`;
 });
+const zigPairs = aliases.map(({ hcl, runtime }) => {
+  return `    .{ "${hcl}", "${runtime}" },`;
+});
 const zigOut = [
   "// AUTO-GENERATED. DO NOT EDIT.",
   "// Source of truth: spec/fn-aliases.json",
@@ -25,11 +28,14 @@ const zigOut = [
   ...zigLines,
   "};",
   "",
+  "/// Comptime perfect hash over the same table. Alias resolution happens once",
+  "/// per program load, so this never runs on the execution path.",
+  "const by_hcl = std.StaticStringMap([]const u8).initComptime(.{",
+  ...zigPairs,
+  "});",
+  "",
   "pub fn resolve(name: []const u8) ?[]const u8 {",
-  "    for (aliases) |alias| {",
-  "        if (std.mem.eql(u8, alias.hcl, name)) return alias.runtime;",
-  "    }",
-  "    return null;",
+  "    return by_hcl.get(name);",
   "}",
   "",
   'test "aliases resolve from the shared specification" {',
