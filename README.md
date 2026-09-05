@@ -139,6 +139,24 @@ for await (const step of runner.runAsync()) {
 `runner.next(steps)` advances by a fixed number of actions, one by default, and
 returns the steps it took. Use it when something outside the flow drives it.
 
+Running the same model repeatedly, prepare it once. `createRunner` otherwise
+re-validates, re-encodes, and re-loads the model on every call, which is most of
+what creating a runner costs.
+
+```ts
+import { createRunner, prepareModel } from "turnout-scene-runner";
+
+const prepared = prepareModel(model);
+for (const request of requests) {
+  const result = await createRunner(prepared, { entryId: "vend", initialState: {} }).run();
+}
+prepared.release();
+```
+
+Each runner still gets its own STATE; only the model is shared. `release()` frees
+the runtime's copy, and runners created before it keep working until they
+finish.
+
 Hooks let an action pull values from outside the model or publish state
 somewhere else. Register them before running.
 

@@ -205,6 +205,31 @@ hard to measure", not as an exact number.
 to keep. Fixing that took creation from ~1604 us to ~1240 us at debug, and the
 benchmark from 575-624 to 838-868 runs/s.
 
+## Preparing a model once
+
+Creating a runner re-did work that does not depend on the run: snapshotting,
+migrating, validating, and encoding the model on the TypeScript side, and
+parsing, validating, indexing, and lowering it on the Zig side. `prepareModel`
+does all of it once, behind a handle, and `createRunner` accepts the result.
+
+Same workload, 1000 runners over a 20-action scene:
+
+| Build | Unprepared | Prepared |
+| --- | ---: | ---: |
+| `Debug` | 694 runs/s (1440 us) | 2808 runs/s (356 us) |
+| `ReleaseFast` | 2059-2134 runs/s (469-486 us) | **10904-11546 runs/s (87-92 us)** |
+
+Preparing is worth about 4x at debug and about 5.3x in a release build. Against
+the documented TypeScript baseline of 956-996 runs/s, the prepared release build
+is about 11x.
+
+Per action that is roughly 4.4 us, against 50.2-52.3 us for the TypeScript
+engine this runtime replaced.
+
+A fourth full read of the model turned up here too: `buildPrepareIndex` in the
+scene-runner adapter parses the model JSON again to map hook bindings. It is
+built once with the prepared model and carried alongside the handle.
+
 ## What this means
 
 Built in a release mode, the redesigned runtime runs the baseline workload at
@@ -217,12 +242,15 @@ runtime's cost independent of model size rather than growing with it. But its en
 -to-end contribution is about 10%, because runner creation dominates and always
 did.
 
-The next bottleneck is that creation, and it is now split evenly between the two
-languages: `structuredClone` of the model plus three serialization passes on the
-TypeScript side, and a full parse, validate, index, and lower on the Zig side --
-all of it per runner, for a model that does not change. Both halves are fixed by
-the same change: prepare a model once and create many runtimes against it. That
-is also the shape of the registry that dynamic scene merging needs.
+That bottleneck was runner creation, split evenly between `structuredClone` plus
+three serialization passes on the TypeScript side and a full parse, validate,
+index, and lower on the Zig side -- all per runner, for a model that does not
+change. `prepareModel` removes both halves, and the model handle it introduced
+is the shape the registry for dynamic scene merging needs.
+
+What is left per runner is the run's own setup: decoding the initial STATE,
+building the STATE from the model's schema, and constructing the driver. At
+about 88 us for twenty actions, execution is no longer dwarfed by anything.
 
 ## What went wrong in measuring this
 

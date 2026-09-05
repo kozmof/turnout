@@ -32,10 +32,21 @@ export interface ZigRuntimeExports {
     requestAddress: number,
     requestLength: number,
   ): number;
+  turnout_model_create(address: number, length: number): number;
+  turnout_model_destroy(handle: number): number;
+  turnout_runtime_create_with_model(
+    modelHandle: number,
+    requestAddress: number,
+    requestLength: number,
+  ): number;
   turnout_runtime_destroy(handle: number): number;
   turnout_runtime_step(handle: number): number;
   turnout_runtime_resume(handle: number, address: number, length: number): number;
   turnout_runtime_snapshot(handle: number): number;
+}
+
+export interface PreparedModel {
+  handle: number;
 }
 
 export interface CreatedRuntime {
@@ -77,6 +88,42 @@ export class ZigRuntimeClient {
         this.#exports.turnout_runtime_create(
           modelInput.address,
           modelInput.length,
+          requestInput.address,
+          requestInput.length,
+        ),
+      );
+    });
+  }
+
+  /**
+   * Parse, validate, index, and lower a model once, under a handle.
+   *
+   * That work is most of what creating a runtime costs and produces the same
+   * result every time, so a host running one model repeatedly should prepare it
+   * once and create runtimes with {@link createWithModel}.
+   */
+  prepareModel(model: Uint8Array): ZigResponse<PreparedModel> {
+    return this.#withInputs([model], ([input]) => {
+      if (input === undefined) throw new ZigAbiError("missing ABI input");
+      return this.#readResponse(this.#exports.turnout_model_create(input.address, input.length));
+    });
+  }
+
+  /**
+   * Release a prepared model. Runtimes still running against it keep it alive
+   * until they are destroyed.
+   */
+  destroyModel(handle: number): ZigResponse<{ destroyed: number }> {
+    return this.#readResponse(this.#exports.turnout_model_destroy(handle));
+  }
+
+  /** Create a runtime against a model already prepared by {@link prepareModel}. */
+  createWithModel(modelHandle: number, request: unknown): ZigResponse<CreatedRuntime> {
+    return this.#withInputs([this.#encode(request)], ([requestInput]) => {
+      if (requestInput === undefined) throw new ZigAbiError("missing ABI input");
+      return this.#readResponse(
+        this.#exports.turnout_runtime_create_with_model(
+          modelHandle,
           requestInput.address,
           requestInput.length,
         ),

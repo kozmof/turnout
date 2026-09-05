@@ -86,16 +86,53 @@ const Driver = union(enum) {
     }
 };
 
+/// A parsed, validated, indexed, and lowered model, shared by every runtime
+/// created against it.
+///
+/// Preparing a model is most of what creating a runtime used to cost, and it
+/// produces the same result every time. A host that runs one model repeatedly
+/// prepares it once and pays only for the run.
+///
+/// The registry holds one reference and each runtime holds another, so
+/// destroying a model while runtimes are still using it is safe: the last one
+/// out frees it.
+const ModelEntry = struct {
+    model: model_runtime.RuntimeModel,
+    references: usize,
+
+    fn create(bytes: []const u8) !*ModelEntry {
+        const entry = try allocator.create(ModelEntry);
+        errdefer allocator.destroy(entry);
+        entry.* = .{
+            .model = try model_runtime.RuntimeModel.init(allocator, bytes, .{}),
+            .references = 1,
+        };
+        return entry;
+    }
+
+    fn acquire(self: *ModelEntry) *ModelEntry {
+        self.references += 1;
+        return self;
+    }
+
+    fn release(self: *ModelEntry) void {
+        self.references -= 1;
+        if (self.references > 0) return;
+        self.model.deinit();
+        allocator.destroy(self);
+    }
+};
+
 const Instance = struct {
     request: std.json.Parsed(CreateRequest),
-    model: model_runtime.RuntimeModel,
+    model: *ModelEntry,
     driver: Driver,
     entry_id: []u8,
     fail_on_publish_error: bool,
 
     fn deinit(self: *Instance) void {
         self.driver.deinit();
-        self.model.deinit();
+        self.model.release();
         self.request.deinit();
         allocator.free(self.entry_id);
         allocator.destroy(self);
@@ -103,7 +140,15 @@ const Instance = struct {
 };
 
 var instances: std.AutoHashMapUnmanaged(u32, *Instance) = .empty;
+var models: std.AutoHashMapUnmanaged(u32, *ModelEntry) = .empty;
 var next_handle: u32 = 1;
+
+fn takeHandle() !u32 {
+    if (next_handle == 0) return error.HandleSpaceExhausted;
+    const handle = next_handle;
+    next_handle +%= 1;
+    return handle;
+}
 
 fn bytesAt(address: usize, len: u32) []const u8 {
     if (len == 0) return &.{};
@@ -633,7 +678,9 @@ fn validateInputNesting(json: std.json.Value, depth: usize) !void {
     }
 }
 
-fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
+/// Creates a runtime against an already-prepared model. Takes its own reference,
+/// so the caller keeps theirs.
+fn createInstance(model_entry: *ModelEntry, request_bytes: []const u8) !u32 {
     if (request_bytes.len > max_create_request_bytes) return error.InitialStateTooLarge;
     var request = try std.json.parseFromSlice(CreateRequest, allocator, request_bytes, .{
         .ignore_unknown_fields = true,
@@ -645,8 +692,7 @@ fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
     if ((request.value.sceneId == null) == (request.value.routeId == null)) return error.InvalidEntryId;
     const entry = request.value.sceneId orelse request.value.routeId.?;
     if (entry.len == 0) return error.InvalidEntryId;
-    var model = try model_runtime.RuntimeModel.init(allocator, model_bytes, .{});
-    errdefer model.deinit();
+    const model = &model_entry.model;
     var initial_values: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
     defer deinitInitialValues(&initial_values);
     try putInitialValues(request.value.initialState, &initial_values);
@@ -661,17 +707,16 @@ fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
     errdefer allocator.destroy(instance);
     instance.* = .{
         .request = request,
-        .model = model,
+        .model = model_entry.acquire(),
         .driver = if (request.value.sceneId != null)
-            .{ .scene = try runtime.SceneDriver.initWithLimit(allocator, &model, entry_id, &initial_state, request.value.maxSceneSteps) }
+            .{ .scene = try runtime.SceneDriver.initWithLimit(allocator, model, entry_id, &initial_state, request.value.maxSceneSteps) }
         else
-            .{ .route = try runtime.RouteDriver.init(allocator, &model, entry_id, &initial_state, request.value.maxSceneSteps, request.value.maxRouteTransitions) },
+            .{ .route = try runtime.RouteDriver.init(allocator, model, entry_id, &initial_state, request.value.maxSceneSteps, request.value.maxRouteTransitions) },
         .entry_id = entry_id,
         .fail_on_publish_error = request.value.failOnPublishError,
     };
-    if (next_handle == 0) return error.HandleSpaceExhausted;
-    const handle = next_handle;
-    next_handle +%= 1;
+    errdefer instance.model.release();
+    const handle = try takeHandle();
     instances.put(allocator, handle, instance) catch |err| {
         instance.driver.deinit();
         return err;
@@ -680,20 +725,73 @@ fn createInstance(model_bytes: []const u8, request_bytes: []const u8) !u32 {
     return handle;
 }
 
-export fn turnout_runtime_create(model_address: usize, model_len: u32, request_address: usize, request_len: u32) usize {
-    if (request_len > max_create_request_bytes) return errorResponse(.invalid_input, "InitialStateTooLarge");
-    if (model_address == 0 or model_len == 0 or request_address == 0 or request_len == 0)
-        return errorResponse(.invalid_input, "InvalidBuffer");
-    const handle = createInstance(bytesAt(model_address, model_len), bytesAt(request_address, request_len)) catch |err|
-        return if (err == error.OutOfMemory) errorResponse(.out_of_memory, @errorName(err)) else errorResponse(.invalid_input, @errorName(err));
+/// Prepares a model without creating a runtime, and keeps it under a handle.
+fn createModel(model_bytes: []const u8) !u32 {
+    const entry = try ModelEntry.create(model_bytes);
+    errdefer entry.release();
+    const handle = try takeHandle();
+    try models.put(allocator, handle, entry);
+    return handle;
+}
+
+fn createdResponse(handle: u32) usize {
+    const instance = instances.get(handle) orelse return errorResponse(.internal_error, "MissingInstance");
     // Report the limits actually in force, whether they came from the request or
     // from the defaults above, so a host never has to restate them.
-    const instance = instances.get(handle) orelse return errorResponse(.internal_error, "MissingInstance");
     return jsonResponse(.ok, .{
         .handle = handle,
         .maxSceneSteps = instance.request.value.maxSceneSteps,
         .maxRouteTransitions = instance.request.value.maxRouteTransitions,
     });
+}
+
+fn createFailure(err: anyerror) usize {
+    return if (err == error.OutOfMemory)
+        errorResponse(.out_of_memory, @errorName(err))
+    else
+        errorResponse(.invalid_input, @errorName(err));
+}
+
+export fn turnout_model_create(address: usize, len: u32) usize {
+    if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
+    const handle = createModel(bytesAt(address, len)) catch |err| return createFailure(err);
+    return jsonResponse(.ok, .{ .handle = handle });
+}
+
+export fn turnout_model_destroy(handle: u32) usize {
+    const removed = models.fetchRemove(handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
+    // Runtimes still running against this model keep it alive until they finish.
+    removed.value.release();
+    if (models.count() == 0) {
+        models.deinit(allocator);
+        models = .empty;
+    }
+    return jsonResponse(.ok, .{ .destroyed = handle });
+}
+
+export fn turnout_runtime_create_with_model(model_handle: u32, request_address: usize, request_len: u32) usize {
+    if (request_len > max_create_request_bytes) return errorResponse(.invalid_input, "InitialStateTooLarge");
+    if (request_address == 0 or request_len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
+    const entry = models.get(model_handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
+    const handle = createInstance(entry, bytesAt(request_address, request_len)) catch |err|
+        return createFailure(err);
+    return createdResponse(handle);
+}
+
+/// Prepares a model and creates one runtime against it, which is the whole of
+/// that model's life. A host that reuses a model should prepare it once with
+/// `turnout_model_create` instead.
+export fn turnout_runtime_create(model_address: usize, model_len: u32, request_address: usize, request_len: u32) usize {
+    if (request_len > max_create_request_bytes) return errorResponse(.invalid_input, "InitialStateTooLarge");
+    if (model_address == 0 or model_len == 0 or request_address == 0 or request_len == 0)
+        return errorResponse(.invalid_input, "InvalidBuffer");
+    const entry = ModelEntry.create(bytesAt(model_address, model_len)) catch |err| return createFailure(err);
+    // The instance takes its own reference; dropping this one leaves the model
+    // owned solely by the runtime, which is the old behaviour.
+    defer entry.release();
+    const handle = createInstance(entry, bytesAt(request_address, request_len)) catch |err|
+        return createFailure(err);
+    return createdResponse(handle);
 }
 
 export fn turnout_runtime_destroy(handle: u32) usize {
@@ -803,7 +901,7 @@ fn eventResponse(event: runtime.Event) usize {
 
 export fn turnout_runtime_step(handle: u32) usize {
     const instance = instances.get(handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
-    const event = instance.driver.step(&instance.model, instance.fail_on_publish_error) catch |err| {
+    const event = instance.driver.step(&instance.model.model, instance.fail_on_publish_error) catch |err| {
         if (err == error.SceneNotFound) {
             switch (instance.driver) {
                 .route => |driver| if (driver.pending_scene_id) |scene_id| {
@@ -1423,4 +1521,85 @@ test "WASM route lifecycle emits scene transitions" {
     defer freeResponse(destroyed_address);
     var destroyed = try expectResponse(destroyed_address, .ok, null);
     defer destroyed.deinit();
+}
+
+test "WASM model handle runs many runtimes against one prepared model" {
+    const model =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{"id":"start","compute":{"root":"result","prog":{"bindings":[{"name":"result","type":"number","value":7}]}},"merge":[{"binding":"result","toState":"score"}]}]}]}
+    ;
+    const config =
+        \\{"sceneId":"main","initialState":{}}
+    ;
+
+    const model_address = turnout_model_create(@intFromPtr(model.ptr), model.len);
+    defer freeResponse(model_address);
+    var prepared = try expectResponse(model_address, .ok, null);
+    defer prepared.deinit();
+    const model_handle: u32 = @intCast(prepared.value.object.get("handle").?.integer);
+
+    // Two runtimes against one preparation, each with its own STATE.
+    var handles: [2]u32 = undefined;
+    for (&handles) |*slot| {
+        const created_address = turnout_runtime_create_with_model(
+            model_handle,
+            @intFromPtr(config.ptr),
+            config.len,
+        );
+        defer freeResponse(created_address);
+        var created = try expectResponse(created_address, .ok, null);
+        defer created.deinit();
+        slot.* = @intCast(created.value.object.get("handle").?.integer);
+    }
+    try std.testing.expect(handles[0] != handles[1]);
+
+    // Destroying the model while both runtimes hold it must not free it.
+    const destroyed_model = turnout_model_destroy(model_handle);
+    defer freeResponse(destroyed_model);
+    var destroyed = try expectResponse(destroyed_model, .ok, null);
+    defer destroyed.deinit();
+
+    for (handles) |handle| {
+        while (true) {
+            const step_address = turnout_runtime_step(handle);
+            defer freeResponse(step_address);
+            var event = try expectResponse(step_address, .ok, null);
+            defer event.deinit();
+            if (std.mem.eql(u8, event.value.object.get("event").?.string, "complete")) break;
+        }
+        const snapshot_address = turnout_runtime_snapshot(handle);
+        defer freeResponse(snapshot_address);
+        var snapshot = try expectResponse(snapshot_address, .ok, null);
+        defer snapshot.deinit();
+        const score = snapshot.value.object.get("state").?.object.get("score").?;
+        try std.testing.expectEqual(@as(i64, 7), score.object.get("value").?.integer);
+
+        const destroy_address = turnout_runtime_destroy(handle);
+        defer freeResponse(destroy_address);
+        var closed = try expectResponse(destroy_address, .ok, null);
+        defer closed.deinit();
+    }
+
+    // The model handle is gone, and a second destroy reports that rather than
+    // freeing anything a second time.
+    const repeat_address = turnout_model_destroy(model_handle);
+    defer freeResponse(repeat_address);
+    var repeat = try expectResponse(repeat_address, .invalid_handle, null);
+    repeat.deinit();
+
+    const missing_address = turnout_runtime_create_with_model(
+        model_handle,
+        @intFromPtr(config.ptr),
+        config.len,
+    );
+    defer freeResponse(missing_address);
+    var missing = try expectResponse(missing_address, .invalid_handle, null);
+    missing.deinit();
+}
+
+test "WASM model creation rejects a malformed model" {
+    const invalid = "{\"version\":99}";
+    const address = turnout_model_create(@intFromPtr(invalid.ptr), invalid.len);
+    defer freeResponse(address);
+    var rejected = try expectResponse(address, .invalid_input, null);
+    rejected.deinit();
 }

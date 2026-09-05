@@ -258,7 +258,7 @@ type PrepareIndex = {
  * only arises for a model this reader could not parse, which the runtime will
  * itself reject moments later.
  */
-function buildPrepareIndex(model: Uint8Array): PrepareIndex {
+export function buildPrepareIndex(model: Uint8Array): PrepareIndex {
   let parsed: unknown;
   try {
     parsed = JSON.parse(new TextDecoder().decode(model));
@@ -421,10 +421,49 @@ export interface ZigRuntimeLifecycleTransport extends ZigRuntimeTransport {
   snapshot<T>(handle: number): ZigResponse<{ state: T; done: boolean }>;
 }
 
+/**
+ * Where a runner gets its Zig runtime from.
+ *
+ * Model bytes can be handed over on every creation, which makes the runtime
+ * parse, validate, index, and lower them again each time, or once through
+ * `prepareModel`, after which creation is just the run's own setup. The prepare
+ * index is carried alongside because building it also reads the whole model.
+ */
+export interface RuntimeModelSource {
+  readonly prepareIndex: PrepareIndex;
+  create(request: unknown): ZigResponse<CreatedRuntime>;
+}
+
+/** A source that re-sends the model bytes on every creation. */
+export function modelSourceFromBytes(
+  client: ZigRuntimeLifecycleTransport,
+  model: Uint8Array,
+): RuntimeModelSource {
+  return {
+    prepareIndex: buildPrepareIndex(model),
+    create: (request) => client.create(model, request),
+  };
+}
+
+/** A source backed by a model the runtime has already prepared under a handle. */
+export function modelSourceFromHandle(
+  create: (request: unknown) => ZigResponse<CreatedRuntime>,
+  prepareIndex: PrepareIndex,
+): RuntimeModelSource {
+  return { prepareIndex, create };
+}
+
+function toModelSource(
+  client: ZigRuntimeLifecycleTransport,
+  model: Uint8Array | RuntimeModelSource,
+): RuntimeModelSource {
+  return model instanceof Uint8Array ? modelSourceFromBytes(client, model) : model;
+}
+
 /** Build the existing scene Runner API around one Zig WASM runtime handle. */
 export function createZigSceneRunner(
   client: ZigRuntimeLifecycleTransport,
-  model: Uint8Array,
+  model: Uint8Array | RuntimeModelSource,
   sceneId: string,
   options: RunnerOptions,
 ): Runner<FragmentHarnessResult> {
@@ -432,13 +471,13 @@ export function createZigSceneRunner(
     prepare: Object.create(null) as HookRegistry["prepare"],
     publish: Object.create(null) as HookRegistry["publish"],
   };
-  const { hookBindings: prepareBindings, stateSources: prepareStateSources } =
-    buildPrepareIndex(model);
+  const source = toModelSource(client, model);
+  const { hookBindings: prepareBindings, stateSources: prepareStateSources } = source.prepareIndex;
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
   );
-  const created = client.create(model, {
+  const created = source.create({
     sceneId,
     initialState,
     failOnPublishError: options.failOnPublishError ?? false,
@@ -615,7 +654,7 @@ export function createZigSceneRunner(
 /** Build the existing route Runner API around one Zig WASM runtime handle. */
 export function createZigRouteRunner(
   client: ZigRuntimeLifecycleTransport,
-  model: Uint8Array,
+  model: Uint8Array | RuntimeModelSource,
   routeId: string,
   options: RunnerOptions,
 ): Runner<FragmentHarnessResult> {
@@ -623,13 +662,13 @@ export function createZigRouteRunner(
     prepare: Object.create(null) as HookRegistry["prepare"],
     publish: Object.create(null) as HookRegistry["publish"],
   };
-  const { hookBindings: prepareBindings, stateSources: prepareStateSources } =
-    buildPrepareIndex(model);
+  const source = toModelSource(client, model);
+  const { hookBindings: prepareBindings, stateSources: prepareStateSources } = source.prepareIndex;
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
   );
-  const created = client.create(model, {
+  const created = source.create({
     routeId,
     initialState,
     failOnPublishError: options.failOnPublishError ?? false,

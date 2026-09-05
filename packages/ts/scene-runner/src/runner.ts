@@ -19,7 +19,13 @@ import {
   warnUncheckedState,
 } from "./runner-validation.js";
 import { defaultZigRuntimeClient } from "./zig-runtime/default-client.js";
-import { createZigRouteRunner, createZigSceneRunner } from "./zig-runtime/runner-adapter.js";
+import {
+  buildPrepareIndex,
+  createZigRouteRunner,
+  createZigSceneRunner,
+  modelSourceFromHandle,
+  type RuntimeModelSource,
+} from "./zig-runtime/runner-adapter.js";
 
 export type { Runner, RunnerOptions, RunnerStepResult } from "./runner-types.js";
 
@@ -155,7 +161,7 @@ function mapRunnerResult<A extends HarnessResult, B extends HarnessResult>(
 }
 
 export function createRunner(
-  inputModel: TurnModel,
+  inputModel: TurnModel | PreparedModel,
   options: RunnerOptions,
 ): Runner<FullHarnessResult> {
   return createZigRunner(inputModel, options);
@@ -215,10 +221,84 @@ function objectRecord(input: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-function createZigRunner(inputModel: TurnModel, options: RunnerOptions): Runner<FullHarnessResult> {
+// ─────────────────────────────────────────────────────────────────────────────
+// Prepared models
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * A model that has been through everything `createRunner` would otherwise redo
+ * on every call: snapshotting, migration, validation, encoding, and the
+ * runtime's own parse, validate, index, and lower.
+ *
+ * None of that depends on the run, and it is the larger part of what creating a
+ * runner costs. Preparing a model once and creating runners from it leaves only
+ * the per-run setup.
+ *
+ * A prepared model holds a handle inside the WASM runtime. Call {@link release}
+ * when finished with it; runners already created stay valid, because the model
+ * lives until the last of them is done.
+ */
+export class PreparedModel {
+  /** @internal */ readonly model: TurnModel;
+  /** @internal */ readonly source: RuntimeModelSource;
+  readonly #handle: number;
+  #released = false;
+
+  /** @internal */
+  constructor(model: TurnModel, handle: number, source: RuntimeModelSource) {
+    this.model = model;
+    this.#handle = handle;
+    this.source = source;
+  }
+
+  /** True once {@link release} has been called. */
+  get released(): boolean {
+    return this.#released;
+  }
+
+  /**
+   * Release the runtime's copy of this model. Idempotent. Runners already
+   * created against it continue to work; creating new ones does not.
+   */
+  release(): void {
+    if (this.#released) return;
+    this.#released = true;
+    defaultZigRuntimeClient.destroyModel(this.#handle);
+  }
+}
+
+/**
+ * Prepare a model for repeated execution.
+ *
+ * Validates exactly as `createRunner` does, so a malformed model throws here
+ * rather than on first use.
+ */
+export function prepareModel(inputModel: TurnModel): PreparedModel {
   const migratedModel = migrateModel(snapshotModel(inputModel));
   const validationErrors = validateModel(migratedModel);
   if (validationErrors.length > 0) throw new ModelValidationError(validationErrors);
+  const encoded = encodeZigRuntimeModel(migratedModel);
+  const prepared = defaultZigRuntimeClient.prepareModel(encoded);
+  if (prepared.status !== "ok") {
+    throw new ModelValidationError([`runtime rejected the model: ${String(prepared.status)}`]);
+  }
+  const handle = prepared.payload.handle;
+  return new PreparedModel(
+    migratedModel,
+    handle,
+    modelSourceFromHandle(
+      (request) => defaultZigRuntimeClient.createWithModel(handle, request),
+      buildPrepareIndex(encoded),
+    ),
+  );
+}
+
+function createZigRunner(
+  inputModel: TurnModel | PreparedModel,
+  options: RunnerOptions,
+): Runner<FullHarnessResult> {
+  const prepared = inputModel instanceof PreparedModel ? inputModel : undefined;
+  const migratedModel = prepared?.model ?? runValidation(inputModel as TurnModel);
   validateExecutionLimits(options);
   const target = resolveDispatchTarget(migratedModel, options.entryId);
   if (!migratedModel.state) {
@@ -226,10 +306,19 @@ function createZigRunner(inputModel: TurnModel, options: RunnerOptions): Runner<
     assertUncheckedStateAllowed(options, detail);
     warnUncheckedState(options, detail);
   }
-  const encodedModel = encodeZigRuntimeModel(migratedModel);
+  // A prepared model already carries its runtime handle and prepare index; an
+  // unprepared one is encoded here and re-read by the runtime on creation.
+  const source = prepared?.source ?? encodeZigRuntimeModel(migratedModel);
   const inner =
     target.kind === "route"
-      ? createZigRouteRunner(defaultZigRuntimeClient, encodedModel, target.route.id, options)
-      : createZigSceneRunner(defaultZigRuntimeClient, encodedModel, target.scene.id, options);
+      ? createZigRouteRunner(defaultZigRuntimeClient, source, target.route.id, options)
+      : createZigSceneRunner(defaultZigRuntimeClient, source, target.scene.id, options);
   return mapRunnerResult(inner, (result) => ({ ...result, model: migratedModel }));
+}
+
+function runValidation(inputModel: TurnModel): TurnModel {
+  const migratedModel = migrateModel(snapshotModel(inputModel));
+  const validationErrors = validateModel(migratedModel);
+  if (validationErrors.length > 0) throw new ModelValidationError(validationErrors);
+  return migratedModel;
 }

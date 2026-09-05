@@ -4,6 +4,7 @@ export {
   ZigRuntimeClient,
   type ZigResponse,
   type CreatedRuntime,
+  type PreparedModel,
   type ZigRuntimeExports,
   type ZigStatus,
 } from "./client.js";

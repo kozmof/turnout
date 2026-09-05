@@ -14,6 +14,7 @@ class MockExports implements ZigRuntimeExports {
   readonly memory = new WebAssembly.Memory({ initial: 1 });
   readonly freed: Array<{ address: number; length: number }> = [];
   model = "";
+  modelHandle = 0;
   request: unknown;
   resumed: unknown;
   nextAddress = 1024;
@@ -38,6 +39,25 @@ class MockExports implements ZigRuntimeExports {
 
   turnout_value_operate(): number {
     return this.response(0, { matches: true });
+  }
+
+  turnout_model_create(address: number, length: number): number {
+    this.model = decoder.decode(this.bytes(address, length));
+    return this.response(0, { handle: 7 });
+  }
+
+  turnout_model_destroy(handle: number): number {
+    return this.response(0, { destroyed: handle });
+  }
+
+  turnout_runtime_create_with_model(
+    modelHandle: number,
+    requestAddress: number,
+    requestLength: number,
+  ): number {
+    this.modelHandle = modelHandle;
+    this.request = JSON.parse(decoder.decode(this.bytes(requestAddress, requestLength)));
+    return this.response(0, { handle: 1, maxSceneSteps: 10, maxRouteTransitions: 5 });
   }
 
   turnout_runtime_create(
@@ -235,5 +255,26 @@ describe("ZigRuntimeClient", () => {
     exports.turnout_runtime_step = () => address;
     const client = new ZigRuntimeClient(exports);
     expect(() => client.step(7)).toThrow("memory range is out of bounds");
+  });
+});
+
+describe("prepared models", () => {
+  it("prepares a model once and creates runtimes against its handle", () => {
+    const exports = new MockExports();
+    const client = new ZigRuntimeClient(exports as unknown as ZigRuntimeExports);
+
+    const prepared = client.prepareModel(new TextEncoder().encode('{"version":2}'));
+    expect(prepared.status).toBe("ok");
+    expect(prepared.payload.handle).toBe(7);
+    expect(exports.model).toBe('{"version":2}');
+
+    // Creating with a handle sends the request only; the model does not travel
+    // across the boundary again.
+    const created = client.createWithModel(7, { sceneId: "main" });
+    expect(created.status).toBe("ok");
+    expect(exports.modelHandle).toBe(7);
+    expect(exports.request).toEqual({ sceneId: "main" });
+
+    expect(client.destroyModel(7).payload).toEqual({ destroyed: 7 });
   });
 });
