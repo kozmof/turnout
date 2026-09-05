@@ -12,7 +12,10 @@ type VectorInput = { value: VectorValue; tags: string[] };
 type PresetVector = { name: string; function: string; inputs: VectorInput[]; output: VectorInput };
 
 const vectors = JSON.parse(
-  readFileSync(resolve(__dirname, "../../../../zig/src/fixtures/preset-vectors.json"), "utf8"),
+  readFileSync(
+    resolve(__dirname, "../../../../zig/runtime/src/fixtures/preset-vectors.json"),
+    "utf8",
+  ),
 ) as PresetVector[];
 
 function build(input: VectorInput): AnyValue {

@@ -8,6 +8,20 @@ Run the native and WASM core checks from the repository root.
 
     pnpm run check:zig
 
+## Layers
+
+The package splits into feature layers that mirror the TypeScript packages. Each layer is its own Zig module.
+
+| Module | Path | TypeScript counterpart |
+| --- | --- | --- |
+| `turnout_runtime` | `runtime/src` | `packages/ts/runtime` |
+| `turnout_scene_runner` | `scene-runner/src` | `packages/ts/scene-runner` |
+| `turnout_wasm_abi` | `wasm/src` | the ABI both packages call through |
+
+`turnout_runtime` holds Values, preset functions, and the compute graph. It never imports the scene-runner layer. `turnout_scene_runner` holds the model, STATE, and the action, scene, and route drivers, and it imports `turnout_runtime`. The dependency runs one way. `turnout_wasm_abi` composes both layers into the exported WASM surface.
+
+Cross-layer code imports the module rather than the file. Inside `scene-runner/src`, reach a Value type through `@import("turnout_runtime").value`.
+
 ## Current scope
 
 - JSON runtime projection and version validation
@@ -24,13 +38,15 @@ Run the native and WASM core checks from the repository root.
 - Cancellation as a terminal state
 - Compute, action, scene, and route execution
 - Versioned WASM allocation, lifecycle, and effect-result APIs
-- Native and WASM execution of the same 127 core tests
+- Native and WASM execution of the same 130 core tests
 
-The build produces the freestanding WASM module packaged by `runtime`. The runtime package build validates and copies that artifact into its distribution; `turnout-scene-runner` imports the shared client instead of shipping another copy.
+The build produces the freestanding WASM module packaged by `runtime`. The runtime package build validates and copies that artifact into its distribution. `turnout-scene-runner` imports the shared client instead of shipping another copy.
 
 ## Test expectations
 
-Add a Zig unit test for every public runtime operation, validation error, ownership path, and execution branch. Add a regression test for every parity gap. Run the same portable core suite natively and under WASM. `pnpm run test:zig:wasm` builds the WASI test artifact and runs it with Node.
+Add a Zig unit test for every public runtime operation, validation error, ownership path, and execution branch. Add a regression test for every parity gap. Run the same portable core suite natively and under WASM.
+
+Zig discovers tests only inside the module under test, so every layer builds its own test binary. `pnpm run test:zig:wasm` builds one WASI artifact per module and runs all of them with Node.
 
 Zig 0.16.0 does not provide the repository with a stable source-coverage report. The current gate requires passing tests and leak detection through std.testing. Add a numeric coverage threshold only after the chosen Zig coverage tool produces reproducible local and CI results.
 

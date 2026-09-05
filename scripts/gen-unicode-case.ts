@@ -80,6 +80,6 @@ const output = [
   "};",
   "",
 ].join("\n");
-const destination = resolve(root, "packages/zig/src/generated/unicode_case.zig");
+const destination = resolve(root, "packages/zig/runtime/src/generated/unicode_case.zig");
 writeFileSync(destination, output);
 console.log(`Generated ${destination} from Unicode ${spec.unicodeVersion}`);

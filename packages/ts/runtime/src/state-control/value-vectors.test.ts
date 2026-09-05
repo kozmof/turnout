@@ -14,7 +14,10 @@ import {
 type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 type Vector = { name: string; input: JsonValue; tags: string[]; expected: unknown };
 const vectors = JSON.parse(
-  readFileSync(resolve(__dirname, "../../../../zig/src/fixtures/value-vectors.json"), "utf8"),
+  readFileSync(
+    resolve(__dirname, "../../../../zig/runtime/src/fixtures/value-vectors.json"),
+    "utf8",
+  ),
 ) as Vector[];
 
 function fromJson(input: JsonValue, tags: readonly TagSymbol[] = []): AnyValue {

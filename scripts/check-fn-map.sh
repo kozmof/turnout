@@ -12,4 +12,4 @@ fi
 git_home="$PWD/.git-home"
 mkdir -p "$git_home"
 HOME="$git_home" XDG_CONFIG_HOME="$git_home/.config" "$git_bin" diff --exit-code -- \
-  packages/zig/src/generated/fn_aliases.zig
+  packages/zig/runtime/src/generated/fn_aliases.zig

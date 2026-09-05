@@ -4,7 +4,7 @@ const route_runtime = @import("route.zig");
 const runtime_error = @import("runtime_error.zig");
 const scene_runtime = @import("scene.zig");
 const state_runtime = @import("state.zig");
-const turnout_value = @import("value.zig");
+const turnout_value = @import("turnout_runtime").value;
 
 const ExpectedState = struct { path: []const u8, value: f64 };
 const Expected = struct {

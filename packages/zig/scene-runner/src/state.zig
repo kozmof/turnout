@@ -1,5 +1,5 @@
 const std = @import("std");
-const value = @import("value.zig");
+const value = @import("turnout_runtime").value;
 
 pub const StateError = error{
     OutOfMemory,

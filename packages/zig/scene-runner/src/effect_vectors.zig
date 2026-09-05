@@ -1,9 +1,9 @@
 const std = @import("std");
 const effect = @import("effect.zig");
 const model_runtime = @import("model.zig");
-const runtime = @import("runtime.zig");
+const runtime = @import("runner.zig");
 const state_runtime = @import("state.zig");
-const value = @import("value.zig");
+const value = @import("turnout_runtime").value;
 
 const Vector = struct {
     name: []const u8,

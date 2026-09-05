@@ -3,7 +3,7 @@ const model_runtime = @import("model.zig");
 const route_runtime = @import("route.zig");
 const scene_runtime = @import("scene.zig");
 const state_runtime = @import("state.zig");
-const turnout_value = @import("value.zig");
+const turnout_value = @import("turnout_runtime").value;
 
 const ExpectedState = struct { path: []const u8, value: f64 };
 const ExpectedLog = struct {

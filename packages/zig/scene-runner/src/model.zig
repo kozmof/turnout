@@ -1,9 +1,9 @@
 const std = @import("std");
 const action_runtime = @import("action.zig");
-const compute_runtime = @import("compute.zig");
+const compute_runtime = @import("turnout_runtime").compute;
 const effect = @import("effect.zig");
 const state_runtime = @import("state.zig");
-const turnout_value = @import("value.zig");
+const turnout_value = @import("turnout_runtime").value;
 
 pub const current_version: u32 = 2;
 pub const Limits = struct {
@@ -624,7 +624,7 @@ test "decoded runtime model retains representative full-schema JSON" {
 }
 
 test "action effect schedule follows model declaration order" {
-    const effect_runtime = @import("runtime.zig");
+    const effect_runtime = @import("runner.zig");
     const source =
         \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
         \\"id":"start","prepare":[

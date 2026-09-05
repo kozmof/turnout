@@ -3,7 +3,7 @@ const model_runtime = @import("model.zig");
 const runtime_error = @import("runtime_error.zig");
 const scene_runtime = @import("scene.zig");
 const state_runtime = @import("state.zig");
-const turnout_value = @import("value.zig");
+const turnout_value = @import("turnout_runtime").value;
 
 pub const default_max_transitions: usize = 1_000;
 

@@ -39,6 +39,6 @@ const zigOut = [
   "}",
   "",
 ].join("\n");
-const zigDest = resolve(root, "packages/zig/src/generated/fn_aliases.zig");
+const zigDest = resolve(root, "packages/zig/runtime/src/generated/fn_aliases.zig");
 writeFileSync(zigDest, zigOut);
 console.log(`Generated ${zigDest}`);

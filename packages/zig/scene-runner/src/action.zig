@@ -1,7 +1,7 @@
 const std = @import("std");
-const compute = @import("compute.zig");
+const compute = @import("turnout_runtime").compute;
 const state_runtime = @import("state.zig");
-const value = @import("value.zig");
+const value = @import("turnout_runtime").value;
 
 pub const MergeWarning = struct {
     binding: []const u8,

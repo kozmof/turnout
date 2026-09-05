@@ -4,7 +4,7 @@ const effect = @import("effect.zig");
 const model_runtime = @import("model.zig");
 const route_runtime = @import("route.zig");
 const state_runtime = @import("state.zig");
-const value = @import("value.zig");
+const value = @import("turnout_runtime").value;
 
 pub const RuntimeError = error{
     OutOfMemory,

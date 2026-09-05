@@ -1,14 +1,14 @@
 const std = @import("std");
 const builtin = @import("builtin");
-const compute = @import("compute.zig");
-const graph_compute = @import("graph_compute.zig");
-const graph_validate = @import("graph_validate.zig");
-const effect = @import("effect.zig");
-const model_runtime = @import("model.zig");
-const preset = @import("preset.zig");
-const runtime = @import("runtime.zig");
-const state_runtime = @import("state.zig");
-const value = @import("value.zig");
+const compute = @import("turnout_runtime").compute;
+const graph_compute = @import("turnout_runtime").graph_compute;
+const graph_validate = @import("turnout_runtime").graph_validate;
+const effect = @import("turnout_scene_runner").effect;
+const model_runtime = @import("turnout_scene_runner").model;
+const preset = @import("turnout_runtime").preset;
+const runtime = @import("turnout_scene_runner").runner;
+const state_runtime = @import("turnout_scene_runner").state;
+const value = @import("turnout_runtime").value;
 
 const NativeAllocator = if (builtin.target.cpu.arch.isWasm()) struct {} else std.heap.DebugAllocator(.{});
 var native_allocator: NativeAllocator = if (builtin.target.cpu.arch.isWasm()) .{} else .init;
