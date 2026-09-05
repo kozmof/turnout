@@ -28,9 +28,114 @@ const reserved_paths = [_][]const u8{
     "propertyIsEnumerable",
 };
 
+/// An index into a schema's node pool, naming one parsed declaration type.
+pub const TypeId = u32;
+
+/// What a schema knows about one declared path.
+pub const Declared = union(enum) {
+    /// Declared with no type: any value may be written.
+    unchecked,
+    parsed: TypeId,
+    /// The declaration named a type that does not parse. Declaring it is
+    /// allowed and reading is allowed; only writing raises `UnknownSchemaType`,
+    /// which is where that error surfaced when types were parsed on each write.
+    invalid,
+};
+
+/// The declared shape of STATE: which paths exist, and the type each one's
+/// values must match.
+///
+/// A schema is built once, before the State that owns it is ever snapshotted,
+/// and never changes afterwards. Two things follow, and both used to be paid on
+/// every action. Snapshots share a schema by reference instead of duplicating
+/// every path and type string into the copy. And each declaration's type is
+/// parsed into a node pool once, so validating a write walks parsed nodes rather
+/// than re-parsing `"arr<number>"` from scratch.
+pub const Schema = struct {
+    arena: std.heap.ArenaAllocator,
+    /// Declaration order is preserved. A null type means the path is declared
+    /// but its values are unchecked.
+    fields: std.StringArrayHashMapUnmanaged(Declared) = .empty,
+    nodes: std.ArrayList(SchemaNode) = .empty,
+    /// Snapshots share one schema; it is freed when the last State drops it.
+    references: usize = 1,
+
+    fn create(parent: std.mem.Allocator) StateError!*Schema {
+        const schema = try parent.create(Schema);
+        schema.* = .{ .arena = .init(parent) };
+        return schema;
+    }
+
+    fn acquire(self: *Schema) *Schema {
+        self.references += 1;
+        return self;
+    }
+
+    fn release(self: *Schema, parent: std.mem.Allocator) void {
+        self.references -= 1;
+        if (self.references > 0) return;
+        self.arena.deinit();
+        parent.destroy(self);
+    }
+
+    /// Declares `path`, replacing any type already declared for it. Only valid
+    /// while the schema is still being built.
+    fn declare(self: *Schema, path: []const u8, schema_type: ?[]const u8) StateError!void {
+        try validatePath(path);
+        const allocator = self.arena.allocator();
+        const declared: Declared = if (schema_type) |source|
+            if (self.appendType(source)) |type_id|
+                .{ .parsed = type_id }
+            else |_|
+                .invalid
+        else
+            .unchecked;
+        if (self.fields.getPtr(path)) |existing| {
+            existing.* = declared;
+            return;
+        }
+        try self.fields.put(allocator, try allocator.dupe(u8, path), declared);
+    }
+
+    /// Parses one declaration type into the shared pool, rebasing the parser's
+    /// own node indices onto it.
+    fn appendType(self: *Schema, source: []const u8) StateError!TypeId {
+        const parsed = try parseSchemaType(source);
+        const allocator = self.arena.allocator();
+        const offset: TypeId = @intCast(self.nodes.items.len);
+        try self.nodes.ensureUnusedCapacity(allocator, parsed.node_count);
+        for (parsed.nodes[0..parsed.node_count]) |node| {
+            self.nodes.appendAssumeCapacity(switch (node) {
+                .array => |child| .{ .array = child + offset },
+                .record => |record| .{ .record = .{
+                    .numeric_keys = record.numeric_keys,
+                    .child = record.child + offset,
+                } },
+                else => node,
+            });
+        }
+        return offset + @as(TypeId, @intCast(parsed.root_index));
+    }
+
+    pub fn contains(self: *const Schema, path: []const u8) bool {
+        return self.fields.contains(path);
+    }
+
+    /// What is declared for `path`, or null when it is not declared at all.
+    pub fn typeOf(self: *const Schema, path: []const u8) ?Declared {
+        return self.fields.get(path);
+    }
+
+    pub fn matches(self: *const Schema, type_id: TypeId, candidate: value.Value) bool {
+        return matchesNode(candidate, self.nodes.items, type_id);
+    }
+};
+
 pub const State = struct {
     entries: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue) = .empty,
-    schema: ?std.StringArrayHashMapUnmanaged(?[]const u8) = null,
+    /// Shared with every snapshot taken of this State, and immutable once the
+    /// State is in use.
+    schema: ?*Schema = null,
 
     pub fn initUnchecked(
         initial: *const std.StringArrayHashMapUnmanaged(value.TaggedValue),
@@ -51,23 +156,11 @@ pub const State = struct {
         declarations: []const Declaration,
         allocator: std.mem.Allocator,
     ) StateError!State {
-        var state: State = .{ .schema = .empty };
+        var state: State = .{ .schema = try Schema.create(allocator) };
         errdefer state.deinit(allocator);
         for (declarations) |declaration| {
-            try validatePath(declaration.path);
             if (state.schema.?.contains(declaration.path)) continue;
-            const path = try allocator.dupe(u8, declaration.path);
-            const schema_type = if (declaration.schema_type) |source|
-                allocator.dupe(u8, source) catch |err| {
-                    allocator.free(path);
-                    return err;
-                }
-            else
-                null;
-            state.schema.?.put(allocator, path, schema_type) catch |err| {
-                if (schema_type) |owned| allocator.free(owned);
-                return err;
-            };
+            try state.schema.?.declare(declaration.path, declaration.schema_type);
         }
         var iterator = initial.iterator();
         while (iterator.next()) |entry| try state.set(entry.key_ptr.*, entry.value_ptr.*, allocator);
@@ -84,7 +177,7 @@ pub const State = struct {
             return State.initStrict(overrides, &.{}, allocator);
         if (namespaces != .array) return error.InvalidStateModel;
 
-        var state: State = .{ .schema = .empty };
+        var state: State = .{ .schema = try Schema.create(allocator) };
         errdefer state.deinit(allocator);
         for (namespaces.array.items) |namespace| {
             if (namespace != .object) return error.InvalidStateModel;
@@ -105,7 +198,7 @@ pub const State = struct {
                     field_name.string,
                 });
                 defer allocator.free(path);
-                try state.addDeclaration(path, schema_type.string, allocator);
+                try state.schema.?.declare(path, schema_type.string);
 
                 var default_value = if (field.object.get("value")) |literal|
                     try literalToValue(literal, schema_type.string, allocator)
@@ -128,14 +221,7 @@ pub const State = struct {
             entry.value_ptr.deinit(allocator);
         }
         self.entries.deinit(allocator);
-        if (self.schema) |*schema| {
-            var schema_iterator = schema.iterator();
-            while (schema_iterator.next()) |entry| {
-                allocator.free(entry.key_ptr.*);
-                if (entry.value_ptr.*) |schema_type| allocator.free(schema_type);
-            }
-            schema.deinit(allocator);
-        }
+        if (self.schema) |schema| schema.release(allocator);
         self.* = undefined;
     }
 
@@ -182,26 +268,10 @@ pub const State = struct {
     }
 
     pub fn snapshot(self: *const State, allocator: std.mem.Allocator) StateError!State {
-        var result: State = .{};
+        // The schema never changes once a State is in use, so a snapshot shares
+        // it rather than duplicating every path and type into the copy.
+        var result: State = .{ .schema = if (self.schema) |schema| schema.acquire() else null };
         errdefer result.deinit(allocator);
-        if (self.schema) |schema| {
-            result.schema = .empty;
-            var schema_iterator = schema.iterator();
-            while (schema_iterator.next()) |entry| {
-                const path = try allocator.dupe(u8, entry.key_ptr.*);
-                const schema_type = if (entry.value_ptr.*) |source|
-                    allocator.dupe(u8, source) catch |err| {
-                        allocator.free(path);
-                        return err;
-                    }
-                else
-                    null;
-                result.schema.?.put(allocator, path, schema_type) catch |err| {
-                    if (schema_type) |owned| allocator.free(owned);
-                    return err;
-                };
-            }
-        }
         var iterator = self.entries.iterator();
         while (iterator.next()) |entry|
             try result.set(entry.key_ptr.*, entry.value_ptr.borrowed(), allocator);
@@ -282,36 +352,12 @@ pub const State = struct {
     fn validateWrite(self: *const State, path: []const u8, new_value: value.TaggedValue) StateError!void {
         try validatePath(path);
         const schema = self.schema orelse return;
-        const schema_type = schema.get(path) orelse return error.UnknownPath;
-        if (schema_type) |expected| {
-            if (!try matchesSchemaType(new_value.value, expected)) return error.TypeMismatch;
+        switch (schema.typeOf(path) orelse return error.UnknownPath) {
+            .unchecked => {},
+            .invalid => return error.UnknownSchemaType,
+            .parsed => |type_id| if (!schema.matches(type_id, new_value.value))
+                return error.TypeMismatch,
         }
-    }
-
-    fn addDeclaration(
-        self: *State,
-        path: []const u8,
-        schema_type: []const u8,
-        allocator: std.mem.Allocator,
-    ) StateError!void {
-        try validatePath(path);
-        const schema = &self.schema.?;
-        if (schema.getPtr(path)) |existing| {
-            const replacement = try allocator.dupe(u8, schema_type);
-            if (existing.*) |previous| allocator.free(previous);
-            existing.* = replacement;
-            return;
-        }
-        const owned_path = try allocator.dupe(u8, path);
-        const owned_type = allocator.dupe(u8, schema_type) catch |err| {
-            allocator.free(owned_path);
-            return err;
-        };
-        schema.put(allocator, owned_path, owned_type) catch |err| {
-            allocator.free(owned_path);
-            allocator.free(owned_type);
-            return err;
-        };
     }
 };
 
@@ -390,9 +436,13 @@ fn parseSchemaType(source: []const u8) StateError!SchemaParser {
     return parser;
 }
 
+/// Parses `schema_type` and checks `candidate` against it.
+///
+/// This is the one-off path, used by the authoring ABI. The write path uses a
+/// schema's pre-parsed types instead of coming through here.
 pub fn matchesSchemaType(candidate: value.Value, schema_type: []const u8) StateError!bool {
     const parser = try parseSchemaType(schema_type);
-    return matchesNode(candidate, &parser, parser.root_index);
+    return matchesNode(candidate, parser.nodes[0..parser.node_count], parser.root_index);
 }
 
 pub fn literalToValue(
@@ -415,15 +465,15 @@ fn arrayElement(schema_type: []const u8) value.ArrayElement {
     return .untyped;
 }
 
-fn matchesNode(candidate: value.Value, parser: *const SchemaParser, node_index: usize) bool {
-    return switch (parser.nodes[node_index]) {
+fn matchesNode(candidate: value.Value, nodes: []const SchemaNode, node_index: usize) bool {
+    return switch (nodes[node_index]) {
         .number => candidate == .number,
         .string => candidate == .string,
         .boolean => candidate == .boolean,
         .array => |child| blk: {
             if (candidate != .array) break :blk false;
             for (candidate.array.items) |item|
-                if (!matchesNode(item.value, parser, child)) break :blk false;
+                if (!matchesNode(item.value, nodes, child)) break :blk false;
             break :blk true;
         },
         .record => |record| blk: {
@@ -431,7 +481,7 @@ fn matchesNode(candidate: value.Value, parser: *const SchemaParser, node_index: 
             var iterator = candidate.record.iterator();
             while (iterator.next()) |entry| {
                 if (record.numeric_keys and !validNumberKey(entry.key_ptr.*)) break :blk false;
-                if (!matchesNode(entry.value_ptr.value, parser, record.child)) break :blk false;
+                if (!matchesNode(entry.value_ptr.value, nodes, record.child)) break :blk false;
             }
             break :blk true;
         },
