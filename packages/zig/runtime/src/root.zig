@@ -12,8 +12,10 @@ pub const program_ir = @import("program/ir.zig");
 pub const program_load = @import("program/load.zig");
 pub const program_eval = @import("program/eval.zig");
 pub const compute_vectors = @import("compute_vectors.zig");
-pub const graph_compute = @import("graph_compute.zig");
-pub const graph_validate = @import("graph_validate.zig");
+// The authoring engine. It backs the TypeScript builder API and is not on the
+// execution path; the runtime executes lowered programs, not graph contexts.
+pub const graph_compute = @import("authoring/graph_compute.zig");
+pub const graph_validate = @import("authoring/graph_validate.zig");
 pub const fn_aliases = @import("generated/fn_aliases.zig");
 
 test {

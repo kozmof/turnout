@@ -1,6 +1,12 @@
+//! Execution for the TypeScript builder API's graph contexts.
+//!
+//! The authoring counterpart to `program/eval.zig`. Its own tests call it the
+//! legacy compute engine, which is accurate: it interprets a graph context
+//! directly, the way the runtime used to interpret a model.
+
 const std = @import("std");
-const preset = @import("preset.zig");
-const value = @import("value.zig");
+const preset = @import("../preset.zig");
+const value = @import("../value.zig");
 
 pub const max_graph_nodes: usize = 50_000;
 

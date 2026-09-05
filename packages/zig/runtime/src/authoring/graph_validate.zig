@@ -1,5 +1,11 @@
+//! Validation for the TypeScript builder API's graph contexts.
+//!
+//! This is the authoring engine, not the runtime one. Nothing here runs while a
+//! model executes: the runtime lowers a model to a program once and evaluates
+//! that. It lives under `authoring/` so the two are not mistaken for each other.
+
 const std = @import("std");
-const preset = @import("preset.zig");
+const preset = @import("../preset.zig");
 const graph_compute = @import("graph_compute.zig");
 
 /// Re-exported so the gate that rejects an oversized graph and the executor
