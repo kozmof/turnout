@@ -18,7 +18,8 @@
       "import": "./dist/zig-runtime/index.js",
       "types": "./dist/zig-runtime/index.d.ts"
     },
-    "./zig-runtime/turnout-runtime.wasm": "./dist/zig-runtime/turnout-runtime.wasm"
+    "./zig-runtime/turnout-runtime.wasm": "./dist/zig-runtime/turnout-runtime.wasm",
+    "./zig-runtime/turnout-runtime.compact.wasm": "./dist/zig-runtime/turnout-runtime.compact.wasm"
   },
   "scripts": {
     "build": "tsc --project tsconfig.build.json && node ../../../scripts/package-runtime-zig-wasm.mjs",

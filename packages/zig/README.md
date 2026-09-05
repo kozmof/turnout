@@ -41,7 +41,21 @@ Cross-layer code imports the module rather than the file. Inside `scene-runner/s
 - Versioned WASM allocation, lifecycle, and effect-result APIs
 - Native and WASM execution of the same 145 core tests
 
-The build produces the freestanding WASM module packaged by `runtime`. The runtime package build validates and copies that artifact into its distribution. `turnout-scene-runner` imports the shared client instead of shipping another copy.
+## WASM artifacts
+
+The build produces freestanding WASM from one source in two shapes, because the two deployments want opposite things.
+
+| Step | Output | Mode | Size | For |
+| --- | --- | --- | ---: | --- |
+| `wasm` | `zig-out/bin/turnout-runtime.wasm` | `Debug`, or `-Doptimize` | 3.3 MB | development and the test suites |
+| `wasm-dist` | `zig-out/dist/turnout-runtime.wasm` | `ReleaseFast` | 2.8 MB | a server or CLI host |
+| `wasm-dist` | `zig-out/dist/turnout-runtime.compact.wasm` | `ReleaseSmall` | 0.4 MB | a browser, which downloads it first |
+
+The compact build is about a seventh of the size for about 14% less throughput. Both release builds are roughly 2.7x the debug one; see [docs/performance-redesign.md](./docs/performance-redesign.md).
+
+The two output directories are separate so a development build cannot be packaged by mistake. `pnpm run build:zig` builds the development artifact; `pnpm run build:zig:dist` builds both distributed ones, and packaging reads only from `zig-out/dist`. The test suites load the development artifact, which keeps rebuilds fast and safety checks on.
+
+The runtime package build validates and copies both artifacts into its distribution, and the distribution smoke test instantiates each and runs a program through it. `turnout-scene-runner` imports the shared client instead of shipping another copy.
 
 ## Test expectations
 

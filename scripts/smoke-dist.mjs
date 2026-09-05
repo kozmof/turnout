@@ -17,11 +17,25 @@ const { fromJson } =
 const { TurnModelSchema } =
   await import("../packages/ts/scene-runner/dist/types/turnout-model_pb.js");
 
-const wasm = await readFile(
-  new URL("../packages/ts/runtime/dist/zig-runtime/turnout-runtime.wasm", import.meta.url),
-);
-if (wasm.length < 8 || !wasm.subarray(0, 4).equals(Buffer.from([0, 97, 115, 109]))) {
-  throw new Error("runtime distribution is missing its Zig WASM module");
+// Both distributed artifacts are checked. They are separate builds of the same
+// source, so shipping one unvalidated would be shipping an untested module.
+const { instantiateZigRuntime } = await import("../packages/ts/runtime/dist/zig-runtime/index.js");
+for (const artifact of ["turnout-runtime.wasm", "turnout-runtime.compact.wasm"]) {
+  const wasm = await readFile(
+    new URL("../packages/ts/runtime/dist/zig-runtime/" + artifact, import.meta.url),
+  );
+  if (wasm.length < 8 || !wasm.subarray(0, 4).equals(Buffer.from([0, 97, 115, 109]))) {
+    throw new Error("runtime distribution is missing or corrupt: " + artifact);
+  }
+  const client = await instantiateZigRuntime(wasm);
+  const probe = client.compute({
+    prog: { bindings: [{ name: "result", type: "number", value: 7 }] },
+    root: "result",
+    inputs: {},
+  });
+  if (probe.status !== "ok" || probe.payload.value?.value !== 7) {
+    throw new Error("packaged artifact did not execute a compute program: " + artifact);
+  }
 }
 
 const sceneModel = fromJson(TurnModelSchema, {

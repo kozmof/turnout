@@ -134,6 +134,12 @@ and within 14% of `ReleaseFast`, which matters for a module delivered to
 browsers. `ReleaseSafe` keeps the runtime's bounds and overflow checks for about
 6% against `ReleaseFast`.
 
+The build now produces both release artifacts, since the trade lands differently
+for a server and for a browser. `wasm-dist` builds `turnout-runtime.wasm`
+(`ReleaseFast`) and `turnout-runtime.compact.wasm` (`ReleaseSmall`), and the
+package ships both. The development build stays `Debug` so the test suites keep
+fast rebuilds and safety checks. See the package README for which to load.
+
 This also reframes the finding in [performance-baseline.md](./performance-baseline.md)
 that prompted the whole redesign. That baseline recorded Zig/WASM at 533-553
 runs/s against TypeScript at 956-996, and concluded TypeScript was 1.8x faster on

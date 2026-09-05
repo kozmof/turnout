@@ -10,7 +10,7 @@ The window was announced on 2026-09-01. The public runner and harness entry poin
 
 Public runner APIs, hook behavior, result shapes, logs, warnings, errors, state values, and execution order remain unchanged. Zig/WASM is the only engine. Applications do not receive an engine-selection option.
 
-The shipped package continues to include the WASM artifact. Browser and server entry points must load the same validated artifact. Distribution smoke tests must cover both environments that the package supports.
+The shipped package continues to include the WASM artifact. The package now ships two: `turnout-runtime.wasm` built for speed and `turnout-runtime.compact.wasm` built for size, from the same source. Browser and server entry points may load different artifacts, but only ones built from that shared source and validated by the distribution smoke test, which instantiates each and runs a program through it. Distribution smoke tests must cover both environments that the package supports.
 
 ## Regression response
 

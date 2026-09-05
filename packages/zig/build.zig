@@ -16,6 +16,28 @@ const TestBinary = struct {
     module: *std.Build.Module,
 };
 
+/// One distributed WASM artifact.
+///
+/// The same source is built twice, because the two deployments want opposite
+/// things. A server or CLI host has the module on local disk and cares only
+/// about how fast it runs. A browser downloads it before anything can run, so
+/// its size is part of the startup cost. `ReleaseSmall` is about a seventh of
+/// the size for about 14% less throughput, which is the right trade in one case
+/// and the wrong one in the other.
+///
+/// Both are built without safety checks. `ReleaseSafe` costs about 6% against
+/// `ReleaseFast` and keeps bounds and overflow checks; switching either entry
+/// below is the whole change if that trade is preferred.
+const DistArtifact = struct {
+    name: []const u8,
+    optimize: std.builtin.OptimizeMode,
+};
+
+const dist_artifacts = [_]DistArtifact{
+    .{ .name = "turnout-runtime", .optimize = .ReleaseFast },
+    .{ .name = "turnout-runtime.compact", .optimize = .ReleaseSmall },
+};
+
 /// Wires the layer graph for one target. `public` exposes the layers under
 /// their module names for dependents; only the host graph needs that.
 fn addLayers(
@@ -94,15 +116,36 @@ pub fn build(b: *std.Build) void {
         .cpu_arch = .wasm32,
         .os_tag = .freestanding,
     });
-    const wasm_layers = addLayers(b, wasm_target, optimize, false);
-    const wasm = b.addExecutable(.{
-        .name = "turnout-runtime",
-        .root_module = wasm_layers.wasm_abi,
-    });
+
+    // The development artifact. Debug unless asked otherwise, because this is
+    // what the test suites load and they want fast rebuilds and safety checks.
+    const wasm_step = b.step("wasm", "Build the Turnout WASM runtime for development");
+    wasm_step.dependOn(&b.addInstallArtifact(
+        wasmModule(b, wasm_target, optimize, "turnout-runtime"),
+        .{},
+    ).step);
+
+    // The distributed artifacts, installed to zig-out/dist so a development
+    // build can never be mistaken for one of them at packaging time.
+    const dist_step = b.step("wasm-dist", "Build the distributed Turnout WASM artifacts");
+    for (dist_artifacts) |artifact| {
+        dist_step.dependOn(&b.addInstallArtifact(
+            wasmModule(b, wasm_target, artifact.optimize, artifact.name),
+            .{ .dest_dir = .{ .override = .{ .custom = "dist" } } },
+        ).step);
+    }
+}
+
+fn wasmModule(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+    name: []const u8,
+) *std.Build.Step.Compile {
+    const layers = addLayers(b, target, optimize, false);
+    const wasm = b.addExecutable(.{ .name = name, .root_module = layers.wasm_abi });
     wasm.entry = .disabled;
     wasm.export_memory = true;
     wasm.rdynamic = true;
-    const install_wasm = b.addInstallArtifact(wasm, .{});
-    const wasm_step = b.step("wasm", "Build the Turnout WASM runtime");
-    wasm_step.dependOn(&install_wasm.step);
+    return wasm;
 }
