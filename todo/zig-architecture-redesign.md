@@ -1,6 +1,7 @@
 # Redesign the Zig runtime around loaded scene units
 
-> Status: in progress — steps 1-3 and 5-8 landed, step 4 partly done
+> Status: steps 1-3 and 5-9 landed; step 4 partly done and the rest deferred
+> Merging scenes landed on top, in the host rather than the runtime; see the last two sections.
 > Origin: two observations — the Zig code barely uses comptime, and the types it
 > needs at runtime were already decided by the Go converter. Revised with three
 > constraints: the program is a derived runtime entity and never a wire format,
@@ -523,22 +524,51 @@ Steps 1–2 are where most of the win is; 4 is where most of the code deletion i
 - **Implementing dynamic scene merging.** This plan only ensures the architecture
   admits it.
 
-## Open questions, for the merge feature rather than for this plan
+## Merging scenes: what landed, and why not in Zig
 
-These are semantics, not structure. The architecture above is indifferent to how
-they land, which is the point of writing it down now.
+`mergeModels` combines separately compiled models in TypeScript, and the result
+is an ordinary model that `prepareModel` loads once. Three of the four questions
+below are answered by it; the fourth is still open.
 
-- **Collision policy.** Two merged scenes sharing an id: reject, qualify, or
-  last-wins? Reject-by-default with an explicit rename seems right.
-- **STATE schema union.** Same path and same type is fine; same path and
-  different type is an error. Same path, same type, different default — error, or
-  first-wins? The Go compiler has never had to answer this because it only ever
-  saw one schema.
-- **Do routes merge too, or only scenes?** Route arms reference scene ids, so
-  merging scenes can make previously dead targets live. Whether new arms can
-  arrive with new scenes is a language question, not a runtime one.
-- **Merge before run, or mid-run?** The registry-generation design admits both at
-  the same cost, so this need not be decided now. Mid-run raises questions the
-  runtime cannot answer alone: what happens to route history that references a
-  scene no longer in the newest generation, and whether the currently executing
-  scene may be replaced under a running driver.
+- **Collision policy: reject.** Every collision is an error, never an override.
+  Two models that both define a scene have no defensible winner, and picking one
+  silently turns a packaging mistake into a behavioural one. Conflicts are
+  collected and reported together, each naming the inputs it came from.
+- **STATE schema union: identical or error.** A path declared by more than one
+  input must be declared the same way, type and default both. Declaring the same
+  field the same way twice is agreement, not a conflict — two scene sets that
+  both need a field will both declare it. This also sidesteps the
+  same-type-different-default question by rejecting it rather than picking.
+- **Routes merge too.** Route ids collide like scene ids, and the version window
+  narrows to satisfy every input. Route arms that referenced absent scenes become
+  live when those scenes arrive, which is the point.
+- **Merge before run.** Still the only supported shape. Mid-run merging raises
+  questions the runtime cannot answer alone: what happens to route history that
+  references a scene no longer present, and whether the currently executing scene
+  may be replaced under a running driver.
+
+**Merging is not incremental, and deliberately so.** This plan assumed it had to
+be — that re-lowering a whole model per merge was the thing to avoid, and that
+scene units with their own arenas were the way to avoid it. That assumption was
+never tested. Preparing a 20-action model costs about 55 us, so re-preparing on
+merge is only worth avoiding if merges are frequent relative to runs, and the
+expected shape is the opposite: models are composed at configuration time and run
+many times after.
+
+So merging is a model transformation in the host, where the validation it needs
+already lives, and the runtime keeps loading one finished model. The incremental
+path stays open behind the same API: the model handle is already reference
+counted and shared, and `mergeModels` returning a model rather than mutating one
+means a future implementation can split it into parts without changing a caller.
+
+The threshold for building that is evidence that merging is hot — a measured
+workload where merge cost is a meaningful fraction of the whole. This session
+spent most of its effort optimising an execution path that turned out to be 2% of
+the wall clock; the same mistake is available here and is worth not repeating.
+
+## Remaining from this plan
+
+- **Per-action scratch arena.** Evaluation still allocates each value
+  individually. Worth little while execution is a rounding error end to end.
+- **Scene units with their own arenas.** Only needed if merging becomes
+  incremental, which needs the evidence above first.

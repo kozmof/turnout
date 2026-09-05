@@ -1,4 +1,6 @@
 // Universal exports — safe for client and server environments.
+export { mergeModels, ModelMergeError } from "./merge-models.js";
+export type { MergeOptions } from "./merge-models.js";
 export {
   createRunner,
   createSceneRunner,

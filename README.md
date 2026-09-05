@@ -157,6 +157,27 @@ Each runner still gets its own STATE; only the model is shared. `release()` free
 the runtime's copy, and runners created before it keep working until they
 finish.
 
+Scenes compiled separately can be combined into one model.
+
+```ts
+import { mergeModels, prepareModel } from "turnout-scene-runner";
+
+const merged = mergeModels([baseFlow, checkoutScenes], { labels: ["base", "checkout"] });
+const prepared = prepareModel(merged);
+```
+
+Every collision is an error, never an override: two models that both define a
+scene have no defensible winner, and picking one silently would turn a packaging
+mistake into a behavioural one. A STATE field or named type declared by more than
+one input must be declared identically. All conflicts are reported together, each
+naming the inputs it came from.
+
+```
+ModelMergeError: cannot merge models:
+  scene "review" is declared by base and checkout
+  STATE field "app.total" is declared as str by checkout and as number by base
+```
+
 Hooks let an action pull values from outside the model or publish state
 somewhere else. Register them before running.
 
