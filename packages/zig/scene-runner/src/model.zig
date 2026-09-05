@@ -238,11 +238,12 @@ pub const RuntimeModel = struct {
     index: ModelIndex,
 
     pub fn init(allocator: std.mem.Allocator, bytes: []const u8, limits: Limits) ValidationError!RuntimeModel {
-        try validateJson(allocator, bytes, limits);
+        if (bytes.len > limits.max_model_bytes) return error.ModelTooLarge;
         const parsed = std.json.parseFromSlice(std.json.Value, allocator, bytes, .{
             .max_value_len = limits.max_model_bytes,
         }) catch return error.InvalidJson;
         errdefer parsed.deinit();
+        try validateParsed(parsed.value, limits, allocator);
         return .{
             .parsed = parsed,
             .index = try buildIndex(parsed.value.object, allocator),
@@ -614,9 +615,20 @@ pub fn validateJson(allocator: std.mem.Allocator, bytes: []const u8, limits: Lim
         .max_value_len = limits.max_model_bytes,
     }) catch return error.InvalidJson;
     defer parsed.deinit();
-    if (parsed.value != .object) return error.RootMustBeObject;
-    try validateNesting(parsed.value, 0, limits.max_nesting);
-    const root = parsed.value.object;
+    try validateParsed(parsed.value, limits, allocator);
+}
+
+/// Validates an already-parsed model. `RuntimeModel.init` uses this so that
+/// creating a model parses the JSON once rather than once to validate and again
+/// to keep.
+pub fn validateParsed(
+    root_value: std.json.Value,
+    limits: Limits,
+    allocator: std.mem.Allocator,
+) ValidationError!void {
+    if (root_value != .object) return error.RootMustBeObject;
+    try validateNesting(root_value, 0, limits.max_nesting);
+    const root = root_value.object;
     try rejectCompilerMetadata(root);
     try validateComputes(root, allocator);
     const version = try uintField(root, "version");
