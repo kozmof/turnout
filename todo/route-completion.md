@@ -74,7 +74,7 @@ C is the recommended direction, with A done immediately regardless, because the 
 Whoever picks up C must settle the first question below; the rest have answers
 already, recorded here so they are not re-litigated:
 
-- **Open: where the terminal lives.** A reserved scene id is the smallest change and needs no proto field, but it collides with any real scene of that name. A distinct token (`_ -> end`, with `end` a keyword) avoids collisions at the cost of a lexer entry. This is a language-surface decision and the only thing blocking C.
+- **Open: where the terminal lives.** A reserved scene id is the smallest change and needs no proto field, but it collides with any real scene of that name. A distinct token (`_ -> end`, with `end` a keyword) avoids collisions at the cost of a lexer entry. This is a language-surface decision and the only thing blocking C. Written up with candidates, a recommendation, and the pipeline sites it touches in [route-terminal-spelling.md](./route-terminal-spelling.md).
 - Wire model. `MatchArm.target` is a string today. A reserved value keeps the proto unchanged, while a separate `terminal` flag does not. Prefer the former, consistent with the "no proto churn for surface features" line the recent syntax work held.
 - Runtime. `selectNextScene` returns `string | null` and null already means complete, so the executor needs no new state. The arm resolution just maps the terminal target to null. That is a small, well-isolated change.
 - Interaction with B. With C available, a `_` arm that targets a real scene becomes clearly suspicious, and the diagnostic in B gets much easier to justify.
