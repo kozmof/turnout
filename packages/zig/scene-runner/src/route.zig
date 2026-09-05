@@ -1,5 +1,6 @@
 const std = @import("std");
 const model_runtime = @import("model.zig");
+const route_ir = @import("route_ir.zig");
 const runtime_error = @import("runtime_error.zig");
 const scene_runtime = @import("scene.zig");
 const state_runtime = @import("state.zig");
@@ -7,10 +8,37 @@ const turnout_value = @import("turnout_runtime").value;
 
 pub const default_max_transitions: usize = 1_000;
 
+/// One action that has run, in order. History accumulates for a whole route and
+/// is read by pattern matching on every transition.
+///
+/// It owns its ids rather than borrowing them from the model. History is the
+/// only run-scoped structure that referenced the parsed tree, so owning two
+/// short strings per entry is what lets a route outlive the model it started on.
 pub const HistoryEntry = struct {
     scene_id: []const u8,
     action_id: []const u8,
+
+    pub fn init(
+        scene_id: []const u8,
+        action_id: []const u8,
+        allocator: std.mem.Allocator,
+    ) !HistoryEntry {
+        const scene = try allocator.dupe(u8, scene_id);
+        errdefer allocator.free(scene);
+        return .{ .scene_id = scene, .action_id = try allocator.dupe(u8, action_id) };
+    }
+
+    pub fn deinit(self: *HistoryEntry, allocator: std.mem.Allocator) void {
+        allocator.free(self.scene_id);
+        allocator.free(self.action_id);
+        self.* = undefined;
+    }
 };
+
+pub fn deinitHistory(history: *std.ArrayList(HistoryEntry), allocator: std.mem.Allocator) void {
+    for (history.items) |*entry| entry.deinit(allocator);
+    history.deinit(allocator);
+}
 
 const Score = struct { wildcards: usize, suffix_len: usize };
 
@@ -36,6 +64,7 @@ pub const Result = struct {
 
     pub fn deinit(self: *Result, allocator: std.mem.Allocator) void {
         self.final_state.deinit(allocator);
+        for (self.history) |*entry| entry.deinit(allocator);
         allocator.free(self.history);
         allocator.free(self.scenes);
         allocator.free(self.logs);
@@ -74,27 +103,22 @@ pub const SafeResult = union(enum) {
 
 pub fn selectNextScene(
     history: []const HistoryEntry,
-    arms: std.json.Value,
+    route: *const route_ir.Route,
     current_scene_id: []const u8,
 ) !?[]const u8 {
-    if (arms != .array) return error.InvalidRoute;
+    if (route.invalid) return error.InvalidRoute;
     var best_target: ?[]const u8 = null;
     var best_score: ?Score = null;
-    for (arms.array.items) |arm| {
-        if (arm != .object) return error.InvalidRoute;
-        const patterns = arm.object.get("patterns") orelse return error.InvalidRoute;
-        const target = arm.object.get("target") orelse return error.InvalidRoute;
-        if (patterns != .array or target != .string) return error.InvalidRoute;
+    for (route.arms) |arm| {
         var arm_score: ?Score = null;
-        for (patterns.array.items) |pattern| {
-            if (pattern != .string) return error.InvalidRoute;
-            const score = matchPattern(pattern.string, history, current_scene_id) orelse continue;
+        for (arm.patterns) |pattern| {
+            const score = matchPattern(pattern, history, current_scene_id) orelse continue;
             if (arm_score == null or better(score, arm_score.?)) arm_score = score;
         }
         if (arm_score) |score| {
             if (best_score == null or better(score, best_score.?)) {
                 best_score = score;
-                best_target = target.string;
+                best_target = arm.target;
             }
         }
     }
@@ -175,11 +199,12 @@ fn executeOwned(
 ) !Result {
     const route = findRoute(model, route_id) orelse return error.RouteNotFound;
     const entry = route.get("entrySceneId") orelse return error.NoEntryScene;
-    const arms = route.get("match") orelse return error.InvalidRoute;
+    if (route.get("match") == null) return error.InvalidRoute;
     if (entry != .string or entry.string.len == 0) return error.NoEntryScene;
+    const arms = model.loweredRoute(route_id) orelse return error.InvalidRoute;
     current_scene.* = entry.string;
     var history = std.ArrayList(HistoryEntry).empty;
-    errdefer history.deinit(allocator);
+    defer deinitHistory(&history, allocator);
     var scenes = std.ArrayList([]const u8).empty;
     errdefer scenes.deinit(allocator);
     var traces = std.ArrayList(SceneTrace).empty;
@@ -220,7 +245,7 @@ fn executeOwned(
         current_state.* = scene_result.takeState();
         try scenes.append(allocator, current_scene.*);
         for (scene_result.traces) |trace|
-            try history.append(allocator, .{ .scene_id = current_scene.*, .action_id = trace.action_id });
+            try history.append(allocator, try HistoryEntry.init(current_scene.*, trace.action_id, allocator));
         const next = try selectNextScene(history.items[history_start..], arms, current_scene.*);
         if (next == null) break;
         transitions += 1;
@@ -275,34 +300,25 @@ fn better(candidate: Score, current: Score) bool {
 }
 
 fn matchPattern(
-    raw: []const u8,
+    pattern: route_ir.Pattern,
     history: []const HistoryEntry,
     current_scene_id: []const u8,
 ) ?Score {
-    if (std.mem.eql(u8, raw, "_")) return .{
-        .wildcards = std.math.maxInt(usize),
-        .suffix_len = 0,
+    const scene = switch (pattern) {
+        .any => return .{ .wildcards = std.math.maxInt(usize), .suffix_len = 0 },
+        .scene => |scene| scene,
     };
-    var parts = std.mem.splitScalar(u8, raw, '.');
-    const scene_id = parts.next() orelse "";
-    if (!std.mem.eql(u8, scene_id, current_scene_id)) return null;
-    const first = parts.next();
-    const wildcard = first != null and std.mem.eql(u8, first.?, "*");
-    var suffix_len: usize = if (first == null or wildcard) 0 else 1;
-    while (parts.next() != null) suffix_len += 1;
+    if (!std.mem.eql(u8, scene.scene_id, current_scene_id)) return null;
 
-    const block = firstBlock(history, scene_id);
+    const suffix_len = scene.actions.len;
+    const block = firstBlock(history, scene.scene_id);
     if (block.len == 0) return null;
-    if (!wildcard and block.len != suffix_len) return null;
-    if (wildcard and block.len < suffix_len) return null;
+    if (!scene.wildcard and block.len != suffix_len) return null;
+    if (scene.wildcard and block.len < suffix_len) return null;
     const offset = block.len - suffix_len;
-    parts = std.mem.splitScalar(u8, raw, '.');
-    _ = parts.next();
-    if (wildcard) _ = parts.next();
-    var index: usize = 0;
-    while (parts.next()) |expected| : (index += 1)
+    for (scene.actions, 0..) |expected, index|
         if (!std.mem.eql(u8, expected, block[offset + index].action_id)) return null;
-    return .{ .wildcards = if (wildcard) 1 else 0, .suffix_len = suffix_len };
+    return .{ .wildcards = if (scene.wildcard) 1 else 0, .suffix_len = suffix_len };
 }
 
 fn firstBlock(history: []const HistoryEntry, scene_id: []const u8) []const HistoryEntry {
@@ -332,13 +348,16 @@ test "route pattern priority matches exact wildcard and catchall" {
     ;
     const parsed = try std.json.parseFromSlice(std.json.Value, allocator, arms_json, .{});
     defer parsed.deinit();
+    var arena: std.heap.ArenaAllocator = .init(allocator);
+    defer arena.deinit();
+    const route = try route_ir.lower("s1", parsed.value, arena.allocator());
     const one = [_]HistoryEntry{.{ .scene_id = "s1", .action_id = "final" }};
-    try std.testing.expectEqualStrings("exact", (try selectNextScene(&one, parsed.value, "s1")).?);
+    try std.testing.expectEqualStrings("exact", (try selectNextScene(&one, &route, "s1")).?);
     const many = [_]HistoryEntry{
         .{ .scene_id = "s1", .action_id = "intro" },
         .{ .scene_id = "s1", .action_id = "final" },
     };
-    try std.testing.expectEqualStrings("wild", (try selectNextScene(&many, parsed.value, "s1")).?);
+    try std.testing.expectEqualStrings("wild", (try selectNextScene(&many, &route, "s1")).?);
 }
 
 test "route executes scene transitions and shares state" {
@@ -477,4 +496,45 @@ test "safe route success owns the normal result" {
         .success => |result| try std.testing.expectEqual(@as(usize, 1), result.scenes.len),
         .failure => return error.TestUnexpectedFailure,
     }
+}
+
+test "route history outlives the model it ran against" {
+    // History is read by pattern matching for the whole run and used to be a
+    // set of slices borrowed from the model's parsed JSON. Destroying the model
+    // first and then reading the history is the check that it owns its ids:
+    // borrowed slices would point into freed pages here.
+    const fixture =
+        \\{"version":2,
+        \\ "routes":[{"id":"main","entrySceneId":"s1","match":[
+        \\   {"patterns":["s1.a"],"target":"s2"}
+        \\ ]}],
+        \\ "scenes":[
+        \\   {"id":"s1","entryAction":"a","actions":[{"id":"a"}]},
+        \\   {"id":"s2","entryAction":"b","actions":[{"id":"b"}]}
+        \\ ]}
+    ;
+    const allocator = std.testing.allocator;
+    const empty: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    var state = try state_runtime.State.initUnchecked(&empty, allocator);
+    defer state.deinit(allocator);
+
+    var result = blk: {
+        var model = try model_runtime.RuntimeModel.init(allocator, fixture, .{});
+        defer model.deinit();
+        break :blk try execute(
+            &model,
+            "main",
+            &state,
+            scene_runtime.default_max_steps,
+            default_max_transitions,
+            allocator,
+        );
+    };
+    defer result.deinit(allocator);
+
+    try std.testing.expectEqual(@as(usize, 2), result.history.len);
+    try std.testing.expectEqualStrings("s1", result.history[0].scene_id);
+    try std.testing.expectEqualStrings("a", result.history[0].action_id);
+    try std.testing.expectEqualStrings("s2", result.history[1].scene_id);
+    try std.testing.expectEqualStrings("b", result.history[1].action_id);
 }

@@ -2,6 +2,7 @@ const std = @import("std");
 const action_runtime = @import("action.zig");
 const compute_runtime = @import("turnout_runtime").compute;
 const effect = @import("effect.zig");
+const route_ir = @import("route_ir.zig");
 const state_runtime = @import("state.zig");
 const turnout_value = @import("turnout_runtime").value;
 
@@ -124,6 +125,7 @@ const ModelIndex = struct {
     scenes: std.StringHashMapUnmanaged(std.json.ObjectMap) = .empty,
     actions: Table(NodeKey, std.json.ObjectMap, NodeKey.Context) = .empty,
     routes: std.StringHashMapUnmanaged(std.json.ObjectMap) = .empty,
+    lowered_routes: std.StringHashMapUnmanaged(route_ir.Route) = .empty,
     programs: Table(ProgramKey, compute_runtime.Program, ProgramKey.Context) = .empty,
 
     fn deinit(self: *ModelIndex) void {
@@ -152,7 +154,18 @@ fn buildIndex(root: std.json.ObjectMap, parent: std.mem.Allocator) ValidationErr
             if (route_value != .object) continue;
             const route_id = stringOf(route_value.object.get("id")) orelse continue;
             const slot = try index.routes.getOrPut(allocator, route_id);
-            if (!slot.found_existing) slot.value_ptr.* = route_value.object;
+            if (slot.found_existing) continue;
+            slot.value_ptr.* = route_value.object;
+
+            // A route with no entry scene or no match block is rejected when a
+            // driver starts on it, so there is nothing to lower here.
+            const entry = stringOf(route_value.object.get("entrySceneId")) orelse continue;
+            const match = route_value.object.get("match") orelse continue;
+            try index.lowered_routes.put(
+                allocator,
+                route_id,
+                try route_ir.lower(entry, match, allocator),
+            );
         }
     };
 
@@ -480,6 +493,12 @@ pub const RuntimeModel = struct {
     /// The route with this id, or null. Indexed when the model was created.
     pub fn findRoute(self: *const RuntimeModel, route_id: []const u8) ?std.json.ObjectMap {
         return self.index.routes.get(route_id);
+    }
+
+    /// The route's lowered match block. Absent when the route has no entry
+    /// scene or no match block, both of which a driver rejects on startup.
+    pub fn loweredRoute(self: *const RuntimeModel, route_id: []const u8) ?*const route_ir.Route {
+        return self.index.lowered_routes.getPtr(route_id);
     }
 };
 

@@ -2,6 +2,7 @@ const std = @import("std");
 const action_runtime = @import("action.zig");
 const effect = @import("effect.zig");
 const model_runtime = @import("model.zig");
+const route_ir = @import("route_ir.zig");
 const route_runtime = @import("route.zig");
 const state_runtime = @import("state.zig");
 const value = @import("turnout_runtime").value;
@@ -679,7 +680,10 @@ pub const SceneDriver = struct {
 pub const RouteDriver = struct {
     allocator: std.mem.Allocator,
     route_id: []const u8,
-    arms: std.json.Value,
+    /// The route's lowered match block, owned by the model index. Holding a
+    /// `std.json.Value` here used to keep a handle into the parsed tree alive
+    /// for the whole run.
+    route: *const route_ir.Route,
     scene: SceneDriver,
     current_scene_id: []const u8,
     pending_scene_id: ?[]const u8 = null,
@@ -700,12 +704,13 @@ pub const RouteDriver = struct {
     ) !RouteDriver {
         const route = route_runtime.findRoute(model, route_id) orelse return error.RouteNotFound;
         const entry = route.get("entrySceneId") orelse return error.NoEntryScene;
-        const arms = route.get("match") orelse return error.InvalidRoute;
+        if (route.get("match") == null) return error.InvalidRoute;
         if (entry != .string or entry.string.len == 0) return error.NoEntryScene;
+        const lowered = model.loweredRoute(route_id) orelse return error.InvalidRoute;
         return .{
             .allocator = allocator,
             .route_id = route_id,
-            .arms = arms,
+            .route = lowered,
             .scene = try SceneDriver.initWithLimit(
                 allocator,
                 model,
@@ -721,7 +726,7 @@ pub const RouteDriver = struct {
 
     pub fn deinit(self: *RouteDriver) void {
         self.scene.deinit();
-        self.history.deinit(self.allocator);
+        route_runtime.deinitHistory(&self.history, self.allocator);
         self.* = undefined;
     }
 
@@ -734,16 +739,17 @@ pub const RouteDriver = struct {
         const event = try self.scene.step(model, fail_on_publish_error);
         switch (event) {
             .action_complete => |completed| {
-                try self.history.append(self.allocator, .{
-                    .scene_id = self.current_scene_id,
-                    .action_id = completed.action_id,
-                });
+                try self.history.append(self.allocator, try route_runtime.HistoryEntry.init(
+                    self.current_scene_id,
+                    completed.action_id,
+                    self.allocator,
+                ));
                 return event;
             },
             .complete => {
                 const next = try route_runtime.selectNextScene(
                     self.history.items[self.history_start..],
-                    self.arms,
+                    self.route,
                     self.current_scene_id,
                 );
                 if (next == null) {
