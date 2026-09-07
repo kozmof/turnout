@@ -339,6 +339,9 @@ pub fn isReservedKey(key: []const u8) bool {
 
 // ── template extraction ─────────────────────────────────────────────────────
 
+pub const max_template_segments: usize = 256;
+pub const max_template_match_work: usize = 100_000;
+
 /// Borrows a subslice of `subject`; the spec is only read.
 pub fn extractCapture(
     allocator: std.mem.Allocator,
@@ -352,16 +355,20 @@ pub fn extractCapture(
     const want_value = parsed.value.object.get("want") orelse return error.InvalidTemplateSpec;
     const segs_value = parsed.value.object.get("segs") orelse return error.InvalidTemplateSpec;
     if (want_value != .string or segs_value != .array) return error.InvalidTemplateSpec;
-    return matchSegments(segs_value.array.items, 0, subject, want_value.string) orelse "";
+    if (segs_value.array.items.len > max_template_segments) return error.TemplateTooComplex;
+    var work_remaining: usize = max_template_match_work;
+    return try matchSegments(segs_value.array.items, 0, subject, want_value.string, &work_remaining) orelse "";
 }
 
-fn matchSegments(segs: []const std.json.Value, index: usize, remaining: []const u8, wanted: []const u8) ?[]const u8 {
+fn matchSegments(segs: []const std.json.Value, index: usize, remaining: []const u8, wanted: []const u8, work_remaining: *usize) error{TemplateTooComplex}!?[]const u8 {
+    if (work_remaining.* == 0) return error.TemplateTooComplex;
+    work_remaining.* -= 1;
     if (index >= segs.len) return if (remaining.len == 0) "" else null;
     if (segs[index] != .object) return null;
     const segment = segs[index].object;
     if (segment.get("text")) |text| {
         if (text != .string or !std.mem.startsWith(u8, remaining, text.string)) return null;
-        return matchSegments(segs, index + 1, remaining[text.string.len..], wanted);
+        return matchSegments(segs, index + 1, remaining[text.string.len..], wanted, work_remaining);
     }
     const capture = segment.get("cap") orelse return null;
     if (capture != .string) return null;
@@ -373,12 +380,36 @@ fn matchSegments(segs: []const std.json.Value, index: usize, remaining: []const 
     while (end <= remaining.len) : (end += 1) {
         const raw = remaining[0..end];
         if (!captureAccepts(raw, segment)) continue;
-        if (matchSegments(segs, index + 1, remaining[end..], wanted)) |later| {
+        if (try matchSegments(segs, index + 1, remaining[end..], wanted, work_remaining)) |later| {
             if (std.mem.eql(u8, capture.string, wanted)) return raw;
             return later;
         }
     }
     return null;
+}
+
+test "template matching rejects excessive segments and work" {
+    var spec = std.ArrayList(u8).empty;
+    defer spec.deinit(std.testing.allocator);
+    try spec.appendSlice(std.testing.allocator, "{\"want\":\"x\",\"segs\":[");
+    for (0..max_template_segments + 1) |index| {
+        if (index != 0) try spec.append(std.testing.allocator, ',');
+        try spec.appendSlice(std.testing.allocator, "{\"text\":\"\"}");
+    }
+    try spec.appendSlice(std.testing.allocator, "]}");
+    try std.testing.expectError(
+        error.TemplateTooComplex,
+        extractCapture(std.testing.allocator, "", spec.items),
+    );
+
+    var parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, "{\"text\":\"\"}", .{});
+    defer parsed.deinit();
+    const segments = [_]std.json.Value{parsed.value};
+    var no_work: usize = 0;
+    try std.testing.expectError(
+        error.TemplateTooComplex,
+        matchSegments(&segments, 0, "", "", &no_work),
+    );
 }
 
 fn captureAccepts(raw: []const u8, segment: std.json.ObjectMap) bool {

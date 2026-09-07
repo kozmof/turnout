@@ -183,10 +183,29 @@ fn takeHandle() !u32 {
     return handle;
 }
 
-fn bytesAt(address: usize, len: u32) []const u8 {
+fn rangeFitsMemory(address: usize, len: u32, memory_len: u64) bool {
+    const start: u64 = address;
+    const end = std.math.add(u64, start, len) catch return false;
+    return start < memory_len and end <= memory_len;
+}
+
+fn bytesAt(address: usize, len: u32) ?[]const u8 {
     if (len == 0) return &.{};
+    if (address == 0) return null;
+    if (builtin.target.cpu.arch.isWasm()) {
+        const wasm_page_bytes: u64 = 64 * 1024;
+        const memory_len = @as(u64, @wasmMemorySize(0)) * wasm_page_bytes;
+        if (!rangeFitsMemory(address, len, memory_len)) return null;
+    }
     const pointer: [*]const u8 = @ptrFromInt(address);
     return pointer[0..len];
+}
+
+test "WASM input ranges reject overflow and out-of-bounds spans" {
+    try std.testing.expect(rangeFitsMemory(1, 1, 2));
+    try std.testing.expect(!rangeFitsMemory(2, 1, 2));
+    try std.testing.expect(!rangeFitsMemory(1, 2, 2));
+    try std.testing.expect(!rangeFitsMemory(std.math.maxInt(usize), 1, std.math.maxInt(u64)));
 }
 
 export fn turnout_abi_version() u32 {
@@ -339,7 +358,8 @@ fn computeResponse(bytes: []const u8) !Response {
 export fn turnout_compute_execute(address: usize, len: u32) usize {
     if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
     if (len > max_compute_request_bytes) return errorResponse(.invalid_input, "ComputeRequestTooLarge");
-    const response = computeResponse(bytesAt(address, len)) catch |err|
+    const request = bytesAt(address, len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
+    const response = computeResponse(request) catch |err|
         return if (err == error.OutOfMemory)
             errorResponse(.out_of_memory, @errorName(err))
         else
@@ -748,7 +768,8 @@ fn valueHasSubSymbol(input: value.Value, sub_symbol: []const u8) bool {
 export fn turnout_value_operate(address: usize, len: u32) usize {
     if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
     if (len > max_value_request_bytes) return errorResponse(.invalid_input, "ValueRequestTooLarge");
-    const response = valueResponse(bytesAt(address, len)) catch |err|
+    const request = bytesAt(address, len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
+    const response = valueResponse(request) catch |err|
         return if (err == error.OutOfMemory)
             errorResponse(.out_of_memory, @errorName(err))
         else
@@ -890,7 +911,8 @@ fn createFailure(err: anyerror) usize {
 
 export fn turnout_model_create(address: usize, len: u32) usize {
     if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
-    const handle = createModel(bytesAt(address, len)) catch |err| return createFailure(err);
+    const model_bytes = bytesAt(address, len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
+    const handle = createModel(model_bytes) catch |err| return createFailure(err);
     return jsonResponse(.ok, .{ .handle = handle });
 }
 
@@ -909,7 +931,8 @@ export fn turnout_runtime_create_with_model(model_handle: u32, request_address: 
     if (request_len > max_create_request_bytes) return errorResponse(.invalid_input, "InitialStateTooLarge");
     if (request_address == 0 or request_len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
     const entry = models.get(model_handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
-    const handle = createInstance(entry, bytesAt(request_address, request_len)) catch |err|
+    const request_bytes = bytesAt(request_address, request_len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
+    const handle = createInstance(entry, request_bytes) catch |err|
         return createFailure(err);
     return createdResponse(handle);
 }
@@ -921,11 +944,13 @@ export fn turnout_runtime_create(model_address: usize, model_len: u32, request_a
     if (request_len > max_create_request_bytes) return errorResponse(.invalid_input, "InitialStateTooLarge");
     if (model_address == 0 or model_len == 0 or request_address == 0 or request_len == 0)
         return errorResponse(.invalid_input, "InvalidBuffer");
-    const entry = ModelEntry.create(bytesAt(model_address, model_len)) catch |err| return createFailure(err);
+    const model_bytes = bytesAt(model_address, model_len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
+    const request_bytes = bytesAt(request_address, request_len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
+    const entry = ModelEntry.create(model_bytes) catch |err| return createFailure(err);
     // The instance takes its own reference; dropping this one leaves the model
     // owned solely by the runtime, which is the old behaviour.
     defer entry.release();
-    const handle = createInstance(entry, bytesAt(request_address, request_len)) catch |err|
+    const handle = createInstance(entry, request_bytes) catch |err|
         return createFailure(err);
     return createdResponse(handle);
 }
@@ -1185,7 +1210,8 @@ export fn turnout_runtime_resume(handle: u32, address: usize, len: u32) usize {
     const instance = instances.get(handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
     if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
     if (len > max_effect_result_bytes) return errorResponse(.invalid_input, "EffectResultTooLarge");
-    var decoded = parseEffectResult(bytesAt(address, len)) catch |err|
+    const effect_bytes = bytesAt(address, len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
+    var decoded = parseEffectResult(effect_bytes) catch |err|
         return if (err == error.OutOfMemory) errorResponse(.out_of_memory, @errorName(err)) else errorResponse(.invalid_input, @errorName(err));
     defer decoded.deinit();
     instance.driver.@"resume"(decoded.id, decoded.result) catch |err| return runtimeError(err);
