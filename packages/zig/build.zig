@@ -25,16 +25,22 @@ const TestBinary = struct {
 /// the size for about 14% less throughput, which is the right trade in one case
 /// and the wrong one in the other.
 ///
-/// Both are built without safety checks. `ReleaseSafe` costs about 6% against
-/// `ReleaseFast` and keeps bounds and overflow checks; switching either entry
-/// below is the whole change if that trade is preferred.
+/// The two builds differ on safety checks as well as size, and for the same
+/// reason they differ on everything else: the deployments want opposite things.
+///
+/// The server build is `ReleaseSafe`. It parses whatever a caller hands it, so
+/// it is the one place where an indexing or overflow bug becomes someone else's
+/// input rather than a local mistake, and it is also the deployment least
+/// bothered by the cost: about 6% against `ReleaseFast`, against no download at
+/// all. The browser build stays `ReleaseSmall`, where download size is part of
+/// startup and the module is driven by the page that shipped it.
 const DistArtifact = struct {
     name: []const u8,
     optimize: std.builtin.OptimizeMode,
 };
 
 const dist_artifacts = [_]DistArtifact{
-    .{ .name = "turnout-runtime", .optimize = .ReleaseFast },
+    .{ .name = "turnout-runtime", .optimize = .ReleaseSafe },
     .{ .name = "turnout-runtime.compact", .optimize = .ReleaseSmall },
 };
 

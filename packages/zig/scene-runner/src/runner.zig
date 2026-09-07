@@ -500,7 +500,12 @@ pub const ActionDriver = struct {
                     fail_on_publish_error,
                 );
                 errdefer outcomes.deinit(self.allocator);
-                const result = &(self.action_result orelse return error.ActionInProgress);
+                // `takeState` below moves the state out of the stored result, so
+                // this must point at `self.action_result` itself and not a copy
+                // of it; otherwise the move never clears the stored one and
+                // `beginAction` frees a state `self.state` now owns.
+                if (self.action_result == null) return error.ActionInProgress;
+                const result = &self.action_result.?;
                 var selection = try model.selectNextAfterAction(
                     self.scene_id,
                     self.action_id,

@@ -162,7 +162,10 @@ fn evalPipe(
     defer allocator.free(params);
     for (pipe.params, 0..) |source, index| {
         params[index] = switch (source) {
-            .binding => |binding| computed[binding].borrowed(),
+            .binding => |binding| if (binding < computed.len)
+                computed[binding].borrowed()
+            else
+                return error.MissingReference,
             .invalid => |err| return err,
             else => return error.InvalidArgument,
         };
@@ -207,7 +210,10 @@ fn evalCond(
 
 fn resolve(argument: ir.Arg, env: Env, allocator: std.mem.Allocator) Error!Slot {
     return switch (argument) {
-        .binding => |index| .{ .view = env.values[index].borrowed() },
+        .binding => |index| if (index < env.values.len)
+            .{ .view = env.values[index].borrowed() }
+        else
+            error.MissingReference,
         .param => |index| if (index < env.params.len)
             .{ .view = env.params[index] }
         else
@@ -313,5 +319,5 @@ test "tags propagate through borrowed reference arguments" {
     var result = try compute.executeJson(parsed.value, &inputs, testing.allocator);
     defer result.deinit(testing.allocator);
     try testing.expectEqual(@as(f64, 3), result.value.number);
-    try testing.expectEqualSlices([]const u8, &.{ "state", "hook" }, result.tags);
+    try value.expectTags(&.{ "state", "hook" }, result.tags);
 }

@@ -10,6 +10,15 @@ const value = @import("../value.zig");
 
 pub const max_graph_nodes: usize = 50_000;
 
+/// How deep `evalFunction` may nest. Separate from `max_graph_nodes`, which
+/// counts how much work a graph may do in total and says nothing about the
+/// shape of it: a chain of conditionals is a few thousand nodes and one
+/// recursion thousands of frames deep. The WASM build gets a 1 MiB stack, which
+/// runs out an order of magnitude before the node cap does, so without this the
+/// cap could never fire on a chain and the module trapped instead. Real
+/// authoring graphs are nowhere near this deep.
+pub const max_graph_depth: usize = 256;
+
 pub const Result = struct {
     values: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),
     root: value.OwnedTaggedValue,
@@ -29,6 +38,7 @@ const Executor = struct {
     visiting: std.StringHashMapUnmanaged(void) = .empty,
     evaluated: std.StringHashMapUnmanaged(void) = .empty,
     count: usize = 0,
+    depth: usize = 0,
 
     fn deinit(self: *Executor) void {
         self.visiting.deinit(self.allocator);
@@ -70,7 +80,10 @@ const Executor = struct {
         if (self.evaluated.contains(id)) return;
         if (self.visiting.contains(id)) return error.GraphCycle;
         if (self.count >= max_graph_nodes) return error.GraphTooLarge;
+        if (self.depth >= max_graph_depth) return error.GraphTooLarge;
         self.count += 1;
+        self.depth += 1;
+        defer self.depth -= 1;
         try self.visiting.put(self.allocator, id, {});
         defer _ = self.visiting.remove(id);
 

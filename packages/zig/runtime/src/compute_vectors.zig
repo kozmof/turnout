@@ -23,7 +23,7 @@ test "shared compute vectors" {
         }
         for (vector.inputs) |input| {
             var converted = try value.fromJson(allocator, input.value);
-            const tags = value.mergeTags(input.tags, &.{}, allocator) catch |err| {
+            const tags = value.cloneTags(input.tags, &.{}, allocator) catch |err| {
                 value.deinitValue(&converted, allocator);
                 return err;
             };

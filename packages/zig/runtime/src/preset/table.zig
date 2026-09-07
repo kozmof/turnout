@@ -253,8 +253,11 @@ fn Invoker(comptime impl: anytype, comptime tags: Tags) type {
                 // The kernel already owns its result; the tag policy still applies.
                 value.OwnedTaggedValue => blk: {
                     var owned = result;
-                    allocator.free(owned.tags);
-                    owned.tags = try value.mergeTags(merged, &.{}, allocator);
+                    // `merged` borrows from the arguments, and `owned` outlives
+                    // this call, so the replacement has to be a copy.
+                    const owned_tags = try value.cloneTags(merged, &.{}, allocator);
+                    value.deinitTags(owned.tags, allocator);
+                    owned.tags = owned_tags;
                     break :blk owned;
                 },
                 else => @compileError("preset kernel returns unsupported type " ++ @typeName(Result)),

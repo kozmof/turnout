@@ -38,6 +38,13 @@ pub const Value = union(enum) {
     }
 };
 
+/// A value and its tags.
+///
+/// Whether the tags are owned depends on where the value came from, and the two
+/// kinds are not interchangeable. Anything that will eventually reach
+/// `deinitTagged` must own its tags, which means it came from `build`,
+/// `cloneTagged`, or `fromCanonicalValue`. Anything produced by `mergeTags`
+/// borrows, and is a temporary view for handing to `build`.
 pub const TaggedValue = struct { value: Value, tags: []const []const u8 = &.{} };
 
 pub const OwnedTaggedValue = struct {
@@ -50,7 +57,7 @@ pub const OwnedTaggedValue = struct {
 
     pub fn deinit(self: *OwnedTaggedValue, allocator: std.mem.Allocator) void {
         deinitValue(&self.value, allocator);
-        allocator.free(self.tags);
+        deinitTags(self.tags, allocator);
         self.* = undefined;
     }
 };
@@ -89,9 +96,11 @@ pub fn hasTag(value: TaggedValue, wanted: []const u8) bool {
 }
 
 pub fn build(value: Value, tags: []const []const u8, allocator: std.mem.Allocator) !OwnedTaggedValue {
+    const owned_tags = try cloneTags(tags, &.{}, allocator);
+    errdefer deinitTags(owned_tags, allocator);
     return .{
         .value = try cloneValue(value, allocator),
-        .tags = try mergeTags(tags, &.{}, allocator),
+        .tags = owned_tags,
     };
 }
 
@@ -227,11 +236,18 @@ pub fn fromCanonicalValue(json: std.json.Value, allocator: std.mem.Allocator) Ca
     const raw = json.object.get("value") orelse return error.InvalidCanonicalValue;
     const raw_tags = json.object.get("tags") orelse return error.InvalidCanonicalValue;
     if (symbol != .string or raw_tags != .array) return error.InvalidCanonicalValue;
+    // Copied, not borrowed: the parse tree these came from is routinely
+    // released before the value built from it is.
     const tags = try allocator.alloc([]const u8, raw_tags.array.items.len);
-    errdefer allocator.free(tags);
+    var owned: usize = 0;
+    errdefer {
+        for (tags[0..owned]) |tag| allocator.free(tag);
+        allocator.free(tags);
+    }
     for (raw_tags.array.items, 0..) |tag, index| {
         if (tag != .string) return error.InvalidCanonicalValue;
-        tags[index] = tag.string;
+        tags[index] = try allocator.dupe(u8, tag.string);
+        owned += 1;
     }
     const metadata = if (std.mem.eql(u8, symbol.string, "array"))
         json.object.get("subSymbol")
@@ -463,15 +479,17 @@ pub fn deinitValue(self: *Value, allocator: std.mem.Allocator) void {
 }
 
 fn cloneTagged(tagged: TaggedValue, allocator: std.mem.Allocator) std.mem.Allocator.Error!TaggedValue {
+    const owned_tags = try cloneTags(tagged.tags, &.{}, allocator);
+    errdefer deinitTags(owned_tags, allocator);
     return .{
         .value = try cloneValue(tagged.value, allocator),
-        .tags = try mergeTags(tagged.tags, &.{}, allocator),
+        .tags = owned_tags,
     };
 }
 
 fn deinitTagged(tagged: *TaggedValue, allocator: std.mem.Allocator) void {
     deinitValue(&tagged.value, allocator);
-    allocator.free(tagged.tags);
+    deinitTags(tagged.tags, allocator);
     tagged.* = undefined;
 }
 
@@ -490,9 +508,17 @@ fn deinitRecord(record: *std.StringArrayHashMapUnmanaged(TaggedValue), allocator
 
 pub fn add(a: TaggedValue, b: TaggedValue, allocator: std.mem.Allocator) !TaggedValue {
     if (a.value != .number or b.value != .number) return error.TypeMismatch;
-    return .{ .value = .{ .number = a.value.number + b.value.number }, .tags = try mergeTags(a.tags, b.tags, allocator) };
+    return .{ .value = .{ .number = a.value.number + b.value.number }, .tags = try cloneTags(a.tags, b.tags, allocator) };
 }
 
+/// Merges two tag sets, first-seen order, dropping duplicates. The result slice
+/// is allocated but the tags inside it are **borrowed** from `a` and `b`, so it
+/// lives only as long as they do.
+///
+/// This is a temporary view, for computing a merged set to hand to `build`,
+/// which takes its own copy. Never store it on a value that will be released
+/// with `deinitTagged`; use `cloneTags` for that. Release it with
+/// `allocator.free`, not `deinitTags`.
 pub fn mergeTags(a: []const []const u8, b: []const []const u8, allocator: std.mem.Allocator) ![]const []const u8 {
     var result = std.ArrayList([]const u8).empty;
     defer result.deinit(allocator);
@@ -501,9 +527,58 @@ pub fn mergeTags(a: []const []const u8, b: []const []const u8, allocator: std.me
     return try result.toOwnedSlice(allocator);
 }
 
+/// Like `mergeTags`, but the result owns every tag string in it.
+///
+/// This is the ownership boundary for tags. Tags arrive borrowed — from a JSON
+/// parse tree, from a preset's static tag literals, from another value — and a
+/// value that outlives what it borrowed from would otherwise be reading freed
+/// memory. Copying here is what lets `cloneValue` be a genuinely deep clone
+/// rather than one that is deep for the value and shallow for its tags.
+///
+/// Release with `deinitTags`.
+pub fn cloneTags(
+    a: []const []const u8,
+    b: []const []const u8,
+    allocator: std.mem.Allocator,
+) ![]const []const u8 {
+    var result = std.ArrayList([]const u8).empty;
+    errdefer {
+        for (result.items) |tag| allocator.free(tag);
+        result.deinit(allocator);
+    }
+    for (a) |tag| try appendUniqueOwned(&result, allocator, tag);
+    for (b) |tag| try appendUniqueOwned(&result, allocator, tag);
+    return try result.toOwnedSlice(allocator);
+}
+
+/// Releases a tag set produced by `cloneTags`.
+pub fn deinitTags(tags: []const []const u8, allocator: std.mem.Allocator) void {
+    for (tags) |tag| allocator.free(tag);
+    allocator.free(tags);
+}
+
+/// Compares tag sets by content, for tests.
+///
+/// `std.testing.expectEqualSlices` compares `[]const u8` elements as slices,
+/// which means by pointer. On tags that reads as an equality check but is
+/// really an identity check: it passes only while the tags are borrowed from
+/// the literals being compared against, and says nothing about whether they
+/// name the same tags.
+pub fn expectTags(expected: []const []const u8, actual: []const []const u8) !void {
+    try std.testing.expectEqual(expected.len, actual.len);
+    for (expected, actual) |want, got| try std.testing.expectEqualStrings(want, got);
+}
+
 fn appendUnique(list: *std.ArrayList([]const u8), allocator: std.mem.Allocator, tag: []const u8) !void {
     for (list.items) |existing| if (std.mem.eql(u8, existing, tag)) return;
     try list.append(allocator, tag);
+}
+
+fn appendUniqueOwned(list: *std.ArrayList([]const u8), allocator: std.mem.Allocator, tag: []const u8) !void {
+    for (list.items) |existing| if (std.mem.eql(u8, existing, tag)) return;
+    const owned = try allocator.dupe(u8, tag);
+    errdefer allocator.free(owned);
+    try list.append(allocator, owned);
 }
 
 test "structural array equality ignores array element annotation" {
@@ -516,7 +591,7 @@ test "structural array equality ignores array element annotation" {
 test "tags merge in first-seen order" {
     const tags = try mergeTags(&.{ "random", "cached" }, &.{ "cached", "host" }, std.testing.allocator);
     defer std.testing.allocator.free(tags);
-    try std.testing.expectEqualSlices([]const u8, &.{ "random", "cached", "host" }, tags);
+    try expectTags(&.{ "random", "cached", "host" }, tags);
 }
 
 test "protobuf JSON Value converts recursively and preserves record order" {
@@ -544,7 +619,7 @@ test "owned builders clone data and deduplicate tags" {
     var built = try buildString("hello", &.{ "source", "source", "host" }, std.testing.allocator);
     defer built.deinit(std.testing.allocator);
     try std.testing.expectEqualStrings("hello", built.value.string);
-    try std.testing.expectEqualSlices([]const u8, &.{ "source", "host" }, built.tags);
+    try expectTags(&.{ "source", "host" }, built.tags);
     try std.testing.expect(!isPure(built.borrowed()));
     try std.testing.expect(hasTag(built.borrowed(), "host"));
 }
@@ -570,8 +645,30 @@ test "recursive clone preserves nested tags independently" {
     const source: Value = .{ .array = .{ .items = &children } };
     var cloned = try cloneValue(source, std.testing.allocator);
     defer deinitValue(&cloned, std.testing.allocator);
-    try std.testing.expectEqualSlices([]const u8, &.{"child"}, cloned.array.items[0].tags);
+    try expectTags(&.{"child"}, cloned.array.items[0].tags);
+    // Both the slice and the tag inside it are the clone's own. Checking only
+    // the slice would pass on a clone that still pointed at the original's tag
+    // strings, which is what a clone outliving its source would then read.
     try std.testing.expect(cloned.array.items[0].tags.ptr != children[0].tags.ptr);
+    try std.testing.expect(cloned.array.items[0].tags[0].ptr != children[0].tags[0].ptr);
+}
+
+test "a value outlives the JSON its tags came from" {
+    const allocator = std.testing.allocator;
+    const source = "{\"symbol\":\"number\",\"value\":1,\"tags\":[\"provenance\"]}";
+    var decoded = blk: {
+        const parsed = try std.json.parseFromSlice(std.json.Value, allocator, source, .{});
+        // The parse tree goes away here; the value built from it must not have
+        // kept a pointer into it.
+        defer parsed.deinit();
+        break :blk try fromCanonicalValue(parsed.value, allocator);
+    };
+    defer decoded.deinit(allocator);
+    try expectTags(&.{"provenance"}, decoded.tags);
+
+    var built = try build(decoded.value, decoded.tags, allocator);
+    defer built.deinit(allocator);
+    try expectTags(&.{"provenance"}, built.tags);
 }
 
 test "canonical JSON preserves nested values tags and record order" {

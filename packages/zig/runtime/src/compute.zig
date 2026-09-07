@@ -383,7 +383,7 @@ test "prepared inputs override value bindings and preserve tags" {
     var result = try loaded.executeWithInputs(&inputs, std.testing.allocator);
     defer result.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 10), result.value.number);
-    try std.testing.expectEqualSlices([]const u8, &.{"state"}, result.tags);
+    try value.expectTags(&.{"state"}, result.tags);
 }
 
 test "uninjected bindings without defaults fail during execution" {

@@ -380,8 +380,19 @@ const SchemaParser = struct {
     nodes: [128]SchemaNode = undefined,
     node_count: usize = 0,
     root_index: usize = 0,
+    /// Bounds `parse`'s recursion. The node pool already rejects a type with
+    /// more than `nodes.len` parts, but `add` only runs on the way back out of
+    /// the recursion, so `arr<` repeated far enough descended once per
+    /// character before any cap was consulted. A schema type arrives as one
+    /// flat JSON string, so no nesting guard upstream applies to it. Nesting
+    /// deeper than the pool can hold is unrepresentable either way; this
+    /// catches it on the way in instead.
+    depth: usize = 0,
 
     fn parse(self: *SchemaParser) StateError!usize {
+        if (self.depth == self.nodes.len) return error.UnknownSchemaType;
+        self.depth += 1;
+        defer self.depth -= 1;
         self.spaces();
         if (self.take("number")) return self.add(.number);
         if (self.take("str")) return self.add(.string);

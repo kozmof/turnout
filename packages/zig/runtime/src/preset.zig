@@ -166,7 +166,7 @@ test "numeric, boolean, string, and generic calls propagate tags" {
     var sum = try call("combineFnNumber::add", &.{ left, right }, allocator);
     defer sum.deinit(allocator);
     try std.testing.expectEqual(@as(f64, 13), sum.value.number);
-    try std.testing.expectEqualSlices([]const u8, &.{ "left", "right" }, sum.tags);
+    try value.expectTags(&.{ "left", "right" }, sum.tags);
 
     const null_a: value.TaggedValue = .{ .value = .{ .null_value = .missing } };
     const null_b: value.TaggedValue = .{ .value = .{ .null_value = .redacted } };
@@ -182,7 +182,7 @@ test "tagged array and record operations preserve child provenance" {
     const index: value.TaggedValue = .{ .value = .{ .number = 0 }, .tags = &.{"index"} };
     var got = try call("combineFnArray::getNumber", &.{ array, index }, allocator);
     defer got.deinit(allocator);
-    try std.testing.expectEqualSlices([]const u8, &.{ "item", "array", "index" }, got.tags);
+    try value.expectTags(&.{ "item", "array", "index" }, got.tags);
 
     var fields: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
     try fields.put(allocator, "score", .{ .value = .{ .number = 4 }, .tags = &.{"field"} });
@@ -191,7 +191,7 @@ test "tagged array and record operations preserve child provenance" {
     const key: value.TaggedValue = .{ .value = .{ .string = "score" }, .tags = &.{"key"} };
     var record_got = try call("combineFnRecord::getNumber", &.{ record, key }, allocator);
     defer record_got.deinit(allocator);
-    try std.testing.expectEqualSlices([]const u8, &.{ "field", "record", "key" }, record_got.tags);
+    try value.expectTags(&.{ "field", "record", "key" }, record_got.tags);
 }
 
 test "template extraction matches canonical typed captures" {
@@ -209,11 +209,11 @@ test "template extraction matches canonical typed captures" {
     var extracted = try call("combineFnString::extract", &.{ subject, descriptor }, allocator);
     defer extracted.deinit(allocator);
     try std.testing.expectEqualStrings("42", extracted.value.string);
-    try std.testing.expectEqualSlices([]const u8, &.{ "subject", "descriptor" }, extracted.tags);
+    try value.expectTags(&.{ "subject", "descriptor" }, extracted.tags);
     var number = try call("combineFnString::extractNum", &.{ subject, descriptor }, allocator);
     defer number.deinit(allocator);
     try std.testing.expectEqual(@as(f64, 42), number.value.number);
-    try std.testing.expectEqualSlices([]const u8, &.{"subject"}, number.tags);
+    try value.expectTags(&.{"subject"}, number.tags);
 }
 
 test "division, rounding, and UTF-16 length match JavaScript edges" {
@@ -230,19 +230,19 @@ test "string and boolean transforms preserve JavaScript values and tags" {
     var trimmed = try call("transformFnString::trim", &.{text}, allocator);
     defer trimmed.deinit(allocator);
     try std.testing.expectEqualStrings("😀 ok", trimmed.value.string);
-    try std.testing.expectEqualSlices([]const u8, &.{"text"}, trimmed.tags);
+    try value.expectTags(&.{"text"}, trimmed.tags);
 
     const emoji: value.TaggedValue = .{ .value = .{ .string = "😀" }, .tags = &.{"emoji"} };
     var length = try call("transformFnString::length", &.{emoji}, allocator);
     defer length.deinit(allocator);
     try std.testing.expectEqual(@as(f64, 2), length.value.number);
-    try std.testing.expectEqualSlices([]const u8, &.{"emoji"}, length.tags);
+    try value.expectTags(&.{"emoji"}, length.tags);
 
     const boolean: value.TaggedValue = .{ .value = .{ .boolean = false }, .tags = &.{"boolean"} };
     var string = try call("transformFnBoolean::toStr", &.{boolean}, allocator);
     defer string.deinit(allocator);
     try std.testing.expectEqualStrings("false", string.value.string);
-    try std.testing.expectEqualSlices([]const u8, &.{"boolean"}, string.tags);
+    try value.expectTags(&.{"boolean"}, string.tags);
 }
 
 test "string to number is strict and finite" {
@@ -251,7 +251,7 @@ test "string to number is strict and finite" {
     var number = try call("transformFnString::toNumber", &.{valid}, allocator);
     defer number.deinit(allocator);
     try std.testing.expectEqual(@as(f64, -125), number.value.number);
-    try std.testing.expectEqualSlices([]const u8, &.{"input"}, number.tags);
+    try value.expectTags(&.{"input"}, number.tags);
 
     const malformed: value.TaggedValue = .{ .value = .{ .string = "42abc" } };
     const empty: value.TaggedValue = .{ .value = .{ .string = "  " } };
@@ -276,7 +276,7 @@ test "number to string uses JavaScript notation boundaries" {
         var string = try call("transformFnNumber::toStr", &.{input}, allocator);
         defer string.deinit(allocator);
         try std.testing.expectEqualStrings(case.expected, string.value.string);
-        try std.testing.expectEqualSlices([]const u8, &.{"number"}, string.tags);
+        try value.expectTags(&.{"number"}, string.tags);
     }
 }
 
@@ -286,7 +286,7 @@ test "Unicode case conversion matches ECMAScript expansions and final sigma" {
     var upper = try call("transformFnString::toUpperCase", &.{upper_input}, allocator);
     defer upper.deinit(allocator);
     try std.testing.expectEqualStrings("STRASSE", upper.value.string);
-    try std.testing.expectEqualSlices([]const u8, &.{"text"}, upper.tags);
+    try value.expectTags(&.{"text"}, upper.tags);
 
     const dotted: value.TaggedValue = .{ .value = .{ .string = "İ" } };
     var lower = try call("transformFnString::toLowerCase", &.{dotted}, allocator);

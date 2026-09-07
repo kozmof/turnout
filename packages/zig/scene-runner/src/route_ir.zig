@@ -43,29 +43,75 @@ pub const Error = error{OutOfMemory};
 
 /// Lowers a route's `match` array. A malformed arm marks the whole route
 /// invalid rather than failing, so the error still surfaces at selection time.
+///
+/// Abandoning a partly-lowered match block releases what it built, so this is
+/// safe with any allocator. The one production caller still lowers into the
+/// model's arena, where the release is a no-op.
 pub fn lower(
     entry_scene_id: []const u8,
     match: std.json.Value,
     allocator: std.mem.Allocator,
 ) Error!Route {
-    const invalid: Route = .{ .entry_scene_id = entry_scene_id, .arms = &.{}, .invalid = true };
-    if (match != .array) return invalid;
+    return lowerArms(entry_scene_id, match, allocator) catch |err| switch (err) {
+        error.OutOfMemory => error.OutOfMemory,
+        error.InvalidMatch => .{ .entry_scene_id = entry_scene_id, .arms = &.{}, .invalid = true },
+    };
+}
+
+/// The lowering proper. A malformed arm raises `InvalidMatch` so that one
+/// `errdefer` covers every way out; `lower` turns that back into an invalid
+/// route.
+fn lowerArms(
+    entry_scene_id: []const u8,
+    match: std.json.Value,
+    allocator: std.mem.Allocator,
+) (Error || error{InvalidMatch})!Route {
+    if (match != .array) return error.InvalidMatch;
 
     const arms = try allocator.alloc(MatchArm, match.array.items.len);
+    var built: usize = 0;
+    errdefer {
+        freeArms(arms[0..built], allocator);
+        allocator.free(arms);
+    }
+
     for (match.array.items, 0..) |raw, index| {
-        if (raw != .object) return invalid;
-        const patterns = raw.object.get("patterns") orelse return invalid;
-        const target = raw.object.get("target") orelse return invalid;
-        if (patterns != .array or target != .string) return invalid;
+        if (raw != .object) return error.InvalidMatch;
+        const patterns = raw.object.get("patterns") orelse return error.InvalidMatch;
+        const target = raw.object.get("target") orelse return error.InvalidMatch;
+        if (patterns != .array or target != .string) return error.InvalidMatch;
 
         const lowered = try allocator.alloc(Pattern, patterns.array.items.len);
+        var slots: usize = 0;
+        errdefer {
+            freePatterns(lowered[0..slots], allocator);
+            allocator.free(lowered);
+        }
         for (patterns.array.items, 0..) |pattern, slot| {
-            if (pattern != .string) return invalid;
+            if (pattern != .string) return error.InvalidMatch;
             lowered[slot] = try lowerPattern(pattern.string, allocator);
+            slots += 1;
         }
         arms[index] = .{ .patterns = lowered, .target = target.string };
+        built += 1;
     }
     return .{ .entry_scene_id = entry_scene_id, .arms = arms };
+}
+
+fn freePatterns(patterns: []const Pattern, allocator: std.mem.Allocator) void {
+    for (patterns) |pattern| switch (pattern) {
+        .any => {},
+        // The action ids are borrowed from the pattern string; only the slice
+        // holding them was allocated here.
+        .scene => |scene| allocator.free(scene.actions),
+    };
+}
+
+fn freeArms(arms: []const MatchArm, allocator: std.mem.Allocator) void {
+    for (arms) |arm| {
+        freePatterns(arm.patterns, allocator);
+        allocator.free(arm.patterns);
+    }
 }
 
 fn lowerPattern(raw: []const u8, allocator: std.mem.Allocator) Error!Pattern {

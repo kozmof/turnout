@@ -4,6 +4,7 @@ import {
   instantiateZigRuntime,
   ZigAbiError,
   ZigRuntimeClient,
+  ZigTrapError,
   type ZigRuntimeExports,
 } from "./client.js";
 
@@ -276,5 +277,56 @@ describe("prepared models", () => {
     expect(exports.request).toEqual({ sceneId: "main" });
 
     expect(client.destroyModel(7).payload).toEqual({ destroyed: 7 });
+  });
+});
+
+describe("trapped instances", () => {
+  it("marks the client unusable and refuses every later call", () => {
+    const exports = new MockExports();
+    exports.turnout_runtime_step = () => {
+      throw new WebAssembly.RuntimeError("memory access out of bounds");
+    };
+    const client = new ZigRuntimeClient(exports as unknown as ZigRuntimeExports);
+    expect(client.usable).toBe(true);
+
+    expect(() => client.step(1)).toThrow(ZigTrapError);
+    expect(client.usable).toBe(false);
+
+    // Unrelated handles are gone with the instance, so nothing is retried
+    // against it — including calls that never touched the failing one.
+    expect(() => client.snapshot(2)).toThrow(ZigTrapError);
+    expect(() => client.value({ operation: "predicate" })).toThrow(ZigTrapError);
+  });
+
+  it("treats a stack overflow as a trap", () => {
+    const exports = new MockExports();
+    exports.turnout_value_operate = () => {
+      throw new RangeError("Maximum call stack size exceeded");
+    };
+    const client = new ZigRuntimeClient(exports as unknown as ZigRuntimeExports);
+
+    expect(() => client.value({ operation: "schemaMatches" })).toThrow(ZigTrapError);
+    expect(client.usable).toBe(false);
+  });
+
+  it("does not call back into a trapped instance to release its inputs", () => {
+    const exports = new MockExports();
+    exports.turnout_compute_execute = () => {
+      throw new WebAssembly.RuntimeError("unreachable");
+    };
+    const client = new ZigRuntimeClient(exports as unknown as ZigRuntimeExports);
+
+    expect(() => client.compute({ root: "out" })).toThrow(ZigTrapError);
+    // The input was allocated before the trap, and freeing it would mean
+    // entering a module whose allocator state is unknown.
+    expect(exports.freed).toEqual([]);
+  });
+
+  it("leaves ordinary ABI errors alone", () => {
+    const exports = new MockExports();
+    const client = new ZigRuntimeClient(exports as unknown as ZigRuntimeExports);
+
+    expect(() => client.create(new Uint8Array(), {})).toThrow(ZigAbiError);
+    expect(client.usable).toBe(true);
   });
 });

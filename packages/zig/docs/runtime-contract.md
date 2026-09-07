@@ -108,9 +108,17 @@ Responses are host-owned allocations with this 12-byte header.
 
 The total allocation length is `12 + payload length`. Read or copy the payload, then release the response with `turnout_free(address, total_length)`. Later runtime calls do not invalidate it. A nonempty payload contains one JSON value.
 
-Invalid model, STATE, and effect-result data returns a structured status. Defined limit failures do not trap.
+Invalid model, STATE, and effect-result data returns a structured status. Defined limit failures do not trap. Input that nests deeper than the runtime will walk — deeply nested JSON, a schema type such as `arr<arr<…>>`, a long chain of conditional functions — is rejected with a status rather than exhausting the stack.
 
-Raw memory addresses are the exception. Bounds-check addresses and lengths against exported WASM memory before calling the ABI. An out-of-bounds memory read traps before Zig can return a status. A mismatched allocation address or length is also a host contract violation.
+Raw memory addresses are the exception. Bounds-check addresses and lengths against exported WASM memory before calling the ABI. An out-of-bounds memory read traps before Zig can return a status.
+
+`turnout_free` accepts only an address the module handed out, from `turnout_alloc` or as a response address, and releases it at the length it was allocated with. The `length` argument is retained for compatibility and no longer trusted; passing a wrong one, or an address the module never returned, is ignored rather than corrupting the allocator. Releasing the same address twice is a no-op the second time.
+
+### After a trap
+
+A trap is not recoverable and is not a status. It unwinds the module without running the epilogues that restore the stack pointer and complete whatever the allocator was part way through, so an instance that has trapped once may trap again on entry to any later call, including `turnout_alloc`.
+
+A host must discard a trapped instance and instantiate a new module. Every handle held against the old instance dies with it. Do not call `turnout_free` on a trapped instance to clean up: it enters the same broken allocator, and the memory is released with the instance anyway.
 
 ### Lifecycle operations
 

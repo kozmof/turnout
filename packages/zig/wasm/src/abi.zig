@@ -36,10 +36,43 @@ pub const Response = struct {
     bytes: []u8,
 
     pub fn deinit(self: *Response) void {
+        _ = takeAllocation(@intFromPtr(self.bytes.ptr));
         allocator.free(self.bytes);
         self.* = undefined;
     }
 };
+
+/// Every block handed to the host, and the length it was allocated with.
+///
+/// `turnout_free` is given an address and a length by the host and passes both
+/// straight to the allocator. A length that does not match returns the block to
+/// the wrong size class and corrupts the allocator's bookkeeping; an address
+/// that never came from this module frees memory still in use. Neither is
+/// detectable from the pointer alone, and the ABI has no way to report either
+/// after the fact, so the module records what it handed out and refuses
+/// anything it does not recognise.
+///
+/// This is the boundary the rest of the runtime is built to avoid needing: it
+/// is the only place a pointer arrives from outside.
+var host_allocations: std.AutoHashMapUnmanaged(usize, usize) = .empty;
+
+/// Records a block as host-owned. Returns false if the record could not be
+/// kept, in which case the block must not be handed out.
+fn trackAllocation(bytes: []u8) bool {
+    host_allocations.put(allocator, @intFromPtr(bytes.ptr), bytes.len) catch return false;
+    return true;
+}
+
+/// Returns the length `address` was allocated with and forgets it, or null if
+/// this module never handed that address out.
+fn takeAllocation(address: usize) ?usize {
+    const removed = host_allocations.fetchRemove(address) orelse return null;
+    if (host_allocations.count() == 0) {
+        host_allocations.deinit(allocator);
+        host_allocations = .empty;
+    }
+    return removed.value;
+}
 
 const CreateRequest = struct {
     sceneId: ?[]const u8 = null,
@@ -163,13 +196,26 @@ export fn turnout_abi_version() u32 {
 export fn turnout_alloc(len: u32) usize {
     if (len == 0) return 0;
     const bytes = allocator.alloc(u8, len) catch return 0;
+    if (!trackAllocation(bytes)) {
+        allocator.free(bytes);
+        return 0;
+    }
     return @intFromPtr(bytes.ptr);
 }
 
+/// Releases a block previously returned by `turnout_alloc` or as a response
+/// address. An address this module did not hand out is ignored.
+///
+/// `len` is kept for ABI compatibility and no longer trusted: the recorded
+/// length is authoritative, because freeing with a wrong one is precisely what
+/// corrupts the allocator. A host that passes the documented
+/// `12 + payload length` is unaffected either way.
 export fn turnout_free(address: usize, len: u32) void {
-    if (address == 0 or len == 0) return;
+    _ = len;
+    if (address == 0) return;
+    const actual = takeAllocation(address) orelse return;
     const pointer: [*]u8 = @ptrFromInt(address);
-    allocator.free(pointer[0..len]);
+    allocator.free(pointer[0..actual]);
 }
 
 pub fn makeResponse(status: Status, payload: []const u8) error{OutOfMemory}!Response {
@@ -177,6 +223,10 @@ pub fn makeResponse(status: Status, payload: []const u8) error{OutOfMemory}!Resp
         return error.OutOfMemory;
     if (payload.len > std.math.maxInt(u32)) return error.OutOfMemory;
     const bytes = try allocator.alloc(u8, total);
+    // A response is released by the host with `turnout_free`, so it is
+    // host-owned from here and has to be recorded like any other block.
+    errdefer allocator.free(bytes);
+    if (!trackAllocation(bytes)) return error.OutOfMemory;
     std.mem.writeInt(u32, bytes[0..4], response_magic, .little);
     std.mem.writeInt(u16, bytes[4..6], abi_version, .little);
     std.mem.writeInt(u16, bytes[6..8], @intFromEnum(status), .little);
@@ -393,18 +443,19 @@ fn valueResponse(bytes: []const u8) !Response {
 
         // Batched form: infer every listed function against one context. Returns
         // types positionally so the host zips them back onto the ids it sent.
+        // One `Inference` covers the whole batch, so ids that share a subgraph
+        // — which is the common case, since that is why they arrive together —
+        // resolve it once between them.
         if (std.mem.eql(u8, query.string, "functions")) {
             const ids = parsed.value.object.get("ids") orelse return error.InvalidValueRequest;
             if (ids != .array) return error.InvalidValueRequest;
             const types = try allocator.alloc(?[]const u8, ids.array.items.len);
             defer allocator.free(types);
+            var inference: Inference = .{};
+            defer inference.deinit();
             for (ids.array.items, types) |item, *slot| {
                 if (item != .string) return error.InvalidValueRequest;
-                var visited_functions: std.StringHashMapUnmanaged(void) = .empty;
-                defer visited_functions.deinit(allocator);
-                var visited_pipes: std.StringHashMapUnmanaged(void) = .empty;
-                defer visited_pipes.deinit(allocator);
-                slot.* = try inferFunctionType(context, item.string, &visited_functions, &visited_pipes);
+                slot.* = try inference.functionType(context, item.string);
             }
             return jsonResponseValue(.{ .types = types });
         }
@@ -418,11 +469,9 @@ fn valueResponse(bytes: []const u8) !Response {
         else if (std.mem.eql(u8, query.string, "combine"))
             try inferCombineType(context, id.string)
         else if (std.mem.eql(u8, query.string, "function")) blk: {
-            var visited_functions: std.StringHashMapUnmanaged(void) = .empty;
-            defer visited_functions.deinit(allocator);
-            var visited_pipes: std.StringHashMapUnmanaged(void) = .empty;
-            defer visited_pipes.deinit(allocator);
-            break :blk try inferFunctionType(context, id.string, &visited_functions, &visited_pipes);
+            var inference: Inference = .{};
+            defer inference.deinit();
+            break :blk try inference.functionType(context, id.string);
         } else return error.InvalidValueRequest;
         return jsonResponseValue(.{ .type = inferred });
     }
@@ -438,13 +487,16 @@ fn valueResponse(bytes: []const u8) !Response {
         if (raw_sources != .array) return error.InvalidValueRequest;
         var decoded = try value.fromCanonicalValue(raw, allocator);
         defer decoded.deinit(allocator);
-        var tags = try value.mergeTags(decoded.tags, &.{}, allocator);
-        defer allocator.free(tags);
+        // The accumulator owns its tags. Each source is released at the end of
+        // its own iteration, so a merged view borrowing from one would be
+        // dangling by the time the next iteration read it.
+        var tags = try value.cloneTags(decoded.tags, &.{}, allocator);
+        defer value.deinitTags(tags, allocator);
         for (raw_sources.array.items) |source| {
             var parsed_source = try value.fromCanonicalValue(source, allocator);
             defer parsed_source.deinit(allocator);
-            const merged = try value.mergeTags(tags, parsed_source.tags, allocator);
-            allocator.free(tags);
+            const merged = try value.cloneTags(tags, parsed_source.tags, allocator);
+            value.deinitTags(tags, allocator);
             tags = merged;
         }
         break :blk try value.build(decoded.value, tags, allocator);
@@ -513,58 +565,125 @@ fn inferCombineType(context: std.json.Value, id: []const u8) !?[]const u8 {
     return preset.returnType(name.string, null);
 }
 
-fn inferFunctionType(
-    context: std.json.Value,
-    id: []const u8,
-    visited_functions: *std.StringHashMapUnmanaged(void),
-    visited_pipes: *std.StringHashMapUnmanaged(void),
-) !?[]const u8 {
-    if (visited_functions.contains(id)) return null;
-    try visited_functions.put(allocator, id, {});
-    defer _ = visited_functions.remove(id);
-    const functions = contextTable(context, "funcTable") orelse return null;
-    const entry = functions.get(id) orelse return null;
-    if (entry != .object) return null;
-    const kind = entry.object.get("kind") orelse return null;
-    const definition_id = entry.object.get("defId") orelse return null;
-    if (kind != .string or definition_id != .string) return null;
-    if (std.mem.eql(u8, kind.string, "combine")) return try inferCombineType(context, definition_id.string);
-    if (std.mem.eql(u8, kind.string, "pipe"))
-        return inferPipeType(context, definition_id.string, visited_pipes);
-    if (!std.mem.eql(u8, kind.string, "cond")) return null;
-    const definitions = contextTable(context, "condFuncDefTable") orelse return null;
-    const definition = definitions.get(definition_id.string) orelse return null;
-    if (definition != .object) return null;
-    const true_id = definition.object.get("trueBranchId") orelse return null;
-    const false_id = definition.object.get("falseBranchId") orelse return null;
-    if (true_id != .string or false_id != .string) return null;
-    const true_type = try inferFunctionType(context, true_id.string, visited_functions, visited_pipes) orelse return null;
-    const false_type = try inferFunctionType(context, false_id.string, visited_functions, visited_pipes) orelse return null;
-    return if (std.mem.eql(u8, true_type, false_type)) true_type else null;
-}
+/// How deep the function and pipe walks may nest before giving up. Memoizing
+/// bounds how much *work* an inference does; it does nothing about how many
+/// frames a single chain costs, and the WASM build has a 1 MiB stack.
+pub const max_inference_depth: usize = 256;
 
-fn inferPipeType(
-    context: std.json.Value,
-    id: []const u8,
-    visited: *std.StringHashMapUnmanaged(void),
-) !?[]const u8 {
-    if (visited.contains(id)) return null;
-    try visited.put(allocator, id, {});
-    defer _ = visited.remove(id);
-    const pipes = contextTable(context, "pipeFuncDefTable") orelse return null;
-    const definition = pipes.get(id) orelse return null;
-    if (definition != .object) return null;
-    const sequence = definition.object.get("sequence") orelse return null;
-    if (sequence != .array or sequence.array.items.len == 0) return null;
-    const last = sequence.array.items[sequence.array.items.len - 1];
-    if (last != .object) return null;
-    const definition_id = last.object.get("defId") orelse return null;
-    if (definition_id != .string) return null;
-    if (contextTable(context, "combineFuncDefTable")) |combines|
-        if (combines.contains(definition_id.string)) return try inferCombineType(context, definition_id.string);
-    if (pipes.contains(definition_id.string)) return inferPipeType(context, definition_id.string, visited);
-    return null;
-}
+/// The walks below are mutually recursive, so they name their error set rather
+/// than inferring one. Recording a memo or path entry is the only thing in them
+/// that can fail.
+const InferError = error{OutOfMemory};
+
+/// One request's worth of type inference over a graph context.
+///
+/// A `cond` function is typed by inferring both of its branches and comparing
+/// them. Walking that with nothing but a cycle check costs 2^n on a chain of
+/// conditionals, because every level infers a shared successor twice — a few
+/// kilobytes of input was enough to occupy the module for tens of seconds, and
+/// WASM offers the host no way to interrupt it. The memo below is what makes
+/// the walk linear; the path sets still exist, but only to cut cycles.
+///
+/// `graph_compute.Executor` splits the same two jobs the same way, for the same
+/// reason.
+const Inference = struct {
+    /// Answers already computed for this request, reused across every id in a
+    /// batch. Distinct from the path sets: entries live until the request ends.
+    function_memo: std.StringHashMapUnmanaged(?[]const u8) = .empty,
+    pipe_memo: std.StringHashMapUnmanaged(?[]const u8) = .empty,
+    /// What is on the current path, to cut cycles.
+    functions: std.StringHashMapUnmanaged(void) = .empty,
+    pipes: std.StringHashMapUnmanaged(void) = .empty,
+    depth: usize = 0,
+    /// Set when an answer came from cutting a cycle or hitting the depth cap
+    /// rather than from resolving the node. Such an answer depends on the path
+    /// that reached it, so it is returned but never memoized.
+    truncated: bool = false,
+
+    fn deinit(self: *Inference) void {
+        self.function_memo.deinit(allocator);
+        self.pipe_memo.deinit(allocator);
+        self.functions.deinit(allocator);
+        self.pipes.deinit(allocator);
+        self.* = undefined;
+    }
+
+    fn functionType(self: *Inference, context: std.json.Value, id: []const u8) InferError!?[]const u8 {
+        if (self.function_memo.get(id)) |cached| return cached;
+        if (self.functions.contains(id) or self.depth >= max_inference_depth) {
+            self.truncated = true;
+            return null;
+        }
+        try self.functions.put(allocator, id, {});
+        defer _ = self.functions.remove(id);
+        self.depth += 1;
+        defer self.depth -= 1;
+
+        const enclosing = self.truncated;
+        self.truncated = false;
+        const result = try self.resolveFunctionType(context, id);
+        if (!self.truncated) try self.function_memo.put(allocator, id, result);
+        self.truncated = self.truncated or enclosing;
+        return result;
+    }
+
+    fn resolveFunctionType(self: *Inference, context: std.json.Value, id: []const u8) InferError!?[]const u8 {
+        const functions = contextTable(context, "funcTable") orelse return null;
+        const entry = functions.get(id) orelse return null;
+        if (entry != .object) return null;
+        const kind = entry.object.get("kind") orelse return null;
+        const definition_id = entry.object.get("defId") orelse return null;
+        if (kind != .string or definition_id != .string) return null;
+        if (std.mem.eql(u8, kind.string, "combine")) return try inferCombineType(context, definition_id.string);
+        if (std.mem.eql(u8, kind.string, "pipe"))
+            return self.pipeType(context, definition_id.string);
+        if (!std.mem.eql(u8, kind.string, "cond")) return null;
+        const definitions = contextTable(context, "condFuncDefTable") orelse return null;
+        const definition = definitions.get(definition_id.string) orelse return null;
+        if (definition != .object) return null;
+        const true_id = definition.object.get("trueBranchId") orelse return null;
+        const false_id = definition.object.get("falseBranchId") orelse return null;
+        if (true_id != .string or false_id != .string) return null;
+        const true_type = try self.functionType(context, true_id.string) orelse return null;
+        const false_type = try self.functionType(context, false_id.string) orelse return null;
+        return if (std.mem.eql(u8, true_type, false_type)) true_type else null;
+    }
+
+    fn pipeType(self: *Inference, context: std.json.Value, id: []const u8) InferError!?[]const u8 {
+        if (self.pipe_memo.get(id)) |cached| return cached;
+        if (self.pipes.contains(id) or self.depth >= max_inference_depth) {
+            self.truncated = true;
+            return null;
+        }
+        try self.pipes.put(allocator, id, {});
+        defer _ = self.pipes.remove(id);
+        self.depth += 1;
+        defer self.depth -= 1;
+
+        const enclosing = self.truncated;
+        self.truncated = false;
+        const result = try self.resolvePipeType(context, id);
+        if (!self.truncated) try self.pipe_memo.put(allocator, id, result);
+        self.truncated = self.truncated or enclosing;
+        return result;
+    }
+
+    fn resolvePipeType(self: *Inference, context: std.json.Value, id: []const u8) InferError!?[]const u8 {
+        const pipes = contextTable(context, "pipeFuncDefTable") orelse return null;
+        const definition = pipes.get(id) orelse return null;
+        if (definition != .object) return null;
+        const sequence = definition.object.get("sequence") orelse return null;
+        if (sequence != .array or sequence.array.items.len == 0) return null;
+        const last = sequence.array.items[sequence.array.items.len - 1];
+        if (last != .object) return null;
+        const definition_id = last.object.get("defId") orelse return null;
+        if (definition_id != .string) return null;
+        if (contextTable(context, "combineFuncDefTable")) |combines|
+            if (combines.contains(definition_id.string)) return try inferCombineType(context, definition_id.string);
+        if (pipes.contains(definition_id.string)) return self.pipeType(context, definition_id.string);
+        return null;
+    }
+};
 
 fn jsonResponseValue(payload: anytype) !Response {
     var output: std.Io.Writer.Allocating = .init(allocator);
@@ -666,6 +785,12 @@ fn deinitInitialValues(values: *std.StringArrayHashMapUnmanaged(value.TaggedValu
     values.deinit(allocator);
 }
 
+/// Bounds how deeply the ABI's own walks will recurse over a request.
+///
+/// Like `model.validateNesting`, this runs after parsing and so bounds the
+/// recursion that follows rather than the parse itself. `std.json` does not
+/// recurse on the machine stack to build or to free a `Value`, so the parse
+/// does not need bounding; see that function for the detail.
 fn validateInputNesting(json: std.json.Value, depth: usize) !void {
     if (depth > max_input_nesting) return error.InputTooDeep;
     switch (json) {
@@ -703,24 +828,35 @@ fn createInstance(model_entry: *ModelEntry, request_bytes: []const u8) !u32 {
     defer initial_state.deinit(allocator);
     const entry_id = try allocator.dupe(u8, entry);
     errdefer allocator.free(entry_id);
+
+    // Each resource is taken into a local with its own errdefer, so that
+    // failing part way through releases exactly what was already taken.
+    // Acquiring inside the struct initializer instead would strand anything
+    // taken before a failing field: the errdefer covering it cannot be
+    // registered until the whole initializer has run, and a driver that fails
+    // to start (an entry id naming no scene, say) is an ordinary rejection.
+    const model_reference = model_entry.acquire();
+    errdefer model_reference.release();
+
+    var driver: Driver = if (request.value.sceneId != null)
+        .{ .scene = try runtime.SceneDriver.initWithLimit(allocator, model, entry_id, &initial_state, request.value.maxSceneSteps) }
+    else
+        .{ .route = try runtime.RouteDriver.init(allocator, model, entry_id, &initial_state, request.value.maxSceneSteps, request.value.maxRouteTransitions) };
+    errdefer driver.deinit();
+
+    const handle = try takeHandle();
+
     const instance = try allocator.create(Instance);
     errdefer allocator.destroy(instance);
     instance.* = .{
         .request = request,
-        .model = model_entry.acquire(),
-        .driver = if (request.value.sceneId != null)
-            .{ .scene = try runtime.SceneDriver.initWithLimit(allocator, model, entry_id, &initial_state, request.value.maxSceneSteps) }
-        else
-            .{ .route = try runtime.RouteDriver.init(allocator, model, entry_id, &initial_state, request.value.maxSceneSteps, request.value.maxRouteTransitions) },
+        .model = model_reference,
+        .driver = driver,
         .entry_id = entry_id,
         .fail_on_publish_error = request.value.failOnPublishError,
     };
-    errdefer instance.model.release();
-    const handle = try takeHandle();
-    instances.put(allocator, handle, instance) catch |err| {
-        instance.driver.deinit();
-        return err;
-    };
+
+    try instances.put(allocator, handle, instance);
     request_transferred = true;
     return handle;
 }
@@ -942,6 +1078,39 @@ test "WASM ABI allocation round trips bytes" {
     try std.testing.expectEqualSlices(u8, &.{ 1, 2, 3, 4 }, bytes);
     turnout_free(address, 4);
     turnout_free(0, 0);
+}
+
+test "WASM ABI refuses frees it did not hand out" {
+    const address = turnout_alloc(8);
+    try std.testing.expect(address != 0);
+    try std.testing.expectEqual(@as(?usize, 8), host_allocations.get(address));
+
+    // An address the module never returned is ignored rather than passed to
+    // the allocator. Both of these would corrupt the heap if trusted.
+    turnout_free(address + 1, 8);
+    turnout_free(0xdead_0000, 8);
+    try std.testing.expectEqual(@as(?usize, 8), host_allocations.get(address));
+
+    // A wrong length does not reach the allocator either: the recorded one
+    // wins, so this releases all 8 bytes and not 3.
+    turnout_free(address, 3);
+    try std.testing.expectEqual(@as(?usize, null), host_allocations.get(address));
+
+    // Releasing twice is a no-op the second time rather than a double free.
+    turnout_free(address, 8);
+}
+
+test "WASM ABI tracks a response until the host releases it" {
+    const request = "{\"operation\":\"statePathValid\",\"path\":\"player.name\"}";
+    const address = turnout_value_operate(@intFromPtr(request.ptr), request.len);
+    try std.testing.expect(address != 0);
+
+    const payload_length = std.mem.readInt(u32, @as(*const [4]u8, @ptrFromInt(address + 8)), .little);
+    const total = response_header_len + payload_length;
+    try std.testing.expectEqual(@as(?usize, total), host_allocations.get(address));
+
+    turnout_free(address, @intCast(total));
+    try std.testing.expectEqual(@as(?usize, null), host_allocations.get(address));
 }
 
 const DecodedEffectResult = struct {

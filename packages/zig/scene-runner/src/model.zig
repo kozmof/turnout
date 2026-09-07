@@ -671,6 +671,15 @@ fn validateModelCompute(model_compute: std.json.Value, output_field: []const u8,
     };
 }
 
+/// Bounds how deeply the runtime's own walks will recurse over a model.
+///
+/// It runs on the already-parsed tree, so it does not and cannot bound the
+/// parse. It does not need to: `std.json` keeps its nesting state in a heap
+/// `BitStack` rather than on the machine stack, and `Parsed` releases through
+/// an arena, so neither parsing nor freeing a deeply nested document recurses.
+/// A document nesting a million levels deep is rejected here rather than
+/// overflowing the stack on the way in — verified against the WASM build, which
+/// has only a 1 MiB stack. Revisit if that std behaviour ever changes.
 fn validateNesting(value: std.json.Value, depth: usize, maximum: usize) ValidationError!void {
     if (depth > maximum) return error.ModelTooDeep;
     switch (value) {
@@ -1047,7 +1056,7 @@ test "runtime model executes action compute and handles absent compute" {
     var computed = try model.executeActionCompute("scene", "computed", &inputs, std.testing.allocator);
     defer computed.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 5), computed.value.number);
-    try std.testing.expectEqualSlices([]const u8, &.{"prepared"}, computed.tags);
+    try turnout_value.expectTags(&.{"prepared"}, computed.tags);
     var noop = try model.executeActionCompute("scene", "noop", &inputs, std.testing.allocator);
     defer noop.deinit(std.testing.allocator);
     try std.testing.expectEqual(turnout_value.NullReason.missing, noop.value.null_value);

@@ -68,10 +68,40 @@ export class ZigAbiError extends Error {
   }
 }
 
+/**
+ * Thrown when the WASM instance trapped, and for every call made afterwards.
+ *
+ * A trap unwinds the module without running the epilogues that restore its
+ * stack pointer and finish whatever the allocator was in the middle of, so an
+ * instance that has trapped once cannot be relied on again — later calls may
+ * trap on entry, or return nonsense. There is no way to reset it from outside.
+ *
+ * Recovery is to build a new client with {@link instantiateZigRuntime}. Any
+ * runtime or model handle held against the old instance is gone with it.
+ */
+export class ZigTrapError extends Error {
+  constructor(message: string, options?: { cause?: unknown }) {
+    super(message, options);
+    this.name = "ZigTrapError";
+  }
+}
+
+/**
+ * Whether an error thrown out of a WASM call means the instance trapped.
+ *
+ * `WebAssembly.RuntimeError` covers an out-of-bounds access or an explicit
+ * trap. A stack overflow inside the module surfaces as a plain `RangeError`
+ * instead, because it is the engine's own call-depth limit that fires.
+ */
+function isTrap(error: unknown): boolean {
+  return error instanceof WebAssembly.RuntimeError || error instanceof RangeError;
+}
+
 export class ZigRuntimeClient {
   readonly #exports: ZigRuntimeExports;
   readonly #encoder = new TextEncoder();
   readonly #decoder = new TextDecoder("utf-8", { fatal: true });
+  #trapped: unknown;
 
   constructor(exports: ZigRuntimeExports) {
     if (exports.turnout_abi_version() !== ABI_VERSION) {
@@ -80,16 +110,51 @@ export class ZigRuntimeClient {
     this.#exports = exports;
   }
 
+  /**
+   * Whether this client can still be used. False once the instance has
+   * trapped, from which there is no recovery but a new instance.
+   */
+  get usable(): boolean {
+    return this.#trapped === undefined;
+  }
+
+  /**
+   * Runs one call into the module, refusing to enter an instance that has
+   * already trapped and recording it if this call is the one that traps.
+   *
+   * The flag has to be set here rather than in a caller's `catch`, because the
+   * `finally` blocks that release inputs and responses run while the throw is
+   * still unwinding — and they must not call back into a trapped instance.
+   */
+  #invoke<T>(operation: () => T): T {
+    if (this.#trapped !== undefined) {
+      throw new ZigTrapError("Zig runtime instance trapped earlier and cannot be reused", {
+        cause: this.#trapped,
+      });
+    }
+    try {
+      return operation();
+    } catch (error) {
+      if (!isTrap(error)) throw error;
+      this.#trapped = error;
+      throw new ZigTrapError("Zig runtime trapped; discard this instance and build a new one", {
+        cause: error,
+      });
+    }
+  }
+
   create(model: Uint8Array, request: unknown): ZigResponse<CreatedRuntime> {
     return this.#withInputs([model, this.#encode(request)], ([modelInput, requestInput]) => {
       if (modelInput === undefined || requestInput === undefined)
         throw new ZigAbiError("missing ABI input");
       return this.#readResponse(
-        this.#exports.turnout_runtime_create(
-          modelInput.address,
-          modelInput.length,
-          requestInput.address,
-          requestInput.length,
+        this.#invoke(() =>
+          this.#exports.turnout_runtime_create(
+            modelInput.address,
+            modelInput.length,
+            requestInput.address,
+            requestInput.length,
+          ),
         ),
       );
     });
@@ -105,7 +170,9 @@ export class ZigRuntimeClient {
   prepareModel(model: Uint8Array): ZigResponse<PreparedModel> {
     return this.#withInputs([model], ([input]) => {
       if (input === undefined) throw new ZigAbiError("missing ABI input");
-      return this.#readResponse(this.#exports.turnout_model_create(input.address, input.length));
+      return this.#readResponse(
+        this.#invoke(() => this.#exports.turnout_model_create(input.address, input.length)),
+      );
     });
   }
 
@@ -114,7 +181,7 @@ export class ZigRuntimeClient {
    * until they are destroyed.
    */
   destroyModel(handle: number): ZigResponse<{ destroyed: number }> {
-    return this.#readResponse(this.#exports.turnout_model_destroy(handle));
+    return this.#readResponse(this.#invoke(() => this.#exports.turnout_model_destroy(handle)));
   }
 
   /** Create a runtime against a model already prepared by {@link prepareModel}. */
@@ -122,10 +189,12 @@ export class ZigRuntimeClient {
     return this.#withInputs([this.#encode(request)], ([requestInput]) => {
       if (requestInput === undefined) throw new ZigAbiError("missing ABI input");
       return this.#readResponse(
-        this.#exports.turnout_runtime_create_with_model(
-          modelHandle,
-          requestInput.address,
-          requestInput.length,
+        this.#invoke(() =>
+          this.#exports.turnout_runtime_create_with_model(
+            modelHandle,
+            requestInput.address,
+            requestInput.length,
+          ),
         ),
       );
     });
@@ -138,36 +207,59 @@ export class ZigRuntimeClient {
   compute<T = unknown>(request: unknown): ZigResponse<T> {
     return this.#withInputs([this.#encode(request)], ([input]) => {
       if (input === undefined) throw new ZigAbiError("missing ABI input");
-      return this.#readResponse(this.#exports.turnout_compute_execute(input.address, input.length));
+      return this.#readResponse(
+        this.#invoke(() => this.#exports.turnout_compute_execute(input.address, input.length)),
+      );
     });
   }
 
   value<T = unknown>(request: unknown): ZigResponse<T> {
     return this.#withInputs([this.#encode(request)], ([input]) => {
       if (input === undefined) throw new ZigAbiError("missing ABI input");
-      return this.#readResponse(this.#exports.turnout_value_operate(input.address, input.length));
+      return this.#readResponse(
+        this.#invoke(() => this.#exports.turnout_value_operate(input.address, input.length)),
+      );
     });
   }
 
   destroy(handle: number): ZigResponse<{ destroyed: number }> {
-    return this.#readResponse(this.#exports.turnout_runtime_destroy(handle));
+    return this.#readResponse(this.#invoke(() => this.#exports.turnout_runtime_destroy(handle)));
   }
 
   step<T = unknown>(handle: number): ZigResponse<T> {
-    return this.#readResponse(this.#exports.turnout_runtime_step(handle));
+    return this.#readResponse(this.#invoke(() => this.#exports.turnout_runtime_step(handle)));
   }
 
   snapshot<T = unknown>(handle: number): ZigResponse<{ state: T; done: boolean }> {
-    return this.#readResponse(this.#exports.turnout_runtime_snapshot(handle));
+    return this.#readResponse(this.#invoke(() => this.#exports.turnout_runtime_snapshot(handle)));
   }
 
   resume(handle: number, result: unknown): ZigResponse<{ resumed: number }> {
     return this.#withInputs([this.#encode(result)], ([input]) => {
       if (input === undefined) throw new ZigAbiError("missing ABI input");
       return this.#readResponse(
-        this.#exports.turnout_runtime_resume(handle, input.address, input.length),
+        this.#invoke(() =>
+          this.#exports.turnout_runtime_resume(handle, input.address, input.length),
+        ),
       );
     });
+  }
+
+  /**
+   * Releases a block handed out by the module.
+   *
+   * Called from `finally`, so it must neither throw over an error already
+   * unwinding nor call into an instance whose allocator state is unknown. A
+   * trapped instance is about to be discarded whole, so skipping the free
+   * leaks nothing that outlives it.
+   */
+  #release(address: number, length: number): void {
+    if (this.#trapped !== undefined) return;
+    try {
+      this.#exports.turnout_free(address, length);
+    } catch (error) {
+      if (isTrap(error)) this.#trapped = error;
+    }
   }
 
   #encode(value: unknown): Uint8Array {
@@ -182,14 +274,14 @@ export class ZigRuntimeClient {
     try {
       for (const value of values) {
         if (value.length === 0) throw new ZigAbiError("empty ABI input");
-        const address = this.#exports.turnout_alloc(value.length);
+        const address = this.#invoke(() => this.#exports.turnout_alloc(value.length));
         if (address === 0) throw new ZigAbiError("Zig input allocation failed");
         inputs.push({ address, length: value.length });
         this.#memoryBytes(address, value.length).set(value);
       }
       return operation(inputs);
     } finally {
-      for (const input of inputs) this.#exports.turnout_free(input.address, input.length);
+      for (const input of inputs) this.#release(input.address, input.length);
     }
   }
 
@@ -213,7 +305,7 @@ export class ZigRuntimeClient {
       const payload = JSON.parse(this.#decoder.decode(payloadBytes)) as T;
       return { status, payload };
     } finally {
-      this.#exports.turnout_free(address, totalLength);
+      this.#release(address, totalLength);
     }
   }
 
