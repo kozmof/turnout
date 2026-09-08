@@ -1,7 +1,9 @@
-# A route cannot say where it ends
+# Explicit route completion
 
-> Status: option A done 2026-09-05; option C open and still recommended
+> Status: implemented 2026-09-08 with `.` as the explicit terminal target
 > Origin: writing `spec/examples/03-warehouse-route.tu`
+The implementation uses `_ -> .`. The remaining discussion records the decision history.
+
 
 ## Progress
 
@@ -31,7 +33,7 @@ const nextSceneId = selectNextScene(sceneHistory, parsedArms, progress.currentSc
 if (nextSceneId === null) break; // No arm matched — route completes.
 ```
 
-The gap is the implication, which is written down nowhere. A `match` block containing `_` can never complete. A catchall is always eligible (`route-pattern.ts:149` filters scene-specific patterns to the just-terminated scene and does not filter `_` at all), so `selectNextScene` never returns null, the loop never breaks, and the route runs until `maxRouteTransitions` and throws `MaxRouteTransitionsExceeded`.
+Before the explicit terminal landed, a `match` block containing `_` could not complete. A catchall was always eligible, so `selectNextScene` never returned null. The loop ran until `maxRouteTransitions` and threw `MaxRouteTransitionsExceeded`.
 
 So route termination is expressed by absence. There is no way to write "this is where the route ends". You say it by leaving a scene unmatched, which is invisible at the point where a reader is looking for it.
 

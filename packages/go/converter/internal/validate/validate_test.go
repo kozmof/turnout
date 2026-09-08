@@ -822,6 +822,16 @@ func TestRouteValidNoErrors(t *testing.T) {
 	}
 }
 
+func TestRouteTerminalTargetIsValid(t *testing.T) {
+	src := routeSrc(`    _ -> .`)
+	ds := pipeline(src)
+	if ds.HasErrors() {
+		for _, d := range ds {
+			t.Errorf("unexpected error: %s", d.Format())
+		}
+	}
+}
+
 func TestWildcardTerminalUnresolvable(t *testing.T) {
 	t.Run("unknown_terminal_emits_warning", func(t *testing.T) {
 		src := routeSrc(`    scene_1.*.no_such_action -> scene_1`)

@@ -4,9 +4,8 @@ import { RouteRuntimeError } from "../src/errors.js";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
 /**
- * Route completion is expressed by absence: a route ends when no match arm
- * matches. These tests pin both sides of that, including the consequence that
- * is easy to write by accident.
+ * A route completes when no arm matches or when the selected arm targets `.`.
+ * These tests also pin the transition limit for a catchall that targets a scene.
  *
  * See `spec/scene-to-scene.md` §3.2 and §5, and `todo/route-completion.md`.
  */
@@ -43,11 +42,9 @@ describe("route completion", () => {
     ).toEqual(["work", "closed"]);
   });
 
-  it("cannot complete once a catchall arm is declared", async () => {
-    // `_` always matches, so the route re-enters `closed` forever and can only
-    // exit by exhausting its transition budget. This is the documented
-    // consequence of completion having no spelling of its own; a route meant to
-    // end must leave its final scene unmatched instead.
+  it("does not complete when a catchall targets a scene", async () => {
+    // `_` always matches, so this form re-enters `closed` until it reaches
+    // the transition limit.
     await expect(
       createRunner(
         routeModel([
@@ -57,6 +54,21 @@ describe("route completion", () => {
         options,
       ).run(),
     ).rejects.toThrow(RouteRuntimeError);
+  });
+
+  it("completes when a catchall targets the explicit terminal", async () => {
+    const result = await createRunner(
+      routeModel([
+        { patterns: ["work.a"], target: "closed" },
+        { patterns: ["_"], target: "." },
+      ]),
+      options,
+    ).run();
+
+    expect(result.trace.kind).toBe("route");
+    expect(
+      result.trace.kind === "route" && result.trace.route.scenes.map((scene) => scene.sceneId),
+    ).toEqual(["work", "closed"]);
   });
 
   it("reports the transition cap rather than completing", async () => {

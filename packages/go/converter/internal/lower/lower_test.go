@@ -713,6 +713,19 @@ route "route_1" {
 	}
 }
 
+func TestLowerRouteTerminalTarget(t *testing.T) {
+	tm := mustLower(t, `state { ns { v:number = 0 } }
+scene "scene_1" {
+  entry_action = a
+  action "a" { compute "p" { v:bool := true } }
+}
+route "route_1" { entry = scene_1 to { _ -> . } }
+`)
+	if got := tm.Routes[0].Match[0].Target; got != "." {
+		t.Fatalf("terminal target = %q, want dot sentinel", got)
+	}
+}
+
 // ─── publish lowering ─────────────────────────────────────────────────────────
 
 func TestLowerPublishBlock(t *testing.T) {

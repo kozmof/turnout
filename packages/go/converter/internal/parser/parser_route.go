@@ -95,7 +95,12 @@ func (p *parser) parseMatchArm() *ast.MatchArm {
 	}
 
 	p.expect(lexer.TokArrow) // ->
-	arm.Target = p.parseRefVal()
+	if p.peek().Kind == lexer.TokDot {
+		p.advance()
+		arm.Target = ast.RouteTerminalTarget
+	} else {
+		arm.Target = p.parseRefVal()
+	}
 
 	// optional trailing comma
 	if p.peek().Kind == lexer.TokComma {

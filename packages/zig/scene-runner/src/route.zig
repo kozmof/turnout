@@ -360,6 +360,22 @@ test "route pattern priority matches exact wildcard and catchall" {
     try std.testing.expectEqualStrings("wild", (try selectNextScene(&many, &route, "s1")).?);
 }
 
+test "an explicit terminal arm selects route completion" {
+    const allocator = std.testing.allocator;
+    const parsed = try std.json.parseFromSlice(
+        std.json.Value,
+        allocator,
+        "[{\"patterns\":[\"_\"],\"target\":\".\"}]",
+        .{},
+    );
+    defer parsed.deinit();
+    var arena: std.heap.ArenaAllocator = .init(allocator);
+    defer arena.deinit();
+    const route = try route_ir.lower("s1", parsed.value, arena.allocator());
+    const history = [_]HistoryEntry{.{ .scene_id = "s1", .action_id = "done" }};
+    try std.testing.expect((try selectNextScene(&history, &route, "s1")) == null);
+}
+
 test "route executes scene transitions and shares state" {
     const fixture =
         \\{"version":2,

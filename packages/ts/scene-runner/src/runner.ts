@@ -179,7 +179,7 @@ function encodeZigRuntimeModel(model: TurnModel): Uint8Array {
 }
 
 function runtimeProjection(input: unknown): Record<string, unknown> {
-  const root = JSON.parse(JSON.stringify(input)) as Record<string, unknown>;
+  const root = structuredClone(input) as Record<string, unknown>;
   delete root.annotations;
   for (const declaration of arrayRecords(root.typeDecls)) delete declaration.sourcePos;
   for (const scene of arrayRecords(root.scenes)) {

@@ -28,7 +28,8 @@ pub const Pattern = union(enum) {
 
 pub const MatchArm = struct {
     patterns: []const Pattern,
-    target: []const u8,
+    /// Null is the explicit terminal target, encoded as `.` on the wire.
+    target: ?[]const u8,
 };
 
 pub const Route = struct {
@@ -92,7 +93,10 @@ fn lowerArms(
             lowered[slot] = try lowerPattern(pattern.string, allocator);
             slots += 1;
         }
-        arms[index] = .{ .patterns = lowered, .target = target.string };
+        arms[index] = .{
+            .patterns = lowered,
+            .target = if (std.mem.eql(u8, target.string, ".")) null else target.string,
+        };
         built += 1;
     }
     return .{ .entry_scene_id = entry_scene_id, .arms = arms };

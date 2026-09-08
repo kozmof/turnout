@@ -3,6 +3,7 @@ package validate
 import (
 	"strings"
 
+	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/emit/turnoutpb"
 )
@@ -33,7 +34,7 @@ func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownAc
 	}
 	fallbackCount := 0
 	for i, arm := range r.Match {
-		if arm.Target != "" && !knownScenes[arm.Target] {
+		if arm.Target != "" && arm.Target != ast.RouteTerminalTarget && !knownScenes[arm.Target] {
 			ds.Append(diag.Errorf(diag.CodeUnresolvedScene,
 				"route %q arm %d: target scene %q is not defined", r.Id, i, arm.Target))
 		}

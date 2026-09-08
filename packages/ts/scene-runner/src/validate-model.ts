@@ -1,5 +1,7 @@
 import type { TurnModel, ProgModel, BindingModel } from "./types/turnout-model_pb.js";
 
+const TERMINAL_ROUTE_TARGET = ".";
+
 /**
  * Validate the structural invariants of a TurnModel that cannot be caught by
  * the proto parser (which only checks field types, not semantic constraints).
@@ -37,7 +39,7 @@ export function validateModel(model: TurnModel): string[] {
       errors.push(`route "${route.id}" entry scene "${route.entrySceneId}" is not in the model`);
     }
     for (const arm of route.match ?? []) {
-      if (!sceneIds.has(arm.target)) {
+      if (arm.target !== TERMINAL_ROUTE_TARGET && !sceneIds.has(arm.target)) {
         errors.push(`route "${route.id}" match target "${arm.target}" is not in the model`);
       }
     }

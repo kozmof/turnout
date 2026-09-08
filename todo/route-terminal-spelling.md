@@ -1,7 +1,9 @@
 # Where a route says it ends
 
-> Status: decision needed — this is the only thing blocking option C of `route-completion.md`
+> Status: implemented 2026-09-08 with the punctuation form `_ -> .`
 > Origin: choosing the next piece of work after option A landed, 2026-09-05
+The punctuation recommendation below is now implemented. The remaining discussion records the decision history.
+
 
 ## The decision
 

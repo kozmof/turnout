@@ -1,5 +1,9 @@
 package ast
 
+// RouteTerminalTarget is the wire sentinel emitted for the DSL target `.`.
+// A dot cannot collide with a scene identifier.
+const RouteTerminalTarget = "."
+
 // ────────────────────────────────────────────────────────────
 // Route / Match
 // ────────────────────────────────────────────────────────────
@@ -22,7 +26,7 @@ type MatchBlock struct {
 type MatchArm struct {
 	Pos      Pos
 	Branches []*PathExpr // one or more branches joined with |
-	Target   string      // scene_id target
+	Target   string      // scene_id target, or RouteTerminalTarget
 }
 
 // PathExpr is one path-form in a match arm.
