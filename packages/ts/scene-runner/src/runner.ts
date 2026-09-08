@@ -1,4 +1,4 @@
-import { toJson } from "@bufbuild/protobuf";
+import { fromJson, toJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel, RouteModel, SceneBlock } from "./types/turnout-model_pb.js";
 import { TurnModelSchema } from "./types/turnout-model_pb.js";
 import type {
@@ -57,7 +57,7 @@ export function createSceneRunner(
     assertUncheckedStateAllowed(options, detail);
     warnUncheckedState(options, detail);
   }
-  const model = { version: 2, scenes: [scene], routes: [] } as unknown as TurnModel;
+  const model = syntheticModel([scene], []);
   return createZigSceneRunner(defaultZigRuntimeClient, encodeZigRuntimeModel(model), scene.id, {
     ...options,
     initialState: initialState?.snapshot() ?? options.initialState,
@@ -99,7 +99,7 @@ export function createRouteRunner(
   }
   const scenes = Object.values(sceneMap);
   if (!scenes.some((scene) => scene.id === entryScene.id)) scenes.unshift(entryScene);
-  const model = { version: 2, scenes, routes: [route] } as unknown as TurnModel;
+  const model = syntheticModel(scenes, [route]);
   return createZigRouteRunner(defaultZigRuntimeClient, encodeZigRuntimeModel(model), route.id, {
     ...options,
     initialState: initialState?.snapshot() ?? options.initialState,
@@ -167,6 +167,11 @@ export function createRunner(
   return createZigRunner(inputModel, options);
 }
 
+function syntheticModel(scenes: SceneBlock[], routes: RouteModel[]): TurnModel {
+  const json = JSON.parse(JSON.stringify({ version: 2, scenes, routes })) as JsonObject;
+  return fromJson(TurnModelSchema, json, { ignoreUnknownFields: true });
+}
+
 function encodeZigRuntimeModel(model: TurnModel): Uint8Array {
   let protobufJson: unknown;
   try {
@@ -178,10 +183,12 @@ function encodeZigRuntimeModel(model: TurnModel): Uint8Array {
   return new TextEncoder().encode(JSON.stringify({ ...json, version: 2 }));
 }
 
-function runtimeProjection(input: unknown): Record<string, unknown> {
+/** @internal Exported for contract tests. */
+export function runtimeProjection(input: unknown): Record<string, unknown> {
   const root = structuredClone(input) as Record<string, unknown>;
   delete root.annotations;
   for (const declaration of arrayRecords(root.typeDecls)) delete declaration.sourcePos;
+  for (const route of arrayRecords(root.routes)) route.match ??= [];
   for (const scene of arrayRecords(root.scenes)) {
     const view = objectRecord(scene.view);
     if (view !== undefined) {

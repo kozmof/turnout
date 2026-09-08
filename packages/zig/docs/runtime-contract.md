@@ -87,6 +87,8 @@ RuntimeModel owns its parsed JSON tree and releases it through deinit. Strings c
 
 The WASM boundary uses ABI version 1. Lengths are unsigned 32-bit values. Byte fields and JSON payloads use UTF-8. Multi-byte integers use little-endian order.
 
+Each WebAssembly instance is single-threaded and non-reentrant. Do not call an ABI function on an instance while another call on that instance is active. Create a separate instance for parallel execution. Runtime and model handles belong to the instance that created them and are invalid in every other instance.
+
 ### Input buffers
 
 Call `turnout_alloc(length)` and copy exactly `length` bytes to the returned address. Zero reports allocation failure for a nonzero request. Release the buffer with `turnout_free(address, length)` using the same pair. `(0, 0)` is a no-op. ABI calls borrow input buffers, so the host retains ownership.
