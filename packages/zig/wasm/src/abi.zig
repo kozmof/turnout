@@ -205,7 +205,7 @@ test "WASM input ranges reject overflow and out-of-bounds spans" {
     try std.testing.expect(rangeFitsMemory(1, 1, 2));
     try std.testing.expect(!rangeFitsMemory(2, 1, 2));
     try std.testing.expect(!rangeFitsMemory(1, 2, 2));
-    try std.testing.expect(!rangeFitsMemory(std.math.maxInt(usize), 1, std.math.maxInt(u64)));
+    try std.testing.expect(!rangeFitsMemory(std.math.maxInt(usize), 1, std.math.maxInt(usize)));
 }
 
 export fn turnout_abi_version() u32 {
@@ -910,6 +910,7 @@ fn createFailure(err: anyerror) usize {
 }
 
 export fn turnout_model_create(address: usize, len: u32) usize {
+    if (len > (model_runtime.Limits{}).max_model_bytes) return errorResponse(.invalid_input, "ModelTooLarge");
     if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
     const model_bytes = bytesAt(address, len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
     const handle = createModel(model_bytes) catch |err| return createFailure(err);
@@ -942,6 +943,7 @@ export fn turnout_runtime_create_with_model(model_handle: u32, request_address: 
 /// `turnout_model_create` instead.
 export fn turnout_runtime_create(model_address: usize, model_len: u32, request_address: usize, request_len: u32) usize {
     if (request_len > max_create_request_bytes) return errorResponse(.invalid_input, "InitialStateTooLarge");
+    if (model_len > (model_runtime.Limits{}).max_model_bytes) return errorResponse(.invalid_input, "ModelTooLarge");
     if (model_address == 0 or model_len == 0 or request_address == 0 or request_len == 0)
         return errorResponse(.invalid_input, "InvalidBuffer");
     const model_bytes = bytesAt(model_address, model_len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
