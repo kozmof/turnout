@@ -1,0 +1,178 @@
+{
+  "state": {
+    "namespaces": [
+      {
+        "name": "job",
+        "fields": [
+          {
+            "name": "seed",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "width",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "height",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "area",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "reported",
+            "type": "number",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  "scenes": [
+    {
+      "id": "measure",
+      "entryAction": "size",
+      "actions": [
+        {
+          "id": "size",
+          "compute": {
+            "root": "area",
+            "prog": {
+              "name": "size_graph",
+              "bindings": [
+                {
+                  "name": "seed",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "width",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "height",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "__local_area_rhs_0",
+                  "type": "number",
+                  "expr": {
+                    "combine": {
+                      "fn": "mul",
+                      "args": [
+                        {
+                          "ref": "width"
+                        },
+                        {
+                          "ref": "height"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "area",
+                  "type": "number",
+                  "expr": {
+                    "combine": {
+                      "fn": "add",
+                      "args": [
+                        {
+                          "ref": "seed"
+                        },
+                        {
+                          "ref": "__local_area_rhs_0"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "seed",
+              "fromState": "job.seed"
+            },
+            {
+              "binding": "width",
+              "fromHook": "load_dimensions"
+            },
+            {
+              "binding": "height",
+              "fromHook": "load_dimensions"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "area",
+              "toState": "job.area"
+            }
+          ],
+          "publish": ["report_area"],
+          "next": [
+            {
+              "action": "record"
+            }
+          ]
+        },
+        {
+          "id": "record",
+          "compute": {
+            "root": "reported",
+            "prog": {
+              "name": "record_graph",
+              "bindings": [
+                {
+                  "name": "area",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "reported",
+                  "type": "number",
+                  "expr": {
+                    "combine": {
+                      "fn": "add",
+                      "args": [
+                        {
+                          "ref": "area"
+                        },
+                        {
+                          "lit": 0
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "area",
+              "fromState": "job.area"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "reported",
+              "toState": "job.reported"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "version": 2,
+  "minVersion": 2,
+  "maxVersion": 2
+}

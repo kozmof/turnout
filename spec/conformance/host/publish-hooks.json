@@ -1,0 +1,91 @@
+{
+  "capability": "publish-hooks",
+  "vectors": [
+    {
+      "name": "a-publish-hook-reads-state-after-merge",
+      "why": "Publish runs after the action's merge, so the hook sees what the action wrote.",
+      "model": "packages/ts/scene-runner/tests/fixtures/conformance-hooks.json",
+      "entryId": "measure",
+      "initialState": { "job.seed": { "symbol": "number", "value": 2, "tags": [] } },
+      "hooks": {
+        "prepare": {
+          "load_dimensions": {
+            "returns": {
+              "width": { "symbol": "number", "value": 5, "tags": [] },
+              "height": { "symbol": "number", "value": 5, "tags": [] }
+            }
+          }
+        },
+        "publish": {
+          "report_area": {
+            "expectState": { "job.area": { "symbol": "number", "value": 27, "tags": [] } },
+            "status": "ok"
+          }
+        }
+      },
+      "expect": {
+        "actions": [
+          { "actionId": "size", "publishOutcomes": [{ "hookName": "report_area", "status": "ok" }] },
+          { "actionId": "record" }
+        ]
+      }
+    },
+    {
+      "name": "a-failed-publish-hook-is-recorded-and-execution-continues",
+      "why": "Publish is the last phase of an action; a failure there is reported, not fatal, unless the caller asked otherwise.",
+      "model": "packages/ts/scene-runner/tests/fixtures/conformance-hooks.json",
+      "entryId": "measure",
+      "initialState": { "job.seed": { "symbol": "number", "value": 0, "tags": [] } },
+      "hooks": {
+        "prepare": {
+          "load_dimensions": {
+            "returns": {
+              "width": { "symbol": "number", "value": 2, "tags": [] },
+              "height": { "symbol": "number", "value": 3, "tags": [] }
+            }
+          }
+        },
+        "publish": { "report_area": { "status": "error", "message": "sink unavailable" } }
+      },
+      "expect": {
+        "actions": [
+          {
+            "actionId": "size",
+            "publishOutcomes": [
+              { "hookName": "report_area", "status": "error", "message": "sink unavailable" }
+            ]
+          },
+          { "actionId": "record" }
+        ],
+        "finalState": {
+          "job.seed": { "symbol": "number", "value": 0, "tags": [] },
+          "job.width": { "symbol": "number", "value": 0, "tags": [] },
+          "job.height": { "symbol": "number", "value": 0, "tags": [] },
+          "job.area": { "symbol": "number", "value": 6, "tags": [] },
+          "job.reported": { "symbol": "number", "value": 6, "tags": [] }
+        }
+      }
+    },
+    {
+      "name": "an-unregistered-publish-hook-is-skipped",
+      "why": "Unlike prepare, a publish hook nobody registered costs the action nothing: it had already computed and merged.",
+      "model": "packages/ts/scene-runner/tests/fixtures/conformance-hooks.json",
+      "entryId": "measure",
+      "initialState": { "job.seed": { "symbol": "number", "value": 0, "tags": [] } },
+      "hooks": {
+        "prepare": {
+          "load_dimensions": {
+            "returns": {
+              "width": { "symbol": "number", "value": 1, "tags": [] },
+              "height": { "symbol": "number", "value": 1, "tags": [] }
+            }
+          }
+        },
+        "publish": {}
+      },
+      "expect": {
+        "actions": [{ "actionId": "size", "publishOutcomes": [] }, { "actionId": "record" }]
+      }
+    }
+  ]
+}

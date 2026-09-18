@@ -297,9 +297,10 @@ for the pipeline, then `spec/runtime-hosts.md` for the split between the engine
 and the host that drives it, then `spec/scene-graph.md` for the scene and action
 model. The rest cover the type system, hooks, routes, and state shape.
 
-Three files in `spec/` are data rather than prose, each read by more than one
+Several files in `spec/` are data rather than prose, each read by more than one
 language and gated against drift: `fn-aliases.json`, `field-types.json`, and
-`runtime-projection.json`.
+`runtime-projection.json`. `capabilities.json` lists what a host must be able
+to do, and `conformance/host/` holds the vectors that prove it can.
 
 ## License
 

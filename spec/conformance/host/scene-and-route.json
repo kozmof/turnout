@@ -1,0 +1,65 @@
+{
+  "capability": "scene-and-route-execution",
+  "vectors": [
+    {
+      "name": "actions-run-in-the-order-the-next-rules-select",
+      "why": "A scene is a graph, not a list: which action runs next is the model's decision, reported by the runtime.",
+      "model": "packages/ts/scene-runner/tests/fixtures/scene-graph.json",
+      "entryId": "loan_flow",
+      "initialState": {
+        "applicant.income": { "symbol": "number", "value": 60000, "tags": [] },
+        "applicant.debt": { "symbol": "number", "value": 10000, "tags": [] }
+      },
+      "expect": {
+        "actions": [{ "actionId": "score" }, { "actionId": "approve" }],
+        "finalState": {
+          "applicant.income": { "symbol": "number", "value": 60000, "tags": [] },
+          "applicant.debt": { "symbol": "number", "value": 10000, "tags": [] },
+          "decision.approved": { "symbol": "boolean", "value": true, "tags": [] },
+          "decision.input_income": { "symbol": "number", "value": 60000, "tags": [] },
+          "decision.status": { "symbol": "string", "value": "approved", "tags": [] },
+          "decision.code": { "symbol": "string", "value": "APR-0001", "tags": [] },
+          "decision.reason": { "symbol": "string", "value": "", "tags": [] }
+        }
+      }
+    },
+    {
+      "name": "a-route-carries-state-across-scenes",
+      "why": "STATE is the route's, not the scene's: what one scene merges the next one reads.",
+      "model": "packages/ts/scene-runner/tests/fixtures/two-scene-route.json",
+      "entryId": "main_route",
+      "initialState": { "input.value": { "symbol": "number", "value": 10, "tags": [] } },
+      "expect": {
+        "actions": [{ "actionId": "step_a" }, { "actionId": "step_b" }],
+        "finalState": {
+          "input.value": { "symbol": "number", "value": 10, "tags": [] },
+          "output.result": { "symbol": "number", "value": 21, "tags": [] }
+        }
+      }
+    },
+    {
+      "name": "a-field-the-caller-omits-takes-the-models-default",
+      "why": "The STATE schema is the model's, so a caller supplies overrides rather than the whole of it.",
+      "model": "packages/ts/scene-runner/tests/fixtures/prepare-context.json",
+      "entryId": "checkout",
+      "initialState": { "order.subtotal": { "symbol": "number", "value": 8, "tags": [] } },
+      "hooks": {
+        "prepare": {
+          "quote_shipping": {
+            "expectContext": { "discount": { "symbol": "number", "value": 0, "tags": [] } },
+            "returns": { "shipping": { "symbol": "number", "value": 0, "tags": [] } }
+          },
+          "quote_tax": { "returns": { "tax": { "symbol": "number", "value": 0, "tags": [] } } }
+        }
+      },
+      "expect": {
+        "finalState": {
+          "order.subtotal": { "symbol": "number", "value": 8, "tags": [] },
+          "order.discount": { "symbol": "number", "value": 0, "tags": [] },
+          "order.total": { "symbol": "number", "value": 8, "tags": [] },
+          "order.settled": { "symbol": "number", "value": 16, "tags": [] }
+        }
+      }
+    }
+  ]
+}

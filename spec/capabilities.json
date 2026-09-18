@@ -1,0 +1,23 @@
+{
+  "hostStatuses": ["supported", "planned", "unsupported"],
+  "capabilities": [
+    {
+      "id": "prepare-hooks",
+      "summary": "An action can take binding values from host code, and the runtime tells the hook what it owes and what it may read.",
+      "owner": "split",
+      "hosts": { "typescript": "supported", "zig-native": "planned" }
+    },
+    {
+      "id": "publish-hooks",
+      "summary": "An action can hand its post-merge STATE to host code, and the outcome is recorded on the action rather than raised.",
+      "owner": "split",
+      "hosts": { "typescript": "supported", "zig-native": "planned" }
+    },
+    {
+      "id": "scene-and-route-execution",
+      "summary": "Actions run in the order the model's next rules select, across scenes when a route drives them, over one STATE.",
+      "owner": "engine",
+      "hosts": { "typescript": "supported", "zig-native": "planned" }
+    }
+  ]
+}

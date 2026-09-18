@@ -38,6 +38,19 @@ and back. What TypeScript owns is the host half.
 A host is not a port of the engine. Two hosts execute the same model the same
 way because they drive the same engine, not because they agree to.
 
+### Capabilities and their evidence
+
+`spec/capabilities.json` lists the capabilities and which host supports each.
+Every one of them owns conformance vectors in `spec/conformance/host/`, and
+`scripts/check-capabilities.mjs` fails on a capability that has none: a
+capability with no evidence is a claim, not a capability.
+
+The vectors are data, not code in any host's language. Each names a model, a
+STATE, what every hook is handed and answers with, and what the run must
+produce, in the canonical tagged-Value encoding the ABI already speaks. A host
+runs them through its own runner. They assert on values, ordering, outcomes and
+error codes, and never on wording, because wording is the one thing a host owns.
+
 ---
 
 ## Transport

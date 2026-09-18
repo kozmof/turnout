@@ -1,6 +1,6 @@
 # Align the two runtime paths: Go → TypeScript and Go → Zig
 
-> Status: phase 0 landed; phases 1-4 proposed
+> Status: phases 0, 1a and 2 landed; 1b abandoned with reasons; 3-4 proposed
 > Decisions taken: the direct path is a **native Zig host with a CLI**, and the
 > **host half moves down into Zig** rather than being written once per host.
 > Origin: the pipeline documented as `.tu → Go → model → TypeScript runtime` is
@@ -76,10 +76,10 @@ Verdicts assume the two decisions above.
 | Prepare binding index | `runner-adapter.ts:272` `buildPrepareIndex` | **Deleted** (phase 1a) |
 | `from_state` context construction | `prepareInitialContext` callback | **Deleted** (phase 1a) |
 | Extend ordering, multi-model pre-merge | `effect-dispatcher.ts:79` `dispatchExtend` | Moves down — `merge.zig` already holds the rules |
-| Trace assembly, warning order | `runner-adapter.ts:347` `actionTrace` | Moves down |
-| Publish outcome collection | `runner-adapter.ts:207` | Moves down |
+| Trace assembly, warning order | `runner-adapter.ts:347` `actionTrace` | **Stays** — already structured below the boundary; the host only renders it (1b) |
+| Publish outcome collection | `runner-adapter.ts:207` | **Stays** — the engine sends the outcomes; collecting them is four lines (1b) |
 | Error taxonomy | `errors.ts` (6 code enums) | Codes move down; message wording stays per host |
-| `next`/`run`/`runAsync`/`isDone` and their guards | `runner-methods.ts` | State machine moves down; the async-generator sugar stays in TypeScript |
+| `next`/`run`/`runAsync`/`isDone` and their guards | `runner-methods.ts` | **Stays** — counting actions, and guards against misuse of a JavaScript API (1b) |
 | Model migration, validation, dispatch resolution | `migration.ts`, `validate-model.ts`, `dispatch.ts` | Moves down — Zig validates the same model again today |
 | Model encoding / re-projection | `model-encoding.ts` | Deletes, replaced by the shared projection artifact |
 | **Hook invocation itself** | `effect-dispatcher.ts` | **Stays in the host, by physics** — it is user code in the host's language |
@@ -89,6 +89,9 @@ The last two rows are the whole shape of the answer. A host supplies hooks and
 renders messages; everything else is engine.
 
 ## The ABI change: from event stream to runner
+
+> Not taken. Phase 1b found the premise does not hold — see "Phase 1b:
+> abandoned, and why". Kept as the record of what was proposed and rejected.
 
 ABI v1 hands the host an event stream and expects it to run the state machine.
 That is the reason the host half exists. ABI v2 raises the boundary:
@@ -109,8 +112,10 @@ under the rules in `packages/zig/docs/compatibility-window.md`.
 
 ## The native host
 
-The point of building the runner state machine in `scene-runner/src` rather than
-in `wasm/src/abi.zig` is that both shells then share it:
+With ABI v2 dropped, the native host's shape is simpler than this plan first
+had it: the CLI is a second shell over the engine, alongside the WASM one, and
+brings its own hook transport. Nothing moves out of `scene-runner/src` to make
+room for it.
 
 ```
 packages/zig/
@@ -157,12 +162,10 @@ that fails the build. It just does not yet cover the things that matter here.
 Each phase is shippable and gated by the existing suites.
 
 0. ~~**Groundwork, no behaviour change.**~~ Landed. See below.
-1. **Runner state machine into `scene-runner/src`, ABI v2.** The TypeScript
-   adapter shrinks to a binding; `buildPrepareIndex`, `prepareInitialContext`,
-   and `model-encoding.ts` are deleted rather than ported.
-2. **Capability manifest and host conformance vectors.** TypeScript must pass
-   them before a second host exists, so the vectors describe behaviour that
-   already ships rather than behaviour hoped for.
+1. ~~**Runner state machine into `scene-runner/src`, ABI v2.**~~ Partly done and
+   partly abandoned. The prepare boundary moved (1a, below); the stepping state
+   machine did not, and should not (1b, below).
+2. ~~**Capability manifest and host conformance vectors.**~~ Landed. See below.
 3. **`packages/zig/host` — the native CLI and hook transport.** It inherits the
    state machine from phase 1 and is validated by the vectors from phase 2.
 4. **Go emits the runtime projection directly.** Removes the last re-encode; the
@@ -249,6 +252,55 @@ boundary would both pass with it broken, so `tests/e2e/prepare-context.test.ts`
 compiles a `.tu` fixture and runs it through the real runtime, asserting what a
 hook sees. Verified by disabling the resolution in Zig and watching all three
 cases fail.
+
+## Phase 1b: abandoned, and why
+
+The rest of phase 1 — the stepping state machine into Zig, ABI v2 — was not
+built. Inspecting what was actually left to move did not support it.
+
+| What remains in the host | What it is |
+| --- | --- |
+| `actionTrace`, `sceneWarning` (~80 lines) | English wording over data the engine already sends structured: kind, binding, toState, conditionName, actualType, writtenPaths, targetActionId, fromActionId |
+| `next`/`run`/`runAsync` (~40 lines) | Counting actions and collecting results into a JavaScript array |
+| `LateHookRegistration`, `ConcurrentExecution`, `InvalidStepCount` | Misuse of a JavaScript API: hooks registered on a builder after it started, overlapping awaits, a non-integer argument |
+| The effect pump (~60 lines) | Cannot move. Calling a hook is calling host code |
+
+There is no engine logic left in the host. The warnings arrive fully
+structured and the host renders them; the guards describe situations a native
+CLI does not have; the loop is four lines of counting. Moving any of it down
+would produce a worse API in both hosts and change no behaviour.
+
+ABI v2 was justified by "each host writes the state machine, so they will
+drift". They cannot drift on anything that matters, because everything that
+matters is already below the boundary. What two hosts can still drift on is
+what they *claim to do* — which is phase 2, and is where the effort went.
+
+The same mistake was available here as in `zig-architecture-redesign.md` step 8:
+optimising the part that was already fine. Recorded so ABI v2 is not
+re-proposed without new evidence — a specific behaviour two hosts implement
+differently would be that evidence.
+
+## Phase 2: what landed
+
+**`spec/capabilities.json`** lists the capabilities and which host supports
+each. **`spec/conformance/host/`** holds 10 vectors across them, and
+`scripts/check-capabilities.mjs` fails a capability that owns none: a capability
+with no evidence is a claim, not a capability.
+
+The vectors are data, not code in any host's language — a model, a STATE, what
+each hook is handed and answers with, and what the run must produce, in the
+canonical tagged-Value encoding the ABI already speaks. They assert on values,
+ordering, outcomes and error codes, never on wording, because wording is the one
+thing a host owns. `tests/e2e/host-conformance.test.ts` runs every one of them
+through the TypeScript host; the native host will run the same files.
+
+**They found a bug in phase 1a on their first run.** `requestEffectWithContext`
+built the request field by field and never copied `bindings`, so the list
+arrived empty at every host. Both the Zig unit tests and the TypeScript ones
+passed, because the Zig tests asserted on the schedule and the TypeScript tests
+supplied their own request fixtures — neither looked at what actually crossed
+the boundary. That is the class of bug conformance vectors exist for, and it
+is the argument for phase 2 over ABI v2 in one example.
 
 ## Risks
 

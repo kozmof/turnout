@@ -473,6 +473,7 @@ pub const Runtime = struct {
             .action_id = spec.action_id,
             .callback_index = spec.callback_index,
             .binding = spec.binding,
+            .bindings = spec.bindings,
             .context_json = spec.context_json,
         };
         self.next_effect_id += 1;
@@ -1854,4 +1855,26 @@ fn expectContextNumber(context_json: []const u8, key: []const u8, expected: f64)
         else => return error.TestExpectedEqual,
     };
     try std.testing.expectEqual(expected, number);
+}
+
+test "an effect request carries the bindings its hook owes" {
+    const scheduled = [_]effect.Spec{
+        .{
+            .kind = .prepare,
+            .hook = "load",
+            .scene_id = "main",
+            .action_id = "start",
+            .callback_index = 0,
+            .binding = null,
+            .bindings = &.{ "width", "height" },
+        },
+    };
+    var runtime = Runtime.init(std.testing.allocator, &scheduled);
+    defer runtime.deinit();
+    // The schedule knowing them is not the same as the host being told: the
+    // request is what crosses the boundary, so this asserts on the request.
+    const request = (try runtime.step()).need_effect;
+    try std.testing.expectEqual(@as(usize, 2), request.bindings.len);
+    try std.testing.expectEqualStrings("width", request.bindings[0]);
+    try std.testing.expectEqualStrings("height", request.bindings[1]);
 }

@@ -1,0 +1,228 @@
+{
+  "capability": "prepare-hooks",
+  "vectors": [
+    {
+      "name": "context-carries-the-actions-state-bindings",
+      "why": "A prepare hook reads the action's from_state bindings, resolved against STATE by the runtime that holds both.",
+      "model": "packages/ts/scene-runner/tests/fixtures/prepare-context.json",
+      "entryId": "checkout",
+      "initialState": {
+        "order.subtotal": {
+          "symbol": "number",
+          "value": 100,
+          "tags": []
+        },
+        "order.discount": {
+          "symbol": "number",
+          "value": 10,
+          "tags": []
+        }
+      },
+      "hooks": {
+        "prepare": {
+          "quote_shipping": {
+            "expectContext": {
+              "subtotal": {
+                "symbol": "number",
+                "value": 100,
+                "tags": []
+              },
+              "discount": {
+                "symbol": "number",
+                "value": 10,
+                "tags": []
+              }
+            },
+            "returns": {
+              "shipping": {
+                "symbol": "number",
+                "value": 5,
+                "tags": []
+              }
+            }
+          },
+          "quote_tax": {
+            "expectContext": {
+              "subtotal": {
+                "symbol": "number",
+                "value": 100,
+                "tags": []
+              },
+              "shipping": {
+                "symbol": "number",
+                "value": 5,
+                "tags": []
+              }
+            },
+            "returns": {
+              "tax": {
+                "symbol": "number",
+                "value": 7,
+                "tags": []
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "actions": [
+          {
+            "actionId": "price"
+          },
+          {
+            "actionId": "settle"
+          }
+        ],
+        "finalState": {
+          "order.subtotal": {
+            "symbol": "number",
+            "value": 100,
+            "tags": []
+          },
+          "order.discount": {
+            "symbol": "number",
+            "value": 10,
+            "tags": []
+          },
+          "order.total": {
+            "symbol": "number",
+            "value": 102,
+            "tags": []
+          },
+          "order.settled": {
+            "symbol": "number",
+            "value": 204,
+            "tags": []
+          }
+        }
+      }
+    },
+    {
+      "name": "one-hook-supplies-several-bindings",
+      "why": "A hook declared on several bindings answers once, with a record. The runtime names the bindings it owes on the request.",
+      "model": "packages/ts/scene-runner/tests/fixtures/conformance-hooks.json",
+      "entryId": "measure",
+      "initialState": {
+        "job.seed": {
+          "symbol": "number",
+          "value": 1,
+          "tags": []
+        }
+      },
+      "hooks": {
+        "prepare": {
+          "load_dimensions": {
+            "returns": {
+              "width": {
+                "symbol": "number",
+                "value": 3,
+                "tags": []
+              },
+              "height": {
+                "symbol": "number",
+                "value": 4,
+                "tags": []
+              }
+            }
+          }
+        },
+        "publish": {
+          "report_area": {
+            "status": "ok"
+          }
+        }
+      },
+      "expect": {
+        "actions": [
+          {
+            "actionId": "size"
+          },
+          {
+            "actionId": "record"
+          }
+        ],
+        "finalState": {
+          "job.seed": {
+            "symbol": "number",
+            "value": 1,
+            "tags": []
+          },
+          "job.width": {
+            "symbol": "number",
+            "value": 0,
+            "tags": []
+          },
+          "job.height": {
+            "symbol": "number",
+            "value": 0,
+            "tags": []
+          },
+          "job.area": {
+            "symbol": "number",
+            "value": 13,
+            "tags": []
+          },
+          "job.reported": {
+            "symbol": "number",
+            "value": 13,
+            "tags": []
+          }
+        }
+      }
+    },
+    {
+      "name": "a-hook-that-omits-a-binding-it-owes-fails-the-action",
+      "why": "The runtime names every binding a hook must supply, so a payload missing one is caught by name rather than surfacing later as a missing value.",
+      "model": "packages/ts/scene-runner/tests/fixtures/conformance-hooks.json",
+      "entryId": "measure",
+      "initialState": {
+        "job.seed": {
+          "symbol": "number",
+          "value": 0,
+          "tags": []
+        }
+      },
+      "hooks": {
+        "prepare": {
+          "load_dimensions": {
+            "returns": {
+              "width": {
+                "symbol": "number",
+                "value": 3,
+                "tags": []
+              }
+            }
+          }
+        }
+      },
+      "expect": {
+        "error": {
+          "code": "MissingHookField",
+          "actionId": "size"
+        }
+      }
+    },
+    {
+      "name": "an-unregistered-prepare-hook-fails-the-action",
+      "why": "An action that asked for values and did not get them cannot run.",
+      "model": "packages/ts/scene-runner/tests/fixtures/conformance-hooks.json",
+      "entryId": "measure",
+      "initialState": {
+        "job.seed": {
+          "symbol": "number",
+          "value": 1,
+          "tags": []
+        }
+      },
+      "hooks": {
+        "prepare": {}
+      },
+      "expect": {
+        "error": {
+          "code": "UnregisteredHook",
+          "actionId": "size"
+        }
+      }
+    }
+  ]
+}
