@@ -66,3 +66,22 @@ Zig discovers tests only inside the module under test, so every layer builds its
 Zig 0.16.0 does not provide the repository with a stable source-coverage report. The current gate requires passing tests and leak detection through std.testing. Add a numeric coverage threshold only after the chosen Zig coverage tool produces reproducible local and CI results.
 
 JSON-first transport does not generate Zig model code. The shared function-alias specification generates a Zig lookup table, and the root drift check verifies it.
+
+## The native host
+
+`host/src` is a second shell over the same engine the WASM ABI wraps, for
+callers with no JavaScript in reach.
+
+    zig build --build-file packages/zig/build.zig host
+    zig-out/bin/turnout-run run flow.json --scene vend --state state.json
+
+It loads the JSON the Go compiler emits, runs it in process, and prints the
+final STATE and the actions that ran. Hooks come from a file (`--hooks`) or
+from a program (`--hook-program`), which it speaks to over newline-delimited
+JSON using the same request and answer envelopes as the WASM boundary. One
+effect protocol, framed two ways.
+
+`pnpm run test:native-conformance` runs the shared vectors in
+`spec/conformance/host` through it. The TypeScript host runs the same files
+from its own suite, and `spec/capabilities.json` records what each supports —
+a claim that run checks rather than takes.

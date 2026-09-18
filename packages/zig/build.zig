@@ -9,6 +9,25 @@ const Layers = struct {
     wasm_abi: *std.Build.Module,
 };
 
+/// The native host executable. It is a second shell over the same engine the
+/// WASM ABI wraps, for callers with no JavaScript in reach: it loads a model
+/// the Go compiler emitted and runs it in process.
+fn addHost(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) *std.Build.Step.Compile {
+    const layers = addLayers(b, target, optimize, false);
+    const host = b.createModule(.{
+        .root_source_file = b.path("host/src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    host.addImport("turnout_runtime", layers.runtime);
+    host.addImport("turnout_scene_runner", layers.scene_runner);
+    return b.addExecutable(.{ .name = "turnout-run", .root_module = host });
+}
+
 /// A test binary per module. Zig discovers tests only within the module under
 /// test, so each layer is compiled and run on its own.
 const TestBinary = struct {
@@ -96,6 +115,14 @@ fn testBinaries(layers: Layers) [3]TestBinary {
     };
 }
 
+/// The host is a fourth test binary rather than a fourth layer: it depends on
+/// the two layers but nothing depends on it, and only the native target builds
+/// it — a CLI has no meaning as freestanding WASM.
+fn addHostTests(b: *std.Build, test_step: *std.Build.Step, host: *std.Build.Step.Compile) void {
+    const tests = b.addTest(.{ .name = "turnout-host-tests", .root_module = host.root_module });
+    test_step.dependOn(&b.addRunArtifact(tests).step);
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -106,6 +133,15 @@ pub fn build(b: *std.Build) void {
         const tests = b.addTest(.{ .name = binary.name, .root_module = binary.module });
         test_step.dependOn(&b.addRunArtifact(tests).step);
     }
+
+    const host = addHost(b, target, optimize);
+    addHostTests(b, test_step, host);
+    const host_step = b.step("host", "Build the native Turnout host");
+    host_step.dependOn(&b.addInstallArtifact(host, .{}).step);
+    const run_host = b.addRunArtifact(host);
+    if (b.args) |args| run_host.addArgs(args);
+    const run_step = b.step("run", "Run the native Turnout host");
+    run_step.dependOn(&run_host.step);
 
     const wasi_target = b.resolveTargetQuery(.{
         .cpu_arch = .wasm32,

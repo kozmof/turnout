@@ -33,7 +33,7 @@ and back. What TypeScript owns is the host half.
 | Host | Status | Reaches the engine through |
 | --- | --- | --- |
 | `packages/ts/scene-runner` | shipping | the WASM ABI, in process |
-| native Zig host | proposed (`todo/aligned-runtime-hosts.md`) | direct calls |
+| `packages/zig/host` (`turnout-run`) | partial | direct calls, same process |
 
 A host is not a port of the engine. Two hosts execute the same model the same
 way because they drive the same engine, not because they agree to.
@@ -94,7 +94,10 @@ merge lands, how results are bound — belongs to the engine.
 
 ### CAN (OK)
 
-- A host can run hooks in its own language, synchronously or asynchronously.
+- A host can run hooks in its own language, synchronously or asynchronously, or
+  out of process: `turnout-run` serves them to a program over newline-delimited
+  JSON, using the same request and answer envelopes as the in-process boundary.
+  One effect protocol, framed two ways.
 - A host can cancel a run; cancellation is terminal.
 - A host can answer a request with success, failure, or missing.
 - A host can word the error it raises for a failed hook however its language's

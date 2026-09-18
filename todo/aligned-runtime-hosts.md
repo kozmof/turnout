@@ -1,6 +1,6 @@
 # Align the two runtime paths: Go → TypeScript and Go → Zig
 
-> Status: phases 0, 1a and 2 landed; 1b abandoned with reasons; 3-4 proposed
+> Status: phases 0, 1a, 2 and 3 landed; 1b abandoned with reasons; 4 proposed
 > Decisions taken: the direct path is a **native Zig host with a CLI**, and the
 > **host half moves down into Zig** rather than being written once per host.
 > Origin: the pipeline documented as `.tu → Go → model → TypeScript runtime` is
@@ -166,8 +166,7 @@ Each phase is shippable and gated by the existing suites.
    partly abandoned. The prepare boundary moved (1a, below); the stepping state
    machine did not, and should not (1b, below).
 2. ~~**Capability manifest and host conformance vectors.**~~ Landed. See below.
-3. **`packages/zig/host` — the native CLI and hook transport.** It inherits the
-   state machine from phase 1 and is validated by the vectors from phase 2.
+3. ~~**`packages/zig/host` — the native CLI and hook transport.**~~ Landed. See below.
 4. **Go emits the runtime projection directly.** Removes the last re-encode; the
    measurement from `zig-architecture-redesign.md` step 8 says this is where the
    remaining creation cost is.
@@ -301,6 +300,45 @@ passed, because the Zig tests asserted on the schedule and the TypeScript tests
 supplied their own request fixtures — neither looked at what actually crossed
 the boundary. That is the class of bug conformance vectors exist for, and it
 is the argument for phase 2 over ABI v2 in one example.
+
+## Phase 3: what landed
+
+`packages/zig/host` is a second shell over the engine, built by
+`zig build --build-file packages/zig/build.zig host`:
+
+    turnout-run run flow.json --scene vend --state state.json --hooks answers.json
+
+It loads the JSON the Go compiler emits and runs it in process. No WASM, no
+JavaScript, no second engine — `run.zig` is the same pump `abi.zig` performs,
+with the host on this side of the boundary instead of the far side.
+
+**The hook transport is the ABI, reframed.** `--hook-program` spawns a program
+and speaks newline-delimited JSON to it, one `needEffect` request per line out
+and one answer per line back, in the same envelopes the WASM boundary uses. A
+hook implementation written against the documented shapes works with either
+host without knowing which is asking. `--hooks` reads the same answers from a
+file, for a run whose hooks are fixed.
+
+**It passes the shared vectors.** `pnpm run test:native-conformance` runs
+`spec/conformance/host` through the native binary; 8 of 10 pass, and the run
+verifies `spec/capabilities.json`'s claims for this host rather than taking
+them — claiming `supported` where a vector is skipped fails the check. The
+worked example of the protocol is `scripts/native-hook-program.mjs`, which is
+also what serves the vectors' hooks.
+
+### The two that do not pass, and why
+
+Both are error vectors, and they fail on vocabulary rather than behaviour: the
+engine raises `MissingPrepareHook` where the TypeScript host reports
+`UnregisteredHook`, and `HookRequired` where it reports `MissingHookField`. The
+behaviour matches — the action fails, at the same point, for the same reason —
+but the names do not, so a vector cannot assert on one without pinning one
+host's vocabulary on the other.
+
+This is the next real gap, and it is the one `runtime-hosts.md` already names:
+"codes move down; message wording stays per host". The codes have not moved
+down. Closing it means one taxonomy in the engine, each host wording it as its
+language prefers, and those two vectors going green for both hosts.
 
 ## Risks
 

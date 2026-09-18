@@ -76,8 +76,10 @@ Execution is a Zig engine: values, preset functions, computation graphs, STATE,
 and the action, scene, and route drivers all live there. A host drives it and
 supplies the two things it cannot have — the hooks, which are code in the host's
 own language, and that language's public API.
-`packages/ts/scene-runner` is the host that ships today, reaching the engine
-through WASM. `spec/runtime-hosts.md` records where the boundary falls.
+`packages/ts/scene-runner` reaches the engine through WASM;
+`packages/zig/host` is a native CLI that calls it directly, for running a
+compiled model with no JavaScript in reach. Both are held to the same
+conformance vectors. `spec/runtime-hosts.md` records where the boundary falls.
 
 Splitting it this way means authoring errors surface once, at build time, and
 the runtime only ever sees a model that already type-checks.
@@ -89,6 +91,7 @@ the runtime only ever sees a model that already type-checks.
 | `packages/go/converter` | The compiler and the `turnout` CLI |
 | `packages/ts/runtime` | Computation graph engine, value types, and builder API |
 | `packages/ts/scene-runner` | Runs compiled models through Zig/WASM and provides a Node bridge to the CLI |
+| `packages/zig` | The execution engine, its WASM ABI, and the native `turnout-run` host |
 | `apps/vscode/tu-language` | Syntax highlighting for `.tu` files |
 
 `schema/turnout-model.proto` defines the model both sides exchange. Running
