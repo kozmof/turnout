@@ -1,3 +1,5 @@
+import type { MergeOrigin } from "runtime/zig-runtime";
+import { zigRuntimeModelJson } from "./model-encoding.js";
 import type {
   FieldModel,
   NamespaceModel,
@@ -6,6 +8,7 @@ import type {
   TurnModel,
   TypeDeclModel,
 } from "./types/turnout-model_pb.js";
+import { defaultZigRuntimeClient } from "./zig-runtime/default-client.js";
 
 /**
  * Combine separately compiled models into one.
@@ -16,6 +19,12 @@ import type {
  * input must be declared identically.
  *
  * The result is an ordinary model. Prepare it, run it, or merge it again.
+ *
+ * The rules themselves live in the runtime, in `packages/zig/scene-runner/src/
+ * merge.zig`. They have to: an action's `extend` hooks merge models mid-run,
+ * where there is no host in the loop. This function calls the same
+ * implementation rather than repeating it, so one set of rules produces one set
+ * of messages whichever way a merge is reached.
  */
 
 /** A conflict between two inputs, naming both so the source is obvious. */
@@ -54,109 +63,100 @@ export function mergeModels(models: readonly TurnModel[], options: MergeOptions 
   if (first === undefined) throw new ModelMergeError(["no models to merge"]);
   if (models.length === 1) return first;
 
-  const label = (index: number): string => options.labels?.[index] ?? `model ${index}`;
-  const conflicts: string[] = [];
+  const response = defaultZigRuntimeClient.mergeModels(
+    models.map(zigRuntimeModelJson),
+    options.labels ?? [],
+  );
+  if (response.status !== "ok") {
+    throw new ModelMergeError(conflictsOf(response.payload));
+  }
+  return assemble(models, first, response.payload.model, response.payload.provenance);
+}
 
+function conflictsOf(payload: unknown): readonly string[] {
+  const conflicts = (payload as { conflicts?: unknown } | undefined)?.conflicts;
+  if (!Array.isArray(conflicts)) return ["the runtime rejected the merge"];
+  return conflicts.map(String);
+}
+
+/**
+ * Rebuild the merged model from the inputs the caller passed in.
+ *
+ * The runtime works on the projection it reads, which has already dropped
+ * annotations, source positions, and compute metadata a caller-facing model
+ * keeps. Returning its JSON would quietly strip all of that. So the runtime
+ * decides *what wins* — that is the part that must not be duplicated — and this
+ * copies the winning objects straight out of the originals.
+ */
+function assemble(
+  models: readonly TurnModel[],
+  first: TurnModel,
+  mergedJson: unknown,
+  provenance: readonly MergeOrigin[],
+): TurnModel {
+  const root = mergedJson as Record<string, number>;
   const scenes: SceneBlock[] = [];
   const routes: RouteModel[] = [];
   const typeDecls: TypeDeclModel[] = [];
-  /** Declared path to the input that declared it, and how. */
-  const sceneOwners = new Map<string, number>();
-  const routeOwners = new Map<string, number>();
-  const typeOwners = new Map<string, { index: number; encoded: string }>();
-  const fieldOwners = new Map<string, { index: number; encoded: string }>();
   /** Namespace name to its position in `namespaces`, so fields accumulate. */
   const namespaces: NamespaceModel[] = [];
   const namespaceSlots = new Map<string, number>();
 
-  let version = first.version;
-  let minVersion = first.minVersion;
-  let maxVersion = first.maxVersion;
-
-  models.forEach((model, index) => {
-    if (model.version !== version) {
-      conflicts.push(
-        `${label(index)} is version ${model.version}, ${label(0)} is version ${version}`,
-      );
-      version = Math.max(version, model.version);
-    }
-    // The merged model must satisfy every input, so the window is the tightest
-    // of them: the highest floor and the lowest declared ceiling.
-    minVersion = Math.max(minVersion, model.minVersion);
-    if (model.maxVersion !== 0) {
-      maxVersion = maxVersion === 0 ? model.maxVersion : Math.min(maxVersion, model.maxVersion);
-    }
-
-    for (const scene of model.scenes ?? []) {
-      const owner = sceneOwners.get(scene.id);
-      if (owner !== undefined) {
-        conflicts.push(`scene "${scene.id}" is declared by ${label(owner)} and ${label(index)}`);
-        continue;
+  for (const origin of provenance) {
+    const source = models[origin.input];
+    if (source === undefined) continue;
+    switch (origin.kind) {
+      case "scene": {
+        const scene = source.scenes?.find((candidate) => candidate.id === origin.id);
+        if (scene !== undefined) scenes.push(scene);
+        break;
       }
-      sceneOwners.set(scene.id, index);
-      scenes.push(scene);
-    }
-
-    for (const route of model.routes ?? []) {
-      const owner = routeOwners.get(route.id);
-      if (owner !== undefined) {
-        conflicts.push(`route "${route.id}" is declared by ${label(owner)} and ${label(index)}`);
-        continue;
+      case "route": {
+        const route = source.routes?.find((candidate) => candidate.id === origin.id);
+        if (route !== undefined) routes.push(route);
+        break;
       }
-      routeOwners.set(route.id, index);
-      routes.push(route);
-    }
-
-    for (const namespace of model.state?.namespaces ?? []) {
-      let slot = namespaceSlots.get(namespace.name);
-      if (slot === undefined) {
-        slot = namespaces.length;
-        namespaceSlots.set(namespace.name, slot);
-        namespaces.push({ ...namespace, fields: [] });
+      case "typeDecl": {
+        const decl = source.typeDecls?.find((candidate) => candidate.name === origin.id);
+        if (decl !== undefined) typeDecls.push(decl);
+        break;
       }
-      const merged = namespaces[slot];
-      if (merged === undefined) continue;
-      for (const field of namespace.fields ?? []) {
-        const path = `${namespace.name}.${field.name}`;
-        const encoded = encodeField(field);
-        const owner = fieldOwners.get(path);
-        if (owner === undefined) {
-          fieldOwners.set(path, { index, encoded });
-          merged.fields.push(field);
-          continue;
+      case "field": {
+        const separator = origin.id.indexOf(".");
+        const namespaceName = origin.id.slice(0, separator);
+        const fieldName = origin.id.slice(separator + 1);
+        const field = findField(source, namespaceName, fieldName);
+        if (field === undefined) break;
+        let slot = namespaceSlots.get(namespaceName);
+        if (slot === undefined) {
+          const declared = findNamespace(models, namespaceName);
+          if (declared === undefined) break;
+          slot = namespaces.length;
+          namespaceSlots.set(namespaceName, slot);
+          namespaces.push({ ...declared, fields: [] });
         }
-        // Declaring the same field the same way twice is agreement, not a
-        // conflict: two scene sets that both need a field will both declare it.
-        if (owner.encoded === encoded) continue;
-        conflicts.push(
-          `STATE field "${path}" is declared as ${encoded} by ${label(index)} and as ` +
-            `${owner.encoded} by ${label(owner.index)}`,
-        );
+        namespaces[slot]?.fields.push(field);
+        break;
       }
     }
+  }
 
-    for (const decl of model.typeDecls ?? []) {
-      const encoded = JSON.stringify(decl);
-      const owner = typeOwners.get(decl.name);
-      if (owner === undefined) {
-        typeOwners.set(decl.name, { index, encoded });
-        typeDecls.push(decl);
-        continue;
-      }
-      if (owner.encoded === encoded) continue;
-      conflicts.push(
-        `type "${decl.name}" is declared differently by ${label(owner.index)} and ${label(index)}`,
-      );
+  // A namespace that declares no fields contributes no provenance, so it is
+  // picked up here rather than in the loop above. Dropping it would lose a
+  // declared namespace that simply happens to be empty.
+  for (const model of models) {
+    for (const namespace of model.state?.namespaces ?? []) {
+      if (namespaceSlots.has(namespace.name)) continue;
+      namespaceSlots.set(namespace.name, namespaces.length);
+      namespaces.push({ ...namespace, fields: [] });
     }
-  });
-
-  if (conflicts.length > 0) throw new ModelMergeError(conflicts);
+  }
 
   const merged = {
     ...first,
-    version,
-    minVersion,
-    maxVersion,
+    version: root.version,
+    minVersion: root.minVersion,
+    maxVersion: root.maxVersion,
     scenes,
     routes,
     typeDecls,
@@ -167,7 +167,25 @@ export function mergeModels(models: readonly TurnModel[], options: MergeOptions 
   return merged;
 }
 
-/** How a field is declared, as a comparable string. */
-function encodeField(field: FieldModel): string {
-  return `${field.type}=${JSON.stringify(field.value ?? null)}`;
+function findField(
+  model: TurnModel,
+  namespaceName: string,
+  fieldName: string,
+): FieldModel | undefined {
+  const namespace = model.state?.namespaces?.find((candidate) => candidate.name === namespaceName);
+  return namespace?.fields?.find((candidate) => candidate.name === fieldName);
+}
+
+/** The first declaration of a namespace, which is the one the merge keeps. */
+function findNamespace(
+  models: readonly TurnModel[],
+  namespaceName: string,
+): NamespaceModel | undefined {
+  for (const model of models) {
+    const namespace = model.state?.namespaces?.find(
+      (candidate) => candidate.name === namespaceName,
+    );
+    if (namespace !== undefined) return namespace;
+  }
+  return undefined;
 }

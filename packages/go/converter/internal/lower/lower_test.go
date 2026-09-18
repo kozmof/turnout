@@ -1037,3 +1037,42 @@ func TestLowerEscapedStringInterpolation(t *testing.T) {
 		t.Fatalf("escaped interpolation = %q, want %q", got, "${foo}")
 	}
 }
+
+// ─── extend lowering ──────────────────────────────────────────────────────────
+
+func TestLowerExtendBlock(t *testing.T) {
+	tm := mustLower(t, minimal(`  entry_action = a
+  action "a" {
+    extend {
+      model = "fetch_checkout_scenes"
+      model = "fetch_returns_scenes"
+    }
+    compute "p" { v:bool := true }
+  }`))
+	ext := tm.Scenes[0].Actions[0].Extend
+	if len(ext) != 2 {
+		t.Fatalf("extend hooks = %v", ext)
+	}
+	// Declaration order is the merge order, so it has to survive lowering.
+	if ext[0] != "fetch_checkout_scenes" || ext[1] != "fetch_returns_scenes" {
+		t.Errorf("hooks = %v", ext)
+	}
+}
+
+func TestLowerActionWithoutExtendBlock(t *testing.T) {
+	tm := mustLower(t, minimal(`  entry_action = a
+  action "a" { compute "p" { v:bool := true } }`))
+	if ext := tm.Scenes[0].Actions[0].Extend; len(ext) != 0 {
+		t.Errorf("extend = %v, want empty", ext)
+	}
+}
+
+// `model` is contextual, so it stays usable as an ordinary binding name.
+func TestModelIsNotAReservedWord(t *testing.T) {
+	tm := mustLower(t, minimal(`  entry_action = a
+  action "a" { compute "p" { model:bool = true   v:bool := model } }`))
+	bindings := tm.Scenes[0].Actions[0].Compute.Prog.Bindings
+	if bindings[0].Name != "model" {
+		t.Errorf("first binding = %q, want model", bindings[0].Name)
+	}
+}

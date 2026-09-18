@@ -333,6 +333,23 @@ pub const RuntimeModel = struct {
         errdefer specs.deinit(allocator);
         var scheduled_prepare_hooks: std.StringHashMapUnmanaged(usize) = .empty;
         defer scheduled_prepare_hooks.deinit(allocator);
+        // Extend hooks come first so the merge they feed is settled before any
+        // binding is resolved: a STATE field the merge introduces has to be
+        // readable by a `from_state` binding in this same action.
+        if (action.get("extend")) |extend| {
+            if (extend != .array) return error.InvalidExtend;
+            for (extend.array.items, 0..) |hook, index| {
+                if (hook != .string or hook.string.len == 0) return error.InvalidExtend;
+                try specs.append(allocator, .{
+                    .kind = .prepare,
+                    .role = .extend,
+                    .hook = hook.string,
+                    .scene_id = scene_id,
+                    .action_id = action_id,
+                    .callback_index = index,
+                });
+            }
+        }
         if (action.get("prepare")) |prepare| {
             if (prepare != .array) return error.InvalidPrepare;
             for (prepare.array.items, 0..) |entry, index| {

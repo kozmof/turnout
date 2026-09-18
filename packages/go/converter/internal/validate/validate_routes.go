@@ -12,7 +12,21 @@ import (
 // Group E — Route validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, ds *diag.DiagSink) {
+// declaresExtend reports whether any action can merge a model into this one
+// while it runs. A model that grows is not held to already containing every
+// scene a route arm names: the scene may simply not have arrived yet.
+func declaresExtend(tm *turnoutpb.TurnModel) bool {
+	for _, s := range tm.Scenes {
+		for _, a := range s.Actions {
+			if len(a.Extend) > 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, growable bool, ds *diag.DiagSink) {
 	allKnownActions := make(map[string]bool)
 	for _, actionSet := range knownActions {
 		for actionID := range actionSet {
@@ -20,11 +34,11 @@ func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool,
 		}
 	}
 	for _, r := range routes {
-		validateRoute(r, knownScenes, knownActions, allKnownActions, ds)
+		validateRoute(r, knownScenes, knownActions, allKnownActions, growable, ds)
 	}
 }
 
-func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, allKnownActions map[string]bool, ds *diag.DiagSink) {
+func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownActions map[string]map[string]bool, allKnownActions map[string]bool, growable bool, ds *diag.DiagSink) {
 	if r.EntrySceneId == nil || *r.EntrySceneId == "" {
 		ds.Append(diag.Errorf(diag.CodeMissingEntryScene,
 			"route %q: missing entry declaration", r.Id))
@@ -34,7 +48,7 @@ func validateRoute(r *turnoutpb.RouteModel, knownScenes map[string]bool, knownAc
 	}
 	fallbackCount := 0
 	for i, arm := range r.Match {
-		if arm.Target != "" && arm.Target != ast.RouteTerminalTarget && !knownScenes[arm.Target] {
+		if arm.Target != "" && arm.Target != ast.RouteTerminalTarget && !knownScenes[arm.Target] && !growable {
 			ds.Append(diag.Errorf(diag.CodeUnresolvedScene,
 				"route %q arm %d: target scene %q is not defined", r.Id, i, arm.Target))
 		}

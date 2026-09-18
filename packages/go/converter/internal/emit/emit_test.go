@@ -360,6 +360,22 @@ scene "s" {
 	}
 }
 
+func TestEmitExtendBlock(t *testing.T) {
+	out := fullPipeline(t, `state { ns { v:number = 0 } }
+scene "s" {
+  entry_action = a
+  action "a" {
+    extend {
+      model = "fetch_checkout_scenes"
+    }
+    compute "p" { r:bool := true }
+  }
+}`)
+	if !strings.Contains(out, `extend = ["fetch_checkout_scenes"]`) {
+		t.Errorf("missing extend list attribute, got:\n%s", out)
+	}
+}
+
 // ─── next rule ────────────────────────────────────────────────────────────────
 
 func TestEmitNextRule(t *testing.T) {

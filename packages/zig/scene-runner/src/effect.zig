@@ -1,7 +1,19 @@
 pub const Kind = enum { prepare, publish };
+
+/// What a prepare effect's payload is for.
+///
+/// An `extend` hook returns a model to merge into the running one rather than
+/// values to bind. It is a prepare effect because it fires in the same phase and
+/// answers to the same policy — an unregistered one fails the action — so it
+/// rides the existing request, resume, and outcome path instead of a parallel
+/// one. Only what happens to the payload differs. Publish effects are always
+/// `.binding`; the field is meaningless there.
+pub const Role = enum { binding, extend };
+
 pub const Request = struct {
     id: u64,
     kind: Kind,
+    role: Role = .binding,
     hook: []const u8,
     scene_id: []const u8,
     action_id: []const u8,
@@ -11,6 +23,7 @@ pub const Request = struct {
 };
 pub const Spec = struct {
     kind: Kind,
+    role: Role = .binding,
     hook: []const u8,
     scene_id: []const u8,
     action_id: []const u8,

@@ -11,7 +11,14 @@ import (
 
 var (
 	publishBlockStarters = []lexer.TokenKind{lexer.TokKwHook}
+	// `model` is a contextual attribute, not a keyword, so there is no token to
+	// resynchronise on inside an extend block; recovery goes to the next item of
+	// the enclosing action.
+	extendBlockStarters = []lexer.TokenKind{lexer.TokKwExtend, lexer.TokKwPublish, lexer.TokKwNext}
 )
+
+// extendModelAttr is the attribute name inside an `extend` block.
+const extendModelAttr = "model"
 
 // parseInlineIngress parses the `<~ <source>` clause, or returns nil if absent.
 //
@@ -453,6 +460,36 @@ func missingResultHint(prog *ast.ProgBlock, want ast.BindingMarker) string {
 		return "; a transition cannot write to STATE, so a `(expr) ~> @ns.field` write cannot be its condition"
 	}
 	return "; mark one with `:=`, or move a `(expr) ~> @ns.field` write last to make it the result"
+}
+
+// ─── parseExtendBlock ────────────────────────────────────────────────────────
+
+// parseExtendBlock parses `extend { model = "<hook>" ... }`.
+//
+// `model` is contextual rather than a reserved word: it is an ordinary
+// identifier that only means anything here, so a binding may still be called
+// `model` everywhere else. Each value names a hook; a model is what the hook
+// returns, which is what the attribute says.
+func (p *parser) parseExtendBlock() *ast.ExtendBlock {
+	kwTok, _ := p.expect(lexer.TokKwExtend)
+	pos := p.posOf(kwTok)
+	p.expect(lexer.TokLBrace)
+
+	var hooks []string
+	for p.peek().Kind != lexer.TokRBrace && p.peek().Kind != lexer.TokEOF {
+		t := p.peek()
+		if t.Kind == lexer.TokIdent && t.Value == extendModelAttr {
+			p.advance()
+			p.expect(lexer.TokEquals)
+			hookTok, _ := p.expect(lexer.TokStringLit)
+			hooks = append(hooks, hookTok.Value)
+		} else {
+			p.errorf(t, "expected `model = \"<hook>\"` in extend block, got %s %q", kindName(t.Kind), t.Value)
+			p.syncToBlockItem(extendBlockStarters...)
+		}
+	}
+	p.expect(lexer.TokRBrace)
+	return &ast.ExtendBlock{Pos: pos, Hooks: hooks}
 }
 
 // ─── parsePublishBlock ───────────────────────────────────────────────────────

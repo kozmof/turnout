@@ -85,7 +85,7 @@ func Validate(in ValidateInput) diag.Diagnostics {
 	}
 	if len(tm.Routes) > 0 {
 		knownScenes, knownActions := buildKnownScenesAndActions(tm)
-		validateRoutes(tm.Routes, knownScenes, knownActions, &ds)
+		validateRoutes(tm.Routes, knownScenes, knownActions, declaresExtend(tm), &ds)
 	}
 	return ds.Flush()
 }

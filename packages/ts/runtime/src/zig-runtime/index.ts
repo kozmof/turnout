@@ -4,6 +4,8 @@ export {
   ZigRuntimeClient,
   type ZigResponse,
   type CreatedRuntime,
+  type MergedModel,
+  type MergeOrigin,
   type PreparedModel,
   type ZigRuntimeExports,
   type ZigStatus,

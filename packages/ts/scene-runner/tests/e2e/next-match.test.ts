@@ -45,6 +45,7 @@ const hooks: HookRegistry = {
     // Hook fields must be typed values, not bare JS primitives.
     oncall_roster: () => ({ oncall_owner: buildString("ada") }),
   },
+  extend: {},
   publish: {
     incident_timeline: () => {},
     metrics: () => {},

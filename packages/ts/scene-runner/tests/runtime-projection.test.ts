@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { runtimeProjection } from "../src/runner.js";
+import { runtimeProjection } from "../src/model-encoding.js";
 
 describe("runtimeProjection", () => {
   it("removes compiler metadata from every projected location", () => {

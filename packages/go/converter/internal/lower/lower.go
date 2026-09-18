@@ -333,6 +333,7 @@ func lowerAction(a *ast.ActionBlock, schema state.Schema, ds *diag.DiagSink) *tu
 
 	am.Prepare = lowerPrepare(a.Prepare)
 	am.Merge = lowerMerge(a.Merge)
+	am.Extend = lowerExtend(a.Extend)
 	am.Publish = lowerPublish(a.Publish)
 
 	for _, nr := range a.Next {
@@ -397,6 +398,13 @@ func lowerMerge(merge *ast.MergeBlock) []*turnoutpb.MergeEntry {
 		})
 	}
 	return entries
+}
+
+func lowerExtend(ext *ast.ExtendBlock) []string {
+	if ext == nil {
+		return nil
+	}
+	return ext.Hooks
 }
 
 func lowerPublish(pub *ast.PublishBlock) []string {

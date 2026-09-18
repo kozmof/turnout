@@ -9,6 +9,7 @@ const signal = new AbortController().signal;
 function hooks(): HookRegistry {
   return {
     prepare: Object.create(null) as HookRegistry["prepare"],
+    extend: Object.create(null) as HookRegistry["extend"],
     publish: Object.create(null) as HookRegistry["publish"],
   };
 }

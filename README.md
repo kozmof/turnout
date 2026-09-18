@@ -178,6 +178,38 @@ ModelMergeError: cannot merge models:
   STATE field "app.total" is declared as str by checkout and as number by base
 ```
 
+A model can also grow while it runs. An action declares the hooks it extends
+from, and each returned model is merged in before the action prepares.
+
+```
+action "load_plugins" {
+  extend {
+    model = "fetch_checkout_scenes"
+  }
+
+  compute "pick_lane" {
+    lane:str <~ @cart.lane
+    (lane) ~> @cart.lane
+  }
+
+  next on lane to {
+    "checkout" -> review,     # a scene that arrived from the hook
+    _          -> browse
+  }
+}
+```
+
+```ts
+runner.useExtendHook("fetch_checkout_scenes", async () => checkoutScenes);
+```
+
+Each value in `extend` names a hook; a model is what the hook returns, which is
+what the attribute says. Hooks fire in declaration order and merge left to
+right, under the same rules as `mergeModels` — a collision fails the action
+rather than overriding anything, with the running model named `model` and every
+other input named by its hook. Because a model can grow, a route arm may name a
+scene that has not arrived yet.
+
 Hooks let an action pull values from outside the model or publish state
 somewhere else. Register them before running.
 
@@ -188,6 +220,7 @@ runner.usePublishHook("emit_receipt", async (ctx) => { await send(ctx.state()); 
 
 A prepare hook returns the bindings it resolved. A publish hook reads the final
 state and returns either nothing or an outcome recording whether it succeeded.
+An extend hook returns a model, and is registered with `useExtendHook`.
 
 For a single call that wires hooks and runs to completion, use `runHarness`.
 For the Node-only bridge that shells out to the `turnout` binary, import from

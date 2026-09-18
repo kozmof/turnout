@@ -23,10 +23,26 @@ export type PublishHookOutcome =
   | { hookName: string; status: "ok" }
   | { hookName: string; status: "error"; message: string };
 
+export interface ExtendHookContext {
+  readonly actionId: string;
+  readonly hookName: string;
+}
+
 export type PrepareHookImpl = (
   ctx: PrepareHookContext,
   signal: AbortSignal,
 ) => Record<string, unknown> | Promise<Record<string, unknown>>;
+/**
+ * Supplies models to merge into the running one, before this action prepares.
+ *
+ * Returning several is the same as listing several hooks: they merge left to
+ * right. A collision with the running model, or between two returned models,
+ * fails the action rather than overriding anything.
+ */
+export type ExtendHookImpl = (
+  ctx: ExtendHookContext,
+  signal: AbortSignal,
+) => TurnModel | readonly TurnModel[] | Promise<TurnModel | readonly TurnModel[]>;
 export type PublishHookImpl = (
   ctx: PublishHookContext,
   signal: AbortSignal,
@@ -80,6 +96,7 @@ export type ExecutionWarning = {
 
 export type HookRegistry = {
   prepare: Record<string, PrepareHookImpl>;
+  extend: Record<string, ExtendHookImpl>;
   publish: Record<string, PublishHookImpl>;
 };
 

@@ -16,6 +16,9 @@ pub const Code = enum {
     type_mismatch,
     division_by_zero,
     hook_required,
+    missing_extend_hook,
+    extend_hook_failed,
+    model_merge_conflict,
     missing_action_binding,
     unknown_state_path,
     reserved_state_path,
@@ -40,6 +43,9 @@ pub fn fromError(err: anyerror) Code {
     if (err == error.TypeMismatch or err == error.ConditionTypeMismatch) return .type_mismatch;
     if (err == error.DivisionByZero) return .division_by_zero;
     if (err == error.HookRequired) return .hook_required;
+    if (err == error.MissingExtendHook) return .missing_extend_hook;
+    if (err == error.ExtendHookFailed) return .extend_hook_failed;
+    if (err == error.ModelMergeConflict) return .model_merge_conflict;
     if (err == error.MissingActionBinding) return .missing_action_binding;
     if (err == error.UnknownPath) return .unknown_state_path;
     if (err == error.ReservedPath) return .reserved_state_path;

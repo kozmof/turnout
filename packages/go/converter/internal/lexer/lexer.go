@@ -72,6 +72,7 @@ const (
 	TokKwPrepare
 	TokKwMerge
 	TokKwPublish
+	TokKwExtend
 	TokKwNext
 	TokKwProg
 	TokKwEntryAction
@@ -231,6 +232,7 @@ var keywordTable = []keywordEntry{
 	{"prepare", TokKwPrepare},
 	{"merge", TokKwMerge},
 	{"publish", TokKwPublish},
+	{"extend", TokKwExtend},
 	{"next", TokKwNext},
 	{"prog", TokKwProg},
 	{"entry_action", TokKwEntryAction},

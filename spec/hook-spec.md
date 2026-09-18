@@ -1,7 +1,7 @@
 # Hook Specification — Turn DSL
 
 > Status: Draft for implementation
-> Scope: Turn DSL `<~ hook(...)` ingress and `publish.hook` declarations, their lowering to canonical HCL, the runtime execution model, and the TypeScript registration API
+> Scope: Turn DSL `<~ hook(...)` ingress, `extend.model` and `publish.hook` declarations, their lowering to canonical HCL, the runtime execution model, and the TypeScript registration API
 
 ---
 
@@ -10,9 +10,10 @@
 A hook is a named extension point. It lets consumers inject TypeScript logic at fixed points in the action execution lifecycle.
 
 - Prepare hooks (`<binding>:<type> <~ hook("<name>")`) — fire before the compute graph runs. The hook returns an object whose fields are mapped into runtime state bindings.
+- Extend hooks (`extend { model = "<name>" }`) — fire before anything else in the action. The hook returns a model, which is merged into the running model before any binding is resolved.
 - Publish hooks (`publish { hook = "<name>" }`) — fire after merge. The hook receives the entire final state snapshot and cannot mutate it.
 
-Hooks are declared at convert time (Turn DSL → canonical HCL) and implemented at runtime by the consumer through the runner hook registry. Missing implementations are handled by phase. An unregistered prepare hook fails the action with `UnregisteredHook`, while an unregistered publish hook is silently skipped.
+Hooks are declared at convert time (Turn DSL → canonical HCL) and implemented at runtime by the consumer through the runner hook registry. Missing implementations are handled by phase. An unregistered prepare or extend hook fails the action with `UnregisteredHook`, while an unregistered publish hook is silently skipped.
 
 ```hcl
 action "process_order" {
@@ -98,9 +99,29 @@ publish {
 
 Multiple `hook` entries are allowed. Publish hooks fire in declaration order after the merge step. Each receives the entire final action state.
 
-### 1.4 Execution order within an action
+### 1.4 Extend hooks
+
+An extend hook is declared in the `extend` section using `model = "<name>"`:
+
+```hcl
+extend {
+  model = "fetch_checkout_scenes"
+  model = "fetch_returns_scenes"
+}
+```
+
+Each value names a hook; the attribute is `model` because a model is what the hook yields. `model` is contextual, not a reserved word, so a binding may still be called `model` elsewhere.
+
+Multiple entries are allowed. Extend hooks fire in declaration order and each returned model is merged into the running model, left to right, before any binding in the action is resolved. A hook may return one model or several; several is the same as listing several hooks.
+
+Merging rejects every collision rather than overriding, and reports all of them together. A field declared identically by two inputs is agreement, not a conflict. The running model is named `model` in those messages; every other input is named by the hook it came from.
+
+Because a model can grow, a route arm may name a scene that is not in the model yet. That is not a validation error. Reaching a target that never arrives still is.
+
+### 1.5 Execution order within an action
 
 ```
+0. Invoke extend hooks (declaration order); merge each returned model
 1. Resolve prepare.from_state bindings from STATE
 2. Invoke prepare hooks (declaration order); collect returned objects
 3. Map hook result fields into state bindings
@@ -109,10 +130,16 @@ Multiple `hook` entries are allowed. Publish hooks fire in declaration order aft
 6. Invoke publish hooks (declaration order) with final state
 ```
 
-### 1.5 Complete example
+Extend comes first so that a STATE field the merge introduces is readable by a `from_state` binding in the same action.
+
+### 1.6 Complete example
 
 ```hcl
 action "process_order" {
+  extend {
+    model = "fetch_payment_scenes"
+  }
+
   compute "order_graph" {
     raw_payload:str <~ hook("payload_input")
     user_id:str <~ @session.user_id
@@ -130,12 +157,14 @@ action "process_order" {
 
 ## 2. HCL Lowering
 
-Hook ingress and `publish` sections are lowered to sub-blocks inside the action block in the emitted canonical HCL. The `compute` block uses plain canonical `binding` declarations. Inline IO has already been hoisted into `prepare` and `merge`, which exist only in the emitted model and are never author-written.
+Hook ingress, `extend`, and `publish` sections are lowered to sub-blocks or list attributes inside the action block in the emitted canonical HCL. The `compute` block uses plain canonical `binding` declarations. Inline IO has already been hoisted into `prepare` and `merge`, which exist only in the emitted model and are never author-written.
 
 ### 2.1 Shape
 
 ```hcl
 action "process_order" {
+  extend = ["fetch_payment_scenes"]
+
   compute {
     root = "receipt"
     prog "order_graph" {
@@ -169,6 +198,7 @@ Rules:
 - Each `<~` clause becomes `binding "<name>" { from_state = ... }` or `binding "<name>" { from_hook = ... }` under `prepare`.
 - Each `~>` clause becomes `binding "<name>" { to_state = ... }` under `merge`.
 - Each `publish` hook entry becomes a `hook = "<name>"` attribute (repeated for multiple hooks).
+- The `extend` block becomes an `extend = ["<name>", ...]` list attribute, in declaration order, which is the order the models merge in.
 - Binding names inside `prepare` and `merge` name the binding the clause was written on, so they always match a `compute` binding.
 
 ---
@@ -186,6 +216,12 @@ interface PrepareHookContext {
   get(binding: string): unknown;
 }
 
+interface ExtendHookContext {
+  readonly actionId: string;
+  readonly hookName: string;
+  // No get(): extend hooks run before any binding is resolved.
+}
+
 interface PublishHookContext {
   readonly actionId: string;
   readonly hookName: string;
@@ -194,18 +230,24 @@ interface PublishHookContext {
 }
 
 type PrepareHookImpl = (ctx: PrepareHookContext, signal: AbortSignal) => Record<string, unknown> | Promise<Record<string, unknown>>;
+type ExtendHookImpl = (ctx: ExtendHookContext, signal: AbortSignal) => TurnModel | readonly TurnModel[] | Promise<TurnModel | readonly TurnModel[]>;
 type PublishHookImpl = (ctx: PublishHookContext, signal: AbortSignal) => PublishHookOutcome | void | Promise<PublishHookOutcome | void>;
 
 // Registration on Runner
 runner.usePrepareHook(hookName: string, impl: PrepareHookImpl): Runner;
+runner.useExtendHook(hookName: string, impl: ExtendHookImpl): Runner;
 runner.usePublishHook(hookName: string, impl: PublishHookImpl): Runner;
 ```
 
-Consumers register hook implementations before execution begins, using the runner's prepare/publish hook registration API.
+Consumers register hook implementations before execution begins, using the runner's prepare/extend/publish hook registration API.
 
 ```typescript
 runner.usePrepareHook("payload_input", async (ctx, signal) => {
   return { raw_payload: await fetchPayload({ signal }) }
+})
+
+runner.useExtendHook("fetch_payment_scenes", async (ctx, signal) => {
+  return await loadModel("payment", { signal })
 })
 
 runner.usePublishHook("audit_export", (ctx) => {
@@ -223,7 +265,20 @@ state[bindingName] = hookResult[bindingName]
 
 If the result object is missing a declared binding field, the runtime emits `MissingHookField`.
 
-### 3.3 Publish hook state
+### 3.3 Extend hook merging
+
+The models an action's extend hooks return are merged onto the running model in declaration order, before any binding is resolved. It is the same merge `mergeModels` performs, so the rules and the messages are identical whichever way it is reached.
+
+A collision is never an override. Every conflict is collected and the action fails with all of them:
+
+```
+scene "review" is declared by model and fetch_checkout_scenes
+STATE field "app.total" is declared as str="" by fetch_checkout_scenes and as number=0 by model
+```
+
+A scene, route or STATE field the merge adds is usable from that point on, including by a route arm that named it before it existed. What a merge cannot do is change anything the model already has, which is what keeps a run that is already inside a scene coherent.
+
+### 3.4 Publish hook state
 
 Publish hooks receive the complete final state after the merge step:
 
@@ -237,17 +292,18 @@ Publish hooks receive the complete final state after the merge step:
 
 Publish hooks cannot mutate this state. Any return value is ignored.
 
-### 3.4 Unregistered hooks
+### 3.5 Unregistered hooks
 
-If no prepare hook implementation has been registered for a hook name when the action executes, prepare resolution fails with `UnregisteredHook` and the action does not run. If no publish hook implementation has been registered for a `publish.hook` name, the runtime silently skips that publish hook.
+If no prepare hook implementation has been registered for a hook name when the action executes, prepare resolution fails with `UnregisteredHook` and the action does not run. An unregistered extend hook fails the same way, for the same reason: an action that asked for a model and did not get one cannot run. If no publish hook implementation has been registered for a `publish.hook` name, the runtime silently skips that publish hook.
 
-### 3.5 Multiple prepare hooks, same name
+### 3.6 Multiple prepare hooks, same name
 
 When multiple bindings reference the same prepare hook name, the hook executes once and the returned object is reused for all matching bindings.
 
-### 3.6 Hook isolation
+### 3.7 Hook isolation
 
 - Prepare hooks: can read runtime context and optionally read current state via `ctx.get()`. They cannot write state directly. Writes occur only through the returned object mapped by the runtime.
+- Extend hooks: can read nothing from the run. What they return changes the model, not the state.
 - Publish hooks: can read the full final state via `ctx.state()`. They cannot write state.
 
 ---
@@ -263,6 +319,11 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 - If no publish hook implementation is registered for a publish hook name, the runtime silently skips that publish hook.
 - Prepare hooks fire before the compute graph. The compute graph observes the mapped values.
 - Publish hooks fire after merge. They receive the complete final state.
+- `extend { model = "<name>" }` declares an extend-phase hook for the action. Multiple entries are valid and merge in declaration order.
+- An extend hook may return one model or several.
+- An extend hook may add scenes, routes, types and STATE fields, and a route arm may name a scene before it arrives.
+- A STATE field or named type an extend hook redeclares identically is agreement, not a conflict.
+- `model` remains usable as an ordinary binding name; it is contextual to the `extend` block.
 
 ---
 
@@ -274,6 +335,9 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 - A publish hook cannot mutate state. Return values are ignored.
 - Hook execution order cannot be changed at runtime. It is fixed by declaration order in the emitted HCL.
 - A prepare hook cannot observe compute graph results (the graph has not run yet). Only STATE-resolved and default binding values are available via `ctx.get()`.
+- An extend hook cannot redefine anything the running model already has: a colliding scene, route or type id, or a STATE field declared differently, fails the action.
+- An extend hook cannot remove anything from the model. A merge only adds.
+- An extend hook cannot read state or bindings. It runs before either exists for the action.
 
 ---
 
@@ -283,6 +347,9 @@ When multiple bindings reference the same prepare hook name, the hook executes o
 |------------|-----------|
 | `UnregisteredHook` | A `<~ hook(...)` ingress references a hook name with no registered prepare hook implementation |
 | `MissingHookField` | Prepare hook result object is missing a field required by a declared binding |
+| `UnregisteredHook` | An `extend { model = "<name>" }` entry names a hook with no registered extend hook implementation |
+| `InvalidHookValue` | An extend hook returned something that is not a model |
+| `ModelMergeError` | A model an extend hook returned collides with the running model; carries every conflict |
 
 For `TransitionHook` and the other IO codes, see `effect-dsl-spec.md §7`.
 
@@ -294,15 +361,17 @@ For `TransitionHook` and the other IO codes, see `effect-dsl-spec.md §7`.
 
 | Domain | Coverage target |
 |--------|----------------|
-| A. DSL parsing | `<~ hook(...)` ingress correctly parsed; `publish` `hook` entries collected |
-| B. HCL lowering | `prepare`/`merge`/`publish` sub-blocks emitted in declaration order |
+| A. DSL parsing | `<~ hook(...)` ingress correctly parsed; `publish` `hook` and `extend` `model` entries collected |
+| B. HCL lowering | `prepare`/`merge`/`publish` sub-blocks and the `extend` list emitted in declaration order |
 | C. Binding validation | Hoisted `prepare` and `merge` entries name the binding their clause was written on |
 | D. Prepare hook execution | Hook fires before graph; returned field value visible to compute graph |
 | E. Hook deduplication | Multiple bindings on same hook name → hook called once; all fields mapped |
 | F. Publish hook execution | Hook fires after merge; receives full final state; cannot mutate |
 | G. Declaration order | Multiple publish hooks execute in declaration order |
-| H. Unregistered hooks | Prepare hook fails with `UnregisteredHook`; publish hook is silently skipped |
-| I. Error paths | All error codes trigger correctly and abort without partial output |
+| H. Unregistered hooks | Prepare and extend hooks fail with `UnregisteredHook`; publish hook is silently skipped |
+| I. Extend hook execution | Returned model merges before any binding resolves; a scene it brings in is reachable |
+| J. Extend merge conflicts | A colliding scene, route, type or STATE field fails the action, reporting every conflict |
+| K. Error paths | All error codes trigger correctly and abort without partial output |
 
 ### Critical paths (idempotency)
 

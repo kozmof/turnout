@@ -4,6 +4,7 @@
 //! This layer imports `turnout_runtime`. The dependency is one-way.
 //! The TypeScript counterpart is `packages/ts/scene-runner`.
 
+pub const merge = @import("merge.zig");
 pub const model = @import("model.zig");
 pub const state = @import("state.zig");
 pub const action = @import("action.zig");
@@ -18,6 +19,7 @@ pub const runner = @import("runner.zig");
 pub const runtime_error = @import("runtime_error.zig");
 
 test {
+    _ = merge;
     _ = model;
     _ = state;
     _ = action;

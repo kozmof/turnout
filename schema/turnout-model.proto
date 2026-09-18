@@ -143,6 +143,11 @@ message ActionModel {
   repeated NextRuleModel next = 6;
   // text is the narrative description of the action (optional authoring metadata).
   optional string text = 7;
+  // extend names the hooks whose returned models are merged into the running
+  // model before this action prepares. Each value is a hook name; a model is
+  // what the hook yields. Hooks fire in declaration order and merge left to
+  // right. Collisions are rejected, never overridden.
+  repeated string extend = 8;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -521,14 +521,15 @@ Steps 1–2 are where most of the win is; 4 is where most of the code deletion i
   being the *IR*.
 - **Changing the WASM ABI or the canonical Value envelope.** The boundary
   encoding is fine. This is entirely behind `turnout_runtime_create`.
-- **Implementing dynamic scene merging.** This plan only ensures the architecture
-  admits it.
+- **Implementing dynamic scene merging.** This plan only ensured the architecture
+  admits it. It has since been built on top — see "Merging scenes: what landed".
 
-## Merging scenes: what landed, and why not in Zig
+## Merging scenes: what landed
 
-`mergeModels` combines separately compiled models in TypeScript, and the result
-is an ordinary model that `prepareModel` loads once. Three of the four questions
-below are answered by it; the fourth is still open.
+The rules live in `packages/zig/scene-runner/src/merge.zig`. `mergeModels` calls
+them through `turnout_model_merge`, and an action's `extend` hooks call them
+directly, mid-run. One implementation, so one set of rules and one set of
+messages whichever way a merge is reached.
 
 - **Collision policy: reject.** Every collision is an error, never an override.
   Two models that both define a scene have no defensible winner, and picking one
@@ -542,29 +543,44 @@ below are answered by it; the fourth is still open.
 - **Routes merge too.** Route ids collide like scene ids, and the version window
   narrows to satisfy every input. Route arms that referenced absent scenes become
   live when those scenes arrive, which is the point.
-- **Merge before run.** Still the only supported shape. Mid-run merging raises
-  questions the runtime cannot answer alone: what happens to route history that
-  references a scene no longer present, and whether the currently executing scene
-  may be replaced under a running driver.
+- **Mid-run merging, via an `extend` hook.** An action declares
+  `extend { model = "<hook>" }`; the hook returns a model, and it is merged as
+  soon as every extend hook for that action has answered — before any binding is
+  resolved, so a STATE field the merge introduces is readable by a `from_state`
+  binding in the same action.
 
-**Merging is not incremental, and deliberately so.** This plan assumed it had to
-be — that re-lowering a whole model per merge was the thing to avoid, and that
-scene units with their own arenas were the way to avoid it. That assumption was
-never tested. Preparing a 20-action model costs about 55 us, so re-preparing on
-merge is only worth avoiding if merges are frequent relative to runs, and the
+**The reject-every-collision policy is what made mid-run merging tractable.** The
+two questions this document left open both dissolve under it. A merge can only
+*add*, never redefine or remove, so the scene a driver is inside and every id in
+its route history still exist, unchanged, in the merged model.
+
+What does move is the address of every string, because the merged model is a
+fresh parsed tree. So the old model is retained rather than freed for the life of
+the runtime instance — `ModelEntry` was already reference counted, which is
+exactly the mechanism needed. Slices the driver borrowed stay valid, and because
+they are used as lookup keys they resolve against the new model. The one pointer
+re-resolved is `RouteDriver.route`, which is also what brings arms naming a
+newly arrived scene to life.
+
+The cost is one retained model per merge, for the life of the run. Freeing them
+would mean re-resolving every borrowed slice in the driver, which is a much
+larger change for no measured benefit: merges happen at configuration boundaries,
+not in loops.
+
+**Merging is still not incremental, and deliberately so.** This plan assumed it
+had to be — that re-lowering a whole model per merge was the thing to avoid, and
+that scene units with their own arenas were the way to avoid it. That assumption
+was never tested. Preparing a 20-action model costs about 55 us, so re-preparing
+on merge is only worth avoiding if merges are frequent relative to runs, and the
 expected shape is the opposite: models are composed at configuration time and run
-many times after.
+many times after. A mid-run merge serialises the merged tree and re-loads it,
+which reuses validation, indexing and lowering untouched.
 
-So merging is a model transformation in the host, where the validation it needs
-already lives, and the runtime keeps loading one finished model. The incremental
-path stays open behind the same API: the model handle is already reference
-counted and shared, and `mergeModels` returning a model rather than mutating one
-means a future implementation can split it into parts without changing a caller.
-
-The threshold for building that is evidence that merging is hot — a measured
-workload where merge cost is a meaningful fraction of the whole. This session
-spent most of its effort optimising an execution path that turned out to be 2% of
-the wall clock; the same mistake is available here and is worth not repeating.
+The threshold for building the incremental path is evidence that merging is hot —
+a measured workload where merge cost is a meaningful fraction of the whole. This
+session spent most of its effort optimising an execution path that turned out to
+be 2% of the wall clock; the same mistake is available here and is worth not
+repeating.
 
 ## Remaining from this plan
 

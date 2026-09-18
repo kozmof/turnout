@@ -58,6 +58,8 @@ func (p *parser) parseActionBlock() *ast.ActionBlock {
 			}
 		case lexer.TokKwCompute:
 			ab.Compute = p.parseComputeBlock()
+		case lexer.TokKwExtend:
+			ab.Extend = p.parseExtendBlock()
 		case lexer.TokKwPublish:
 			ab.Publish = p.parsePublishBlock()
 		case lexer.TokKwNext:

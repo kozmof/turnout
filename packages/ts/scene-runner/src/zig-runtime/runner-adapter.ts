@@ -18,6 +18,7 @@ import {
   RunnerError,
   SceneRuntimeError,
 } from "../errors.js";
+import { ModelMergeError } from "../merge-models.js";
 import { safeLog } from "../logging.js";
 import { stateManagerFromUnchecked } from "../state/state-manager.js";
 import type { ZigResponse, CreatedRuntime } from "./client.js";
@@ -95,6 +96,10 @@ export async function advanceZigRuntime(
   while (true) {
     throwIfAborted(signal);
     const response = client.step<ZigRuntimeEvent>(handle);
+    // A rejected merge is a conflict report, not a runtime fault, and reads far
+    // better as one than as the raw status payload it arrives in.
+    const conflicts = mergeConflictsOf(response);
+    if (conflicts !== undefined) throw new ModelMergeError(conflicts);
     try {
       assertOk(response);
     } catch (error) {
@@ -112,7 +117,10 @@ export async function advanceZigRuntime(
         activeActionId = event.actionId;
         const contextKey = prepareActionKey(event);
         let prepareContext = prepareContexts.get(contextKey);
-        if (event.kind === "prepare" && prepareContext === undefined) {
+        // Extend hooks run before any binding, so building the context on one
+        // would resolve from_state values against the pre-merge model and miss
+        // a field the merge is about to introduce.
+        if (event.kind === "prepare" && event.role !== "extend" && prepareContext === undefined) {
           prepareContext = prepareInitialContext(event);
           prepareContexts.set(contextKey, prepareContext);
         }
@@ -129,7 +137,7 @@ export async function advanceZigRuntime(
           throw new PrepareError(
             "UnregisteredHook",
             event.actionId,
-            `prepare hook "${event.hook}" is not registered`,
+            `${event.role === "extend" ? "extend" : "prepare"} hook "${event.hook}" is not registered`,
           );
         }
         if (result.kind === "prepare" && result.status === "failed") {
@@ -181,6 +189,9 @@ function recordPreparedValues(
   context: Record<string, AnyValue> | undefined,
 ): void {
   if (request.kind !== "prepare" || result.kind !== "prepare" || result.status !== "ok") return;
+  // An extend payload is a model, not values. Recording it would splat the
+  // model's own fields into the action's bindings.
+  if (request.role === "extend") return;
   if (context === undefined) return;
   if (request.binding !== null) {
     context[request.binding] = fromCanonicalValue(result.value);
@@ -386,6 +397,18 @@ function actionTrace(event: Extract<ZigRuntimeEvent, { event: "actionComplete" }
   };
 }
 
+/**
+ * The conflicts from a merge the runtime rejected, or undefined for anything
+ * else. An `extend` hook brought in a model that collided with the running one.
+ */
+function mergeConflictsOf(response: ZigResponse<unknown>): string[] | undefined {
+  if (response.status === "ok") return undefined;
+  const payload = asRecord(response.payload);
+  if (payload?.event !== "mergeConflict") return undefined;
+  const conflicts = payload.conflicts;
+  return Array.isArray(conflicts) ? conflicts.map(String) : ["the runtime rejected the merge"];
+}
+
 function assertOk<T>(
   response: ZigResponse<T>,
 ): asserts response is ZigResponse<T> & { status: "ok" } {
@@ -469,6 +492,7 @@ export function createZigSceneRunner(
 ): Runner<FragmentHarnessResult> {
   const hooks: HookRegistry = {
     prepare: Object.create(null) as HookRegistry["prepare"],
+    extend: Object.create(null) as HookRegistry["extend"],
     publish: Object.create(null) as HookRegistry["publish"],
   };
   const source = toModelSource(client, model);
@@ -660,6 +684,7 @@ export function createZigRouteRunner(
 ): Runner<FragmentHarnessResult> {
   const hooks: HookRegistry = {
     prepare: Object.create(null) as HookRegistry["prepare"],
+    extend: Object.create(null) as HookRegistry["extend"],
     publish: Object.create(null) as HookRegistry["publish"],
   };
   const source = toModelSource(client, model);

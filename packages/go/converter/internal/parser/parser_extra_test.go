@@ -1235,3 +1235,95 @@ func countParserDiagnosticsContaining(ds diag.Diagnostics, needle string) int {
 	}
 	return count
 }
+
+// ── extend blocks ─────────────────────────────────────────────────────────────
+
+func parseExtendAction(t *testing.T, actionBody string) *ast.ActionBlock {
+	t.Helper()
+	src := `state {
+  ns {
+    val:number = 0
+  }
+}
+scene "test" {
+  entry_action = a
+  action "a" {
+` + actionBody + `
+  }
+}
+`
+	tf, ds := parser.ParseFile("test.tu", src)
+	if ds.HasErrors() {
+		for _, d := range ds {
+			t.Logf("diagnostic: %s", d.Format())
+		}
+		t.Fatalf("parse failed")
+	}
+	return tf.Scenes[0].Actions[0]
+}
+
+func TestParseExtendBlock(t *testing.T) {
+	ab := parseExtendAction(t, `    extend {
+      model = "fetch_checkout_scenes"
+      model = "fetch_returns_scenes"
+    }
+    compute "p" { v:bool := true }`)
+	if ab.Extend == nil {
+		t.Fatal("expected an extend block")
+	}
+	// Declaration order is the merge order, so the parser has to preserve it.
+	want := []string{"fetch_checkout_scenes", "fetch_returns_scenes"}
+	if len(ab.Extend.Hooks) != len(want) {
+		t.Fatalf("hooks = %v, want %v", ab.Extend.Hooks, want)
+	}
+	for i, hook := range want {
+		if ab.Extend.Hooks[i] != hook {
+			t.Errorf("hook %d = %q, want %q", i, ab.Extend.Hooks[i], hook)
+		}
+	}
+}
+
+func TestParseEmptyExtendBlock(t *testing.T) {
+	ab := parseExtendAction(t, `    extend { }
+    compute "p" { v:bool := true }`)
+	if ab.Extend == nil {
+		t.Fatal("expected an extend block")
+	}
+	if len(ab.Extend.Hooks) != 0 {
+		t.Errorf("hooks = %v, want none", ab.Extend.Hooks)
+	}
+}
+
+func TestParseActionWithoutExtendBlock(t *testing.T) {
+	ab := parseExtendAction(t, `    compute "p" { v:bool := true }`)
+	if ab.Extend != nil {
+		t.Errorf("extend = %v, want nil", ab.Extend)
+	}
+}
+
+// `model` is the only attribute an extend block takes; anything else is a
+// syntax error rather than a silently ignored entry.
+func TestParseExtendBlockRejectsOtherAttributes(t *testing.T) {
+	mustParseFail(t, minimalTurnFile(`  entry_action = a
+  action "a" {
+    extend {
+      hook = "fetch_checkout_scenes"
+    }
+    compute "p" { v:bool := true }
+  }`))
+	mustParseFail(t, minimalTurnFile(`  entry_action = a
+  action "a" {
+    extend {
+      model = fetch_checkout_scenes
+    }
+    compute "p" { v:bool := true }
+  }`))
+}
+
+// `model` is contextual to the extend block, so it stays usable as a binding.
+func TestParseModelIsNotReserved(t *testing.T) {
+	ab := parseExtendAction(t, `    compute "p" { model:bool = true   v:bool := model }`)
+	if got := ab.Compute.Prog.Bindings[0].Name; got != "model" {
+		t.Errorf("first binding = %q, want model", got)
+	}
+}

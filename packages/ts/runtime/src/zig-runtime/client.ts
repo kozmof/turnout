@@ -33,6 +33,7 @@ export interface ZigRuntimeExports {
     requestLength: number,
   ): number;
   turnout_model_create(address: number, length: number): number;
+  turnout_model_merge(address: number, length: number): number;
   turnout_model_destroy(handle: number): number;
   turnout_runtime_create_with_model(
     modelHandle: number,
@@ -47,6 +48,20 @@ export interface ZigRuntimeExports {
 
 export interface PreparedModel {
   handle: number;
+}
+
+/** Which input a merged scene, route, type or STATE field was taken from. */
+export interface MergeOrigin {
+  kind: "scene" | "route" | "typeDecl" | "field";
+  /** Scene, route or type name. For a field, "<namespace>.<field>". */
+  id: string;
+  /** Index of the input that declared it. */
+  input: number;
+}
+
+export interface MergedModel {
+  model: unknown;
+  provenance: MergeOrigin[];
 }
 
 export interface CreatedRuntime {
@@ -172,6 +187,27 @@ export class ZigRuntimeClient {
       if (input === undefined) throw new ZigAbiError("missing ABI input");
       return this.#readResponse(
         this.#invoke(() => this.#exports.turnout_model_create(input.address, input.length)),
+      );
+    });
+  }
+
+  /**
+   * Combine separately compiled models into one.
+   *
+   * `models` are runtime-projection objects and `labels` names them positionally
+   * in conflict messages. A collision is never an override: the response status
+   * is `invalid_input` and its payload carries every conflict found, not just
+   * the first.
+   *
+   * The merged model comes back with `provenance`, recording the input each
+   * item was taken from, so a caller holding richer objects than the runtime
+   * projection can rebuild its own result without repeating the rules.
+   */
+  mergeModels(models: readonly unknown[], labels: readonly string[]): ZigResponse<MergedModel> {
+    return this.#withInputs([this.#encode({ models, labels })], ([input]) => {
+      if (input === undefined) throw new ZigAbiError("missing ABI input");
+      return this.#readResponse(
+        this.#invoke(() => this.#exports.turnout_model_merge(input.address, input.length)),
       );
     });
   }

@@ -17,6 +17,7 @@ export function validateModel(model: TurnModel): string[] {
   const errors: string[] = [];
   const sceneIds = new Set<string>();
   const routeIds = new Set<string>();
+  const growable = declaresExtendHook(model);
 
   for (const scene of model.scenes) {
     if (sceneIds.has(scene.id)) {
@@ -38,8 +39,12 @@ export function validateModel(model: TurnModel): string[] {
     } else if (!sceneIds.has(route.entrySceneId)) {
       errors.push(`route "${route.id}" entry scene "${route.entrySceneId}" is not in the model`);
     }
+    // A route arm may name a scene an extend hook has yet to bring in. That is
+    // the point of merging mid-run, so a model that can grow is not held to
+    // having every target already. Reaching a target that never arrives is
+    // still an error, raised by the runtime when the transition is taken.
     for (const arm of route.match ?? []) {
-      if (arm.target !== TERMINAL_ROUTE_TARGET && !sceneIds.has(arm.target)) {
+      if (arm.target !== TERMINAL_ROUTE_TARGET && !sceneIds.has(arm.target) && !growable) {
         errors.push(`route "${route.id}" match target "${arm.target}" is not in the model`);
       }
     }
@@ -115,6 +120,21 @@ export function validateModel(model: TurnModel): string[] {
   }
 
   return errors;
+}
+
+/**
+ * Whether any action can merge a model into this one while it runs.
+ *
+ * Checks that are about what the model contains have to be softer for a model
+ * that grows: what an arm names may simply not have arrived yet.
+ */
+function declaresExtendHook(model: TurnModel): boolean {
+  for (const scene of model.scenes) {
+    for (const action of scene.actions ?? []) {
+      if ((action.extend ?? []).length > 0) return true;
+    }
+  }
+  return false;
 }
 
 function checkProgBindings(prog: ProgModel, location: string, errors: string[]): Set<string> {

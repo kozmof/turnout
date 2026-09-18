@@ -17,6 +17,7 @@ class MockExports implements ZigRuntimeExports {
   model = "";
   modelHandle = 0;
   request: unknown;
+  mergeRequest: unknown;
   resumed: unknown;
   nextAddress = 1024;
 
@@ -45,6 +46,11 @@ class MockExports implements ZigRuntimeExports {
   turnout_model_create(address: number, length: number): number {
     this.model = decoder.decode(this.bytes(address, length));
     return this.response(0, { handle: 7 });
+  }
+
+  turnout_model_merge(address: number, length: number): number {
+    this.mergeRequest = JSON.parse(decoder.decode(this.bytes(address, length)));
+    return this.response(0, { model: { version: 2 }, provenance: [] });
   }
 
   turnout_model_destroy(handle: number): number {
@@ -277,6 +283,19 @@ describe("prepared models", () => {
     expect(exports.request).toEqual({ sceneId: "main" });
 
     expect(client.destroyModel(7).payload).toEqual({ destroyed: 7 });
+  });
+
+  it("sends models and labels together for a merge", () => {
+    const exports = new MockExports();
+    const client = new ZigRuntimeClient(exports as unknown as ZigRuntimeExports);
+
+    const merged = client.mergeModels([{ version: 2 }, { version: 2 }], ["base", "checkout"]);
+    expect(merged.status).toBe("ok");
+    expect(merged.payload).toEqual({ model: { version: 2 }, provenance: [] });
+    expect(exports.mergeRequest).toEqual({
+      models: [{ version: 2 }, { version: 2 }],
+      labels: ["base", "checkout"],
+    });
   });
 });
 

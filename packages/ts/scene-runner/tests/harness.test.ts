@@ -115,7 +115,11 @@ describe("runHarness — ExecutionOptions propagation", () => {
       initialState: {},
       allowUncheckedState: true,
       onWarning: () => {},
-      hooks: { prepare: { myPrepare: prepareHook }, publish: { myPublish: publishHook } },
+      hooks: {
+        prepare: { myPrepare: prepareHook },
+        extend: {},
+        publish: { myPublish: publishHook },
+      },
     });
     // hooks registered — action doesn't invoke them but the loop bodies are covered
   });

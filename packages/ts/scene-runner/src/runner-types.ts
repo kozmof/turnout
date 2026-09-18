@@ -3,6 +3,7 @@ import type {
   ActionTrace,
   ExecutionOptions,
   HarnessResult,
+  ExtendHookImpl,
   PrepareHookImpl,
   PublishHookImpl,
 } from "./types/harness-types.js";
@@ -16,6 +17,7 @@ export type RunnerStepResult =
 /** Step-by-step execution controller for a TurnModel. */
 export type Runner<R extends HarnessResult = HarnessResult> = {
   usePrepareHook(name: string, handler: PrepareHookImpl): Runner<R>;
+  useExtendHook(name: string, handler: ExtendHookImpl): Runner<R>;
   usePublishHook(name: string, handler: PublishHookImpl): Runner<R>;
   isDone(): boolean;
   next(steps?: number): Promise<Array<Exclude<RunnerStepResult, { done: true }>>>;

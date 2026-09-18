@@ -17,7 +17,10 @@ pub const RuntimeError = error{
     EffectIdOverflow,
     EffectNotCompleted,
     MissingPrepareHook,
+    MissingExtendHook,
     PrepareHookFailed,
+    ExtendHookFailed,
+    ModelMergeConflict,
     PublishHookFailed,
     MissingPrepareBinding,
     InvalidPreparePayload,
@@ -42,9 +45,36 @@ pub const Event = union(enum) {
         publish_outcomes: []const PublishOutcome,
         duplicate_warning: ?IncrementalDuplicateWarning = null,
     },
+    /// Every `extend` hook for the current action has returned a model, and
+    /// they are waiting to be merged into the running one.
+    ///
+    /// The driver cannot do the merge itself: the model it is handed is owned
+    /// by whoever created the runtime, and swapping it is that owner's call.
+    /// So the driver stops here, the owner merges, and the next `step` carries
+    /// on against the merged model.
+    extend_model: struct {
+        scene_id: []const u8,
+        action_id: []const u8,
+        /// Model JSON, one per hook, in declaration order.
+        payloads: []const []const u8,
+        /// The hook each payload came from, naming it in conflict messages.
+        labels: []const []const u8,
+    },
     scene_changed: struct { from: []const u8, to: []const u8 },
     complete,
     cancelled,
+};
+
+/// Models an action's `extend` hooks returned, owned by the caller.
+pub const ExtendPayloads = struct {
+    payloads: []const []const u8,
+    labels: []const []const u8,
+
+    pub fn deinit(self: *ExtendPayloads, allocator: std.mem.Allocator) void {
+        allocator.free(self.payloads);
+        allocator.free(self.labels);
+        self.* = undefined;
+    }
 };
 
 const Status = enum { active, complete, cancelled };
@@ -197,6 +227,10 @@ pub const Runtime = struct {
         errdefer prepared.deinit(self.allocator);
         for (self.completed.items) |item| {
             if (item.result != .prepare) continue;
+            // An extend payload is a model, already merged by the time this
+            // runs. Splatting its fields into bindings is exactly what the
+            // no-binding branch below would do with it.
+            if (item.request.role == .extend) continue;
             if (!std.mem.eql(u8, item.request.scene_id, scene_id)) continue;
             if (!std.mem.eql(u8, item.request.action_id, action_id)) continue;
             const payload = switch (item.result.prepare) {
@@ -221,6 +255,48 @@ pub const Runtime = struct {
             }
         }
         return prepared;
+    }
+
+    /// True once every `extend` hook scheduled for this action has completed.
+    ///
+    /// The merge waits for all of them so it happens once, left to right, with
+    /// every conflict across every input reported together.
+    pub fn extendEffectsSettled(self: *const Runtime) bool {
+        for (self.scheduled[self.schedule_index..]) |spec|
+            if (spec.role == .extend) return false;
+        return self.pending == null or self.pending.?.role != .extend;
+    }
+
+    /// The models this action's `extend` hooks returned, in declaration order.
+    ///
+    /// A hook that was never registered fails the action, exactly as an
+    /// unregistered prepare hook does: an action that asked for a model and did
+    /// not get one cannot run the compute that depends on it.
+    pub fn extendPayloads(
+        self: *const Runtime,
+        scene_id: []const u8,
+        action_id: []const u8,
+    ) RuntimeError!ExtendPayloads {
+        var payloads = std.ArrayList([]const u8).empty;
+        errdefer payloads.deinit(self.allocator);
+        var labels = std.ArrayList([]const u8).empty;
+        errdefer labels.deinit(self.allocator);
+        for (self.completed.items) |item| {
+            if (item.result != .prepare or item.request.role != .extend) continue;
+            if (!std.mem.eql(u8, item.request.scene_id, scene_id)) continue;
+            if (!std.mem.eql(u8, item.request.action_id, action_id)) continue;
+            const payload = switch (item.result.prepare) {
+                .ok => |bytes| bytes,
+                .missing => return error.MissingExtendHook,
+                .failed => return error.ExtendHookFailed,
+            };
+            try payloads.append(self.allocator, payload);
+            try labels.append(self.allocator, item.request.hook);
+        }
+        return .{
+            .payloads = try payloads.toOwnedSlice(self.allocator),
+            .labels = try labels.toOwnedSlice(self.allocator),
+        };
     }
 
     pub fn enforcePublishPolicy(self: *const Runtime, fail_on_error: bool) RuntimeError!void {
@@ -317,6 +393,7 @@ pub const Runtime = struct {
         const request: effect.Request = .{
             .id = self.next_effect_id,
             .kind = spec.kind,
+            .role = spec.role,
             .hook = spec.hook,
             .scene_id = spec.scene_id,
             .action_id = spec.action_id,
@@ -448,6 +525,14 @@ pub const ActionDriver = struct {
     publish_outcomes: ?PublishOutcomes = null,
     completion_emitted: bool = false,
     next_selection: ?model_runtime.NextRuleSelection = null,
+    /// Whether this action's `extend` models have been handed to the owner to
+    /// merge. Set before the event is returned, so the caller stepping again
+    /// carries on rather than merging the same models twice.
+    extend_applied: bool = false,
+    /// Backs the slices in the `extend_model` event just returned. The payloads
+    /// themselves are borrowed from the completed effects, which outlive the
+    /// action; only the two lists pointing at them are owned here.
+    pending_extend: ?ExtendPayloads = null,
 
     pub fn init(
         allocator: std.mem.Allocator,
@@ -471,9 +556,39 @@ pub const ActionDriver = struct {
         if (self.next_selection) |*selection| selection.deinit(self.allocator);
         if (self.publish_outcomes) |*outcomes| outcomes.deinit(self.allocator);
         if (self.action_result) |*result| result.deinit(self.allocator);
+        self.releasePendingExtend();
         self.state.deinit(self.allocator);
         self.runtime.deinit();
         self.* = undefined;
+    }
+
+    fn releasePendingExtend(self: *ActionDriver) void {
+        if (self.pending_extend) |*payloads| payloads.deinit(self.allocator);
+        self.pending_extend = null;
+    }
+
+    /// Hands the owner the models to merge, once every `extend` hook for this
+    /// action has answered and before any binding is resolved.
+    ///
+    /// Returns null when there is nothing to merge, which is every action that
+    /// declares no `extend` block — the common case, and one step of the
+    /// scheduled specs to find out.
+    fn takeExtendModels(self: *ActionDriver) RuntimeError!?Event {
+        if (self.extend_applied or !self.runtime.extendEffectsSettled()) return null;
+        var payloads = try self.runtime.extendPayloads(self.scene_id, self.action_id);
+        self.extend_applied = true;
+        if (payloads.payloads.len == 0) {
+            payloads.deinit(self.allocator);
+            return null;
+        }
+        self.releasePendingExtend();
+        self.pending_extend = payloads;
+        return .{ .extend_model = .{
+            .scene_id = self.scene_id,
+            .action_id = self.action_id,
+            .payloads = payloads.payloads,
+            .labels = payloads.labels,
+        } };
     }
 
     pub fn step(
@@ -481,57 +596,60 @@ pub const ActionDriver = struct {
         model: anytype,
         fail_on_publish_error: bool,
     ) anyerror!Event {
-        while (true) switch (self.runtime.actionPhase()) {
-            .prepare, .publish => return self.runtime.step(),
-            .execute => {
-                if (self.action_result != null) return error.ActionInProgress;
-                self.action_result = try self.runtime.executePreparedAction(
-                    model,
-                    self.scene_id,
-                    self.action_id,
-                    &self.state,
-                );
-            },
-            .complete => {
-                if (self.completion_emitted) return .complete;
-                var outcomes = try self.runtime.finishActionEffects(
-                    self.scene_id,
-                    self.action_id,
-                    fail_on_publish_error,
-                );
-                errdefer outcomes.deinit(self.allocator);
-                // `takeState` below moves the state out of the stored result, so
-                // this must point at `self.action_result` itself and not a copy
-                // of it; otherwise the move never clears the stored one and
-                // `beginAction` frees a state `self.state` now owns.
-                if (self.action_result == null) return error.ActionInProgress;
-                const result = &self.action_result.?;
-                var selection = try model.selectNextAfterAction(
-                    self.scene_id,
-                    self.action_id,
-                    result,
-                    self.allocator,
-                );
-                errdefer selection.deinit(self.allocator);
-                self.state.deinit(self.allocator);
-                self.state = result.takeState();
-                self.next_selection = selection;
-                self.publish_outcomes = outcomes;
-                self.completion_emitted = true;
-                return .{ .action_complete = .{
-                    .scene_id = self.scene_id,
-                    .action_id = self.action_id,
-                    .compute_root = result.compute_root.borrowed(),
-                    .merge_warnings = result.merge_warnings,
-                    .unchecked_write_paths = result.unchecked_write_paths,
-                    .next_action_id = selection.target,
-                    .next_warnings = selection.warnings,
-                    .publish_outcomes = outcomes.items,
-                    .duplicate_warning = null,
-                } };
-            },
-            .cancelled => return .cancelled,
-        };
+        while (true) {
+            if (try self.takeExtendModels()) |event| return event;
+            switch (self.runtime.actionPhase()) {
+                .prepare, .publish => return self.runtime.step(),
+                .execute => {
+                    if (self.action_result != null) return error.ActionInProgress;
+                    self.action_result = try self.runtime.executePreparedAction(
+                        model,
+                        self.scene_id,
+                        self.action_id,
+                        &self.state,
+                    );
+                },
+                .complete => {
+                    if (self.completion_emitted) return .complete;
+                    var outcomes = try self.runtime.finishActionEffects(
+                        self.scene_id,
+                        self.action_id,
+                        fail_on_publish_error,
+                    );
+                    errdefer outcomes.deinit(self.allocator);
+                    // `takeState` below moves the state out of the stored result, so
+                    // this must point at `self.action_result` itself and not a copy
+                    // of it; otherwise the move never clears the stored one and
+                    // `beginAction` frees a state `self.state` now owns.
+                    if (self.action_result == null) return error.ActionInProgress;
+                    const result = &self.action_result.?;
+                    var selection = try model.selectNextAfterAction(
+                        self.scene_id,
+                        self.action_id,
+                        result,
+                        self.allocator,
+                    );
+                    errdefer selection.deinit(self.allocator);
+                    self.state.deinit(self.allocator);
+                    self.state = result.takeState();
+                    self.next_selection = selection;
+                    self.publish_outcomes = outcomes;
+                    self.completion_emitted = true;
+                    return .{ .action_complete = .{
+                        .scene_id = self.scene_id,
+                        .action_id = self.action_id,
+                        .compute_root = result.compute_root.borrowed(),
+                        .merge_warnings = result.merge_warnings,
+                        .unchecked_write_paths = result.unchecked_write_paths,
+                        .next_action_id = selection.target,
+                        .next_warnings = selection.warnings,
+                        .publish_outcomes = outcomes.items,
+                        .duplicate_warning = null,
+                    } };
+                },
+                .cancelled => return .cancelled,
+            }
+        }
     }
 
     pub fn @"resume"(self: *ActionDriver, id: u64, result: effect.Result) RuntimeError!void {
@@ -549,6 +667,8 @@ pub const ActionDriver = struct {
         self.action_result = null;
         self.action_id = action_id;
         self.completion_emitted = false;
+        self.releasePendingExtend();
+        self.extend_applied = false;
     }
 
     pub fn beginNextAction(self: *ActionDriver, model: anytype) !bool {
@@ -733,6 +853,17 @@ pub const RouteDriver = struct {
         self.scene.deinit();
         route_runtime.deinitHistory(&self.history, self.allocator);
         self.* = undefined;
+    }
+
+    /// Re-resolve the lowered match block against a model that has just been
+    /// merged into.
+    ///
+    /// The old pointer is into the retired model's arena, which is still alive
+    /// but no longer the model being run. Taking the new one is also what makes
+    /// arms that named a scene the route did not have go live, which is the
+    /// point of merging mid-run.
+    pub fn rebind(self: *RouteDriver, model: *const model_runtime.RuntimeModel) !void {
+        self.route = model.loweredRoute(self.route_id) orelse return error.InvalidRoute;
     }
 
     pub fn step(

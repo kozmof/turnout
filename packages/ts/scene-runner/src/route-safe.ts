@@ -41,7 +41,7 @@ export async function executeRouteSafe(
   scenes: Record<string, SceneBlock>,
   entrySceneId: string,
   state: StateManager,
-  hooks: HookRegistry = { prepare: {}, publish: {} },
+  hooks: HookRegistry = { prepare: {}, extend: {}, publish: {} },
   options: RouteExecutionOptions = {},
 ): Promise<RouteResult> {
   let runner: ReturnType<typeof createRouteRunner> | undefined;

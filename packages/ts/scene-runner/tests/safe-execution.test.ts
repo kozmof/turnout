@@ -192,6 +192,7 @@ describe("executeRouteSafe", () => {
       stateManagerFromUnchecked({}),
       {
         prepare: {},
+        extend: {},
         publish: {
           fail: () => {
             throw new Error("boom");

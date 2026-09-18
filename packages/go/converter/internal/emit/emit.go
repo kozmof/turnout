@@ -208,6 +208,14 @@ func writeAction(iw *iWriter, a *turnoutpb.ActionModel) {
 		writeMerge(iw, a.Merge)
 	}
 
+	if len(a.Extend) > 0 {
+		if sep {
+			iw.nl()
+		}
+		sep = true
+		writeExtend(iw, a.Extend)
+	}
+
 	if len(a.Publish) > 0 {
 		if sep {
 			iw.nl()
@@ -413,6 +421,14 @@ func writeMerge(iw *iWriter, entries []*turnoutpb.MergeEntry) {
 	}
 	iw.depth--
 	iw.wl("}")
+}
+
+func writeExtend(iw *iWriter, hooks []string) {
+	quoted := make([]string, len(hooks))
+	for i, h := range hooks {
+		quoted[i] = hclQuote(h)
+	}
+	iw.wl("extend = [%s]", strings.Join(quoted, ", "))
 }
 
 func writePublish(iw *iWriter, hooks []string) {

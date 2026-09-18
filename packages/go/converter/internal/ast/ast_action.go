@@ -12,6 +12,7 @@ type ActionBlock struct {
 	Compute *ComputeBlock
 	Prepare *PrepareBlock
 	Merge   *MergeBlock
+	Extend  *ExtendBlock
 	Publish *PublishBlock
 	Next    []*NextRule
 }
@@ -157,6 +158,15 @@ type MergeEntry struct {
 	Pos         Pos
 	BindingName string
 	ToState     string
+}
+
+// ExtendBlock is the `extend { model = "<hook>" ... }` block of an action. Each
+// value names a hook whose returned model is merged into the running model
+// before this action prepares. The attribute is `model` because a model is what
+// the hook yields.
+type ExtendBlock struct {
+	Pos   Pos
+	Hooks []string
 }
 
 // PublishBlock is the `publish { hook = "<name>" ... }` block of an action.

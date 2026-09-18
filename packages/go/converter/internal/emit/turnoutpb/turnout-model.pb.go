@@ -859,7 +859,12 @@ type ActionModel struct {
 	Publish []string               `protobuf:"bytes,5,rep,name=publish,proto3" json:"publish,omitempty"`
 	Next    []*NextRuleModel       `protobuf:"bytes,6,rep,name=next,proto3" json:"next,omitempty"`
 	// text is the narrative description of the action (optional authoring metadata).
-	Text          *string `protobuf:"bytes,7,opt,name=text,proto3,oneof" json:"text,omitempty"`
+	Text *string `protobuf:"bytes,7,opt,name=text,proto3,oneof" json:"text,omitempty"`
+	// extend names the hooks whose returned models are merged into the running
+	// model before this action prepares. Each value is a hook name; a model is
+	// what the hook yields. Hooks fire in declaration order and merge left to
+	// right. Collisions are rejected, never overridden.
+	Extend        []string `protobuf:"bytes,8,rep,name=extend,proto3" json:"extend,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -941,6 +946,13 @@ func (x *ActionModel) GetText() string {
 		return *x.Text
 	}
 	return ""
+}
+
+func (x *ActionModel) GetExtend() []string {
+	if x != nil {
+		return x.Extend
+	}
+	return nil
 }
 
 type ComputeModel struct {
@@ -3816,7 +3828,7 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\x02to\x18\x02 \x01(\tR\x02to\x12?\n" +
 	"\n" +
 	"source_pos\x18\x03 \x01(\v2\x1b.turnout.model.v1.SourcePosH\x00R\tsourcePos\x88\x01\x01B\r\n" +
-	"\v_source_pos\"\xb6\x02\n" +
+	"\v_source_pos\"\xce\x02\n" +
 	"\vActionModel\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x128\n" +
 	"\acompute\x18\x02 \x01(\v2\x1e.turnout.model.v1.ComputeModelR\acompute\x128\n" +
@@ -3824,7 +3836,8 @@ const file_turnout_model_proto_rawDesc = "" +
 	"\x05merge\x18\x04 \x03(\v2\x1c.turnout.model.v1.MergeEntryR\x05merge\x12\x18\n" +
 	"\apublish\x18\x05 \x03(\tR\apublish\x123\n" +
 	"\x04next\x18\x06 \x03(\v2\x1f.turnout.model.v1.NextRuleModelR\x04next\x12\x17\n" +
-	"\x04text\x18\a \x01(\tH\x00R\x04text\x88\x01\x01B\a\n" +
+	"\x04text\x18\a \x01(\tH\x00R\x04text\x88\x01\x01\x12\x16\n" +
+	"\x06extend\x18\b \x03(\tR\x06extendB\a\n" +
 	"\x05_text\"S\n" +
 	"\fComputeModel\x12\x12\n" +
 	"\x04root\x18\x01 \x01(\tR\x04root\x12/\n" +

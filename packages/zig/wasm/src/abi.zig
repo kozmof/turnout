@@ -4,6 +4,7 @@ const compute = @import("turnout_runtime").compute;
 const graph_compute = @import("turnout_runtime").graph_compute;
 const graph_validate = @import("turnout_runtime").graph_validate;
 const effect = @import("turnout_scene_runner").effect;
+const model_merge = @import("turnout_scene_runner").merge;
 const model_runtime = @import("turnout_scene_runner").model;
 const preset = @import("turnout_runtime").preset;
 const runtime = @import("turnout_scene_runner").runner;
@@ -111,6 +112,19 @@ const Driver = union(enum) {
         };
     }
 
+    /// Point whatever the driver borrows from a model at the merged one.
+    ///
+    /// Ids the driver holds are compared, not dereferenced, so they keep
+    /// resolving. A route's lowered match block is the exception: it is a
+    /// pointer into the old model's arena, and re-resolving it is also what
+    /// brings arms that named an absent scene to life.
+    fn rebind(self: *Driver, model: *const model_runtime.RuntimeModel) !void {
+        switch (self.*) {
+            .scene => {},
+            .route => |*driver| try driver.rebind(model),
+        }
+    }
+
     fn isDone(self: *const Driver) bool {
         return switch (self.*) {
             .scene => |driver| driver.finished,
@@ -162,10 +176,19 @@ const Instance = struct {
     driver: Driver,
     entry_id: []u8,
     fail_on_publish_error: bool,
+    /// Models this run has merged past, kept alive rather than freed.
+    ///
+    /// A merge produces a fresh parsed tree, so every id the driver borrowed
+    /// from the old one would dangle if it went away. Holding the old models
+    /// for the life of the run keeps those slices valid, and costs one model
+    /// per merge — merges happen at configuration boundaries, not in loops.
+    retired: std.ArrayListUnmanaged(*ModelEntry) = .empty,
 
     fn deinit(self: *Instance) void {
         self.driver.deinit();
         self.model.release();
+        for (self.retired.items) |entry| entry.release();
+        self.retired.deinit(allocator);
         self.request.deinit();
         allocator.free(self.entry_id);
         allocator.destroy(self);
@@ -917,6 +940,72 @@ export fn turnout_model_create(address: usize, len: u32) usize {
     return jsonResponse(.ok, .{ .handle = handle });
 }
 
+/// Combine separately compiled models into one, before any of them is prepared.
+///
+/// Request: `{"models":[{…},{…}],"labels":["base","checkout"]}` — models nested
+/// as objects, so nothing is encoded twice. Labels are positional and optional.
+///
+/// The merged model comes back alongside `provenance`, which records the input
+/// each scene, route, type and STATE field was taken from. A host that keeps
+/// authoring metadata the runtime projection drops rebuilds its own merged model
+/// from that rather than from the JSON here, without repeating the rules.
+export fn turnout_model_merge(address: usize, len: u32) usize {
+    if (len > max_create_request_bytes) return errorResponse(.invalid_input, "ModelTooLarge");
+    if (address == 0 or len == 0) return errorResponse(.invalid_input, "InvalidBuffer");
+    const bytes = bytesAt(address, len) orelse return errorResponse(.invalid_input, "InvalidBuffer");
+
+    var arena: std.heap.ArenaAllocator = .init(allocator);
+    defer arena.deinit();
+    const scratch = arena.allocator();
+
+    const parsed = std.json.parseFromSlice(std.json.Value, scratch, bytes, .{
+        .max_value_len = max_create_request_bytes,
+    }) catch return errorResponse(.invalid_input, "InvalidJson");
+    if (parsed.value != .object) return errorResponse(.invalid_input, "InvalidMergeRequest");
+    const models_field = parsed.value.object.get("models") orelse
+        return errorResponse(.invalid_input, "InvalidMergeRequest");
+    if (models_field != .array) return errorResponse(.invalid_input, "InvalidMergeRequest");
+
+    var labels: std.ArrayList([]const u8) = .empty;
+    if (parsed.value.object.get("labels")) |given| if (given == .array) {
+        for (given.array.items) |label| {
+            if (label != .string) break;
+            labels.append(scratch, label.string) catch return errorResponse(.out_of_memory, "OutOfMemory");
+        }
+    };
+
+    const outcome = model_merge.merge(scratch, models_field.array.items, labels.items) catch
+        return errorResponse(.out_of_memory, "OutOfMemory");
+    switch (outcome) {
+        .conflicts => |conflicts| return jsonResponse(.invalid_input, .{ .conflicts = conflicts }),
+        .merged => |merged| {
+            const origins = scratch.alloc(OriginJson, merged.provenance.len) catch
+                return errorResponse(.out_of_memory, "OutOfMemory");
+            for (merged.provenance, origins) |origin, *slot| slot.* = .{
+                .kind = originKind(origin.kind),
+                .id = origin.id,
+                .input = origin.input,
+            };
+            return jsonResponse(.ok, .{ .model = merged.root, .provenance = origins });
+        },
+    }
+}
+
+const OriginJson = struct {
+    kind: []const u8,
+    id: []const u8,
+    input: usize,
+};
+
+fn originKind(kind: model_merge.Origin.Kind) []const u8 {
+    return switch (kind) {
+        .scene => "scene",
+        .route => "route",
+        .type_decl => "typeDecl",
+        .field => "field",
+    };
+}
+
 export fn turnout_model_destroy(handle: u32) usize {
     const removed = models.fetchRemove(handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
     // Runtimes still running against this model keep it alive until they finish.
@@ -1054,28 +1143,110 @@ const ActionCompleteJson = struct {
 
 fn eventResponse(event: runtime.Event) usize {
     return switch (event) {
-        .need_effect => |request| jsonResponse(.ok, .{ .event = "needEffect", .id = request.id, .kind = @tagName(request.kind), .hook = request.hook, .sceneId = request.scene_id, .actionId = request.action_id, .callbackIndex = request.callback_index, .binding = request.binding, .contextJson = request.context_json }),
+        .need_effect => |request| jsonResponse(.ok, .{ .event = "needEffect", .id = request.id, .kind = @tagName(request.kind), .role = @tagName(request.role), .hook = request.hook, .sceneId = request.scene_id, .actionId = request.action_id, .callbackIndex = request.callback_index, .binding = request.binding, .contextJson = request.context_json }),
         .action_complete => |completed| jsonResponse(.ok, ActionCompleteJson{ .completed = completed }),
+        .extend_model => jsonResponse(.internal_error, .{ .@"error" = "UnappliedExtend" }),
         .scene_changed => |changed| jsonResponse(.ok, .{ .event = "sceneChanged", .from = changed.from, .to = changed.to }),
         .complete => jsonResponse(.ok, .{ .event = "complete" }),
         .cancelled => jsonResponse(.ok, .{ .event = "cancelled" }),
     };
 }
 
+const MergeOutcome = union(enum) {
+    bytes: []const u8,
+    conflicts: []const []const u8,
+};
+
+/// Merge `payloads` onto `base` and render the result as model JSON.
+///
+/// Everything is allocated from `arena`, including the parsed payloads, so a
+/// merge that fails leaves nothing behind.
+fn mergeModelJson(
+    arena: std.mem.Allocator,
+    base: std.json.Value,
+    payloads: []const []const u8,
+    labels: []const []const u8,
+) !MergeOutcome {
+    const roots = try arena.alloc(std.json.Value, payloads.len + 1);
+    roots[0] = base;
+    for (payloads, 0..) |payload, index| {
+        if (payload.len > (model_runtime.Limits{}).max_model_bytes) return error.ModelTooLarge;
+        const parsed = std.json.parseFromSlice(std.json.Value, arena, payload, .{
+            .max_value_len = (model_runtime.Limits{}).max_model_bytes,
+        }) catch return error.InvalidExtendPayload;
+        roots[index + 1] = parsed.value;
+    }
+    // The running model is "model" in conflict messages; every other input is
+    // named by the hook it came from.
+    const named = try arena.alloc([]const u8, labels.len + 1);
+    named[0] = "model";
+    @memcpy(named[1..], labels);
+    return switch (try model_merge.merge(arena, roots, named)) {
+        .conflicts => |conflicts| .{ .conflicts = conflicts },
+        .merged => |merged| .{ .bytes = try stringifyToArena(arena, merged.root) },
+    };
+}
+
+fn stringifyToArena(arena: std.mem.Allocator, value_to_write: std.json.Value) ![]const u8 {
+    var output: std.Io.Writer.Allocating = .init(arena);
+    defer output.deinit();
+    try std.json.Stringify.value(value_to_write, .{}, &output.writer);
+    return arena.dupe(u8, output.written());
+}
+
+/// Swap the running model for one merged with what an action's `extend` hooks
+/// returned. Returns a response address when the merge failed, null when it
+/// succeeded and stepping should carry on.
+fn applyExtend(instance: *Instance, request: anytype) ?usize {
+    var arena: std.heap.ArenaAllocator = .init(allocator);
+    defer arena.deinit();
+    const outcome = mergeModelJson(
+        arena.allocator(),
+        instance.model.model.parsed.value,
+        request.payloads,
+        request.labels,
+    ) catch |err| return runtimeError(err);
+    switch (outcome) {
+        .conflicts => |conflicts| return jsonResponse(.invalid_input, .{
+            .event = "mergeConflict",
+            .sceneId = request.scene_id,
+            .actionId = request.action_id,
+            .conflicts = conflicts,
+        }),
+        .bytes => |bytes| {
+            const entry = ModelEntry.create(bytes) catch |err| return createFailure(err);
+            // The instance's reference moves to `retired` rather than being
+            // released: the driver still holds slices into that model.
+            instance.retired.append(allocator, instance.model) catch {
+                entry.release();
+                return errorResponse(.out_of_memory, "OutOfMemory");
+            };
+            instance.model = entry;
+            instance.driver.rebind(&entry.model) catch |err| return runtimeError(err);
+            return null;
+        },
+    }
+}
+
 export fn turnout_runtime_step(handle: u32) usize {
     const instance = instances.get(handle) orelse return errorResponse(.invalid_handle, "InvalidHandle");
-    const event = instance.driver.step(&instance.model.model, instance.fail_on_publish_error) catch |err| {
-        if (err == error.SceneNotFound) {
-            switch (instance.driver) {
-                .route => |driver| if (driver.pending_scene_id) |scene_id| {
-                    return jsonResponse(.runtime_error, .{ .@"error" = (err), .sceneId = scene_id });
-                },
-                .scene => {},
+    // A merge is not an event the host acts on, so it is applied here and the
+    // step repeated: the host sees the effect or completion that follows it.
+    while (true) {
+        const event = instance.driver.step(&instance.model.model, instance.fail_on_publish_error) catch |err| {
+            if (err == error.SceneNotFound) {
+                switch (instance.driver) {
+                    .route => |driver| if (driver.pending_scene_id) |scene_id| {
+                        return jsonResponse(.runtime_error, .{ .@"error" = (err), .sceneId = scene_id });
+                    },
+                    .scene => {},
+                }
             }
-        }
-        return runtimeError(err);
-    };
-    return eventResponse(event);
+            return runtimeError(err);
+        };
+        if (event != .extend_model) return eventResponse(event);
+        if (applyExtend(instance, event.extend_model)) |failure| return failure;
+    }
 }
 
 fn snapshotResponse(instance: *const Instance) usize {
@@ -1713,6 +1884,178 @@ test "WASM route lifecycle emits scene transitions" {
     defer freeResponse(complete_address);
     var complete = try expectResponse(complete_address, .ok, "complete");
     defer complete.deinit();
+
+    const destroyed_address = turnout_runtime_destroy(handle);
+    defer freeResponse(destroyed_address);
+    var destroyed = try expectResponse(destroyed_address, .ok, null);
+    defer destroyed.deinit();
+}
+
+test "WASM model merge combines models and reports where each item came from" {
+    const request =
+        \\{"models":[
+        \\  {"version":2,"scenes":[{"id":"first","entryAction":"act"}]},
+        \\  {"version":2,"scenes":[{"id":"second","entryAction":"act"}]}
+        \\],"labels":["base","checkout"]}
+    ;
+    const address = turnout_model_merge(@intFromPtr(request.ptr), @intCast(request.len));
+    defer freeResponse(address);
+    var response = try expectResponse(address, .ok, null);
+    defer response.deinit();
+
+    const scenes = response.value.object.get("model").?.object.get("scenes").?.array.items;
+    try std.testing.expectEqual(@as(usize, 2), scenes.len);
+    try std.testing.expectEqualStrings("first", scenes[0].object.get("id").?.string);
+    try std.testing.expectEqualStrings("second", scenes[1].object.get("id").?.string);
+
+    const provenance = response.value.object.get("provenance").?.array.items;
+    try std.testing.expectEqual(@as(usize, 2), provenance.len);
+    try std.testing.expectEqualStrings("scene", provenance[0].object.get("kind").?.string);
+    try std.testing.expectEqualStrings("second", provenance[1].object.get("id").?.string);
+    try std.testing.expectEqual(@as(i64, 1), provenance[1].object.get("input").?.integer);
+}
+
+test "WASM model merge reports conflicts by label instead of merging" {
+    const request =
+        \\{"models":[
+        \\  {"version":2,"scenes":[{"id":"review","entryAction":"act"}]},
+        \\  {"version":2,"scenes":[{"id":"review","entryAction":"act"}]}
+        \\],"labels":["base","checkout"]}
+    ;
+    const address = turnout_model_merge(@intFromPtr(request.ptr), @intCast(request.len));
+    defer freeResponse(address);
+    var response = try expectResponse(address, .invalid_input, null);
+    defer response.deinit();
+
+    const conflicts = response.value.object.get("conflicts").?.array.items;
+    try std.testing.expectEqual(@as(usize, 1), conflicts.len);
+    try std.testing.expectEqualStrings(
+        "scene \"review\" is declared by base and checkout",
+        conflicts[0].string,
+    );
+}
+
+test "WASM extend hook merges a model mid-run and reaches what it brought in" {
+    // "main" is declared by both, so merging it would be a collision. The
+    // payload's actions land on the scene the runtime is already inside.
+    const payload =
+        \\{"version":2,"scenes":[{"id":"arrived_scene","entryAction":"arrived","actions":[
+        \\  {"id":"arrived",
+        \\   "compute":{"root":"value","prog":{"bindings":[{"name":"value","type":"number","value":7}]}}}
+        \\]}],"routes":[]}
+    ;
+    const model =
+        \\{"version":2,"routes":[{"id":"r","entrySceneId":"main","match":[{"patterns":["main.load"],"target":"arrived_scene"}]}],
+        \\ "scenes":[{"id":"main","entryAction":"load","actions":[
+        \\  {"id":"load","extend":["plugins"],
+        \\   "compute":{"root":"go","prog":{"bindings":[{"name":"go","type":"bool","value":true}]}}}
+        \\]}]}
+    ;
+    const config =
+        \\{"routeId":"r","initialState":{}}
+    ;
+    const created_address = turnout_runtime_create(
+        @intFromPtr(model.ptr),
+        model.len,
+        @intFromPtr(config.ptr),
+        config.len,
+    );
+    defer freeResponse(created_address);
+    var created = try expectResponse(created_address, .ok, null);
+    defer created.deinit();
+    const handle: u32 = @intCast(created.value.object.get("handle").?.integer);
+
+    // The first step asks for the extend hook, as a prepare effect whose role
+    // says its payload is a model.
+    const extend_address = turnout_runtime_step(handle);
+    defer freeResponse(extend_address);
+    var extend_request = try expectResponse(extend_address, .ok, "needEffect");
+    defer extend_request.deinit();
+    try std.testing.expectEqualStrings("prepare", extend_request.value.object.get("kind").?.string);
+    try std.testing.expectEqualStrings("extend", extend_request.value.object.get("role").?.string);
+    try std.testing.expectEqualStrings("plugins", extend_request.value.object.get("hook").?.string);
+
+    const result = try std.fmt.allocPrint(
+        std.testing.allocator,
+        "{{\"id\":{d},\"kind\":\"prepare\",\"status\":\"ok\",\"value\":{s}}}",
+        .{ extend_request.value.object.get("id").?.integer, payload },
+    );
+    defer std.testing.allocator.free(result);
+    const resumed_address = turnout_runtime_resume(handle, @intFromPtr(result.ptr), @intCast(result.len));
+    defer freeResponse(resumed_address);
+    var resumed = try expectResponse(resumed_address, .ok, null);
+    defer resumed.deinit();
+
+    // The merge is applied inside the next step, so what comes back is the
+    // action completing rather than a merge event the host has to act on.
+    const action_address = turnout_runtime_step(handle);
+    defer freeResponse(action_address);
+    var action = try expectResponse(action_address, .ok, "actionComplete");
+    defer action.deinit();
+
+    // The route arm named a scene the model did not have at create time; it is
+    // live now, which is the point of merging mid-run.
+    const changed_address = turnout_runtime_step(handle);
+    defer freeResponse(changed_address);
+    var changed = try expectResponse(changed_address, .ok, "sceneChanged");
+    defer changed.deinit();
+    try std.testing.expectEqualStrings("arrived_scene", changed.value.object.get("to").?.string);
+
+    const destroyed_address = turnout_runtime_destroy(handle);
+    defer freeResponse(destroyed_address);
+    var destroyed = try expectResponse(destroyed_address, .ok, null);
+    defer destroyed.deinit();
+}
+
+test "WASM extend hook returning a colliding model fails the run" {
+    const model =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"load","actions":[
+        \\  {"id":"load","extend":["plugins"],
+        \\   "compute":{"root":"go","prog":{"bindings":[{"name":"go","type":"bool","value":true}]}}}
+        \\]}]}
+    ;
+    const config =
+        \\{"sceneId":"main","initialState":{}}
+    ;
+    const created_address = turnout_runtime_create(
+        @intFromPtr(model.ptr),
+        model.len,
+        @intFromPtr(config.ptr),
+        config.len,
+    );
+    defer freeResponse(created_address);
+    var created = try expectResponse(created_address, .ok, null);
+    defer created.deinit();
+    const handle: u32 = @intCast(created.value.object.get("handle").?.integer);
+
+    const extend_address = turnout_runtime_step(handle);
+    defer freeResponse(extend_address);
+    var extend_request = try expectResponse(extend_address, .ok, "needEffect");
+    defer extend_request.deinit();
+
+    // Redeclaring "main" has no defensible winner, so it is rejected rather
+    // than overridden.
+    const result = try std.fmt.allocPrint(
+        std.testing.allocator,
+        "{{\"id\":{d},\"kind\":\"prepare\",\"status\":\"ok\",\"value\":" ++
+            "{{\"version\":2,\"scenes\":[{{\"id\":\"main\",\"entryAction\":\"other\"}}]}}}}",
+        .{extend_request.value.object.get("id").?.integer},
+    );
+    defer std.testing.allocator.free(result);
+    const resumed_address = turnout_runtime_resume(handle, @intFromPtr(result.ptr), @intCast(result.len));
+    defer freeResponse(resumed_address);
+    var resumed = try expectResponse(resumed_address, .ok, null);
+    defer resumed.deinit();
+
+    const merge_address = turnout_runtime_step(handle);
+    defer freeResponse(merge_address);
+    var merge_failure = try expectResponse(merge_address, .invalid_input, "mergeConflict");
+    defer merge_failure.deinit();
+    const conflicts = merge_failure.value.object.get("conflicts").?.array.items;
+    try std.testing.expectEqualStrings(
+        "scene \"main\" is declared by model and plugins",
+        conflicts[0].string,
+    );
 
     const destroyed_address = turnout_runtime_destroy(handle);
     defer freeResponse(destroyed_address);

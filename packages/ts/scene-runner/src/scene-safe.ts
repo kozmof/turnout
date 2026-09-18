@@ -31,7 +31,7 @@ export type SceneResult =
 export async function executeSceneSafe(
   scene: SceneBlock,
   state: StateManager,
-  hooks: HookRegistry = { prepare: {}, publish: {} },
+  hooks: HookRegistry = { prepare: {}, extend: {}, publish: {} },
   maxSteps?: number,
   options: SceneExecutionOptions = {},
 ): Promise<SceneResult> {

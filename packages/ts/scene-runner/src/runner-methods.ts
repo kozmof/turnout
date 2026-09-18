@@ -62,6 +62,16 @@ export function makeRunnerMethods<R extends HarnessResult>(
       });
       return this;
     },
+    useExtendHook(name, handler) {
+      assertHooksOpen();
+      Object.defineProperty(hooks.extend, name, {
+        value: handler,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+      return this;
+    },
     usePublishHook(name, handler) {
       assertHooksOpen();
       Object.defineProperty(hooks.publish, name, {
