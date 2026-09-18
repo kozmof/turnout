@@ -16,6 +16,8 @@ pub const Code = enum {
     type_mismatch,
     division_by_zero,
     hook_required,
+    unregistered_hook,
+    missing_hook_field,
     missing_extend_hook,
     extend_hook_failed,
     model_merge_conflict,
@@ -43,6 +45,8 @@ pub fn fromError(err: anyerror) Code {
     if (err == error.TypeMismatch or err == error.ConditionTypeMismatch) return .type_mismatch;
     if (err == error.DivisionByZero) return .division_by_zero;
     if (err == error.HookRequired) return .hook_required;
+    if (err == error.UnregisteredHook) return .unregistered_hook;
+    if (err == error.MissingHookField) return .missing_hook_field;
     if (err == error.MissingExtendHook) return .missing_extend_hook;
     if (err == error.ExtendHookFailed) return .extend_hook_failed;
     if (err == error.ModelMergeConflict) return .model_merge_conflict;
@@ -57,5 +61,7 @@ pub fn fromError(err: anyerror) Code {
 test "runtime errors map to stable codes" {
     try std.testing.expectEqual(Code.unknown_function, fromError(error.UnknownFunction));
     try std.testing.expectEqual(Code.max_scene_steps_exceeded, fromError(error.MaxStepsExceeded));
+    try std.testing.expectEqual(Code.unregistered_hook, fromError(error.UnregisteredHook));
+    try std.testing.expectEqual(Code.missing_hook_field, fromError(error.MissingHookField));
     try std.testing.expectEqual(Code.execution_failed, fromError(error.UnmappedFailure));
 }

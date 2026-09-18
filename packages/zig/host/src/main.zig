@@ -125,7 +125,14 @@ pub fn main(init: std.process.Init) !u8 {
         hook_source,
         args.options,
     ) catch |err| {
+        // The engine's own name for the failure, on stdout as JSON, because a
+        // caller comparing hosts needs the code rather than a sentence. The
+        // sentence goes to stderr for a caller reading along.
         try fail(io, "run failed: {t}\n", .{err});
+        var error_buffer: [512]u8 = undefined;
+        var error_out = std.Io.File.stdout().writer(io, &error_buffer);
+        try error_out.interface.print("{{\"error\":\"{t}\"}}\n", .{err});
+        try error_out.interface.flush();
         return 1;
     };
     defer outcome.deinit(gpa);

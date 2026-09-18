@@ -16,13 +16,13 @@ pub const RuntimeError = error{
     WrongEffectKind,
     EffectIdOverflow,
     EffectNotCompleted,
-    MissingPrepareHook,
+    UnregisteredHook,
     MissingExtendHook,
     PrepareHookFailed,
     ExtendHookFailed,
     ModelMergeConflict,
     PublishHookFailed,
-    MissingPrepareBinding,
+    MissingHookField,
     InvalidPreparePayload,
     ActionInProgress,
 };
@@ -223,7 +223,7 @@ pub const Runtime = struct {
         if (result.* != .prepare) return error.WrongEffectKind;
         return switch (result.prepare) {
             .ok => |payload| payload,
-            .missing => error.MissingPrepareHook,
+            .missing => error.UnregisteredHook,
             .failed => error.PrepareHookFailed,
         };
     }
@@ -245,7 +245,7 @@ pub const Runtime = struct {
             if (!std.mem.eql(u8, item.request.action_id, action_id)) continue;
             const payload = switch (item.result.prepare) {
                 .ok => |bytes| bytes,
-                .missing => return error.MissingPrepareHook,
+                .missing => return error.UnregisteredHook,
                 .failed => return error.PrepareHookFailed,
             };
             var parsed = std.json.parseFromSlice(std.json.Value, self.allocator, payload, .{}) catch
@@ -569,6 +569,7 @@ pub const Runtime = struct {
         const pending = self.pending orelse return error.NoPendingEffect;
         if (pending.id != id) return error.StaleEffect;
         if (pending.kind != std.meta.activeTag(result)) return error.WrongEffectKind;
+        try self.checkPrepareAnswer(pending, result);
         var owned = try effect.cloneResult(result, self.allocator);
         self.completed.append(self.allocator, .{
             .request = pending,
@@ -580,6 +581,41 @@ pub const Runtime = struct {
         };
         self.pending = null;
         self.pending_context = null;
+    }
+
+    /// Rejects a prepare answer that cannot satisfy the request.
+    ///
+    /// Both checks used to live in the TypeScript host, which meant the native
+    /// one did not make them: it passed the payload through and the failure
+    /// surfaced later, from execution, under a different name. They belong
+    /// here, where there is one answer for every host and it arrives against
+    /// the hook that caused it.
+    ///
+    /// Extend answers are not checked: their payload is a model, and a missing
+    /// one is reported where the merge is attempted.
+    fn checkPrepareAnswer(
+        self: *const Runtime,
+        pending: effect.Request,
+        result: effect.Result,
+    ) RuntimeError!void {
+        if (result != .prepare or pending.role != .binding) return;
+        switch (result.prepare) {
+            .missing => return error.UnregisteredHook,
+            .failed => return,
+            .ok => |payload| {
+                // A hook supplying one binding answers with the value itself,
+                // so there is nothing to look inside. Several bindings means a
+                // record, and every name it owes has to be in it.
+                if (pending.binding != null or pending.bindings.len == 0) return;
+                var parsed = std.json.parseFromSlice(std.json.Value, self.allocator, payload, .{}) catch
+                    return error.InvalidPreparePayload;
+                defer parsed.deinit();
+                if (parsed.value != .object) return error.InvalidPreparePayload;
+                for (pending.bindings) |binding| {
+                    if (!parsed.value.object.contains(binding)) return error.MissingHookField;
+                }
+            },
+        }
     }
 
     pub fn cancel(self: *Runtime) void {
@@ -1196,8 +1232,14 @@ test "prepare and publish outcome policies differ" {
     var runtime = Runtime.init(std.testing.allocator, &scheduled);
     defer runtime.deinit();
     const prepare = (try runtime.step()).need_effect;
-    try runtime.@"resume"(prepare.id, .{ .prepare = .missing });
-    try std.testing.expectError(error.MissingPrepareHook, runtime.preparePayload(prepare.id));
+    // A prepare hook nobody registered is rejected as the answer arrives; a
+    // publish hook nobody registered is skipped. That is the difference this
+    // test is named for.
+    try std.testing.expectError(
+        error.UnregisteredHook,
+        runtime.@"resume"(prepare.id, .{ .prepare = .missing }),
+    );
+    try runtime.@"resume"(prepare.id, .{ .prepare = .{ .ok = "1" } });
     const missing_publish = (try runtime.step()).need_effect;
     try runtime.@"resume"(missing_publish.id, .{ .publish = .missing });
     const failed_publish = (try runtime.step()).need_effect;
@@ -1877,4 +1919,61 @@ test "an effect request carries the bindings its hook owes" {
     try std.testing.expectEqual(@as(usize, 2), request.bindings.len);
     try std.testing.expectEqualStrings("width", request.bindings[0]);
     try std.testing.expectEqualStrings("height", request.bindings[1]);
+}
+
+test "a prepare answer is rejected against the request it answers" {
+    const scheduled = [_]effect.Spec{
+        .{
+            .kind = .prepare,
+            .hook = "load",
+            .scene_id = "main",
+            .action_id = "start",
+            .callback_index = 0,
+            .binding = null,
+            .bindings = &.{ "width", "height" },
+        },
+    };
+    var runtime = Runtime.init(std.testing.allocator, &scheduled);
+    defer runtime.deinit();
+    const request = (try runtime.step()).need_effect;
+
+    // A hook nobody registered, named where the answer arrives rather than
+    // where the binding is later missed.
+    try std.testing.expectError(
+        error.UnregisteredHook,
+        runtime.@"resume"(request.id, .{ .prepare = .missing }),
+    );
+    // A hook owing two bindings must answer with a record naming both.
+    try std.testing.expectError(
+        error.InvalidPreparePayload,
+        runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "7" } }),
+    );
+    try std.testing.expectError(
+        error.MissingHookField,
+        runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"width\":1}" } }),
+    );
+    // An answer naming every binding it owes is accepted.
+    try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "{\"width\":1,\"height\":2}" } });
+}
+
+test "a single-binding answer is the value itself" {
+    const scheduled = [_]effect.Spec{
+        .{
+            .kind = .prepare,
+            .hook = "load",
+            .scene_id = "main",
+            .action_id = "start",
+            .callback_index = 0,
+            .binding = "input",
+            .bindings = &.{"input"},
+        },
+    };
+    var runtime = Runtime.init(std.testing.allocator, &scheduled);
+    defer runtime.deinit();
+    const request = (try runtime.step()).need_effect;
+    // Not a record, so there is nothing to look inside and nothing to reject.
+    try runtime.@"resume"(request.id, .{ .prepare = .{ .ok = "7" } });
+    var prepared = try runtime.preparedValues("main", "start");
+    defer prepared.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(f64, 7), prepared.values.get("input").?.value.number);
 }

@@ -320,25 +320,38 @@ host without knowing which is asking. `--hooks` reads the same answers from a
 file, for a run whose hooks are fixed.
 
 **It passes the shared vectors.** `pnpm run test:native-conformance` runs
-`spec/conformance/host` through the native binary; 8 of 10 pass, and the run
+`spec/conformance/host` through the native binary; all 10 pass, and the run
 verifies `spec/capabilities.json`'s claims for this host rather than taking
-them — claiming `supported` where a vector is skipped fails the check. The
-worked example of the protocol is `scripts/native-hook-program.mjs`, which is
-also what serves the vectors' hooks.
+them — claiming `supported` where a vector is skipped or failing fails the
+check. The worked example of the protocol is `scripts/native-hook-program.mjs`,
+which is also what serves the vectors' hooks.
 
-### The two that do not pass, and why
+### The taxonomy gap it opened, and how it closed
 
-Both are error vectors, and they fail on vocabulary rather than behaviour: the
-engine raises `MissingPrepareHook` where the TypeScript host reports
-`UnregisteredHook`, and `HookRequired` where it reports `MissingHookField`. The
-behaviour matches — the action fails, at the same point, for the same reason —
-but the names do not, so a vector cannot assert on one without pinning one
-host's vocabulary on the other.
+Two error vectors did not pass at first, and they failed on vocabulary rather
+than behaviour: the engine raised `MissingPrepareHook` where the TypeScript host
+reported `UnregisteredHook`, and `HookRequired` where it reported
+`MissingHookField`. Same failure, same point, two names — so a vector could not
+name one without pinning one host's vocabulary on the other.
 
-This is the next real gap, and it is the one `runtime-hosts.md` already names:
-"codes move down; message wording stays per host". The codes have not moved
-down. Closing it means one taxonomy in the engine, each host wording it as its
-language prefers, and those two vectors going green for both hosts.
+Closed by moving both checks into the engine, under the vocabulary
+`spec/hook-spec.md` already documented. `Runtime.resume` now rejects the answer
+rather than waiting for execution to miss the binding:
+
+- a prepare hook answering `missing` is `UnregisteredHook`, raised against the
+  hook that did not answer;
+- a hook owing several bindings must answer with a record naming all of them,
+  or it is `MissingHookField` — the check the TypeScript host was making for
+  itself and the native one was not making at all.
+
+Both hosts now report what the engine raised, and both pass all ten vectors.
+
+**Still duplicated, deliberately:** the TypeScript host keeps its own copies of
+those two checks, because they fire before the round trip and word the failure
+with the field name in it. They agree with the engine because the vectors make
+them agree, not by construction. Removing them is the honest finish — it costs
+message quality unless the engine carries the detail, which is the trade to
+weigh when someone picks this up.
 
 ## Risks
 

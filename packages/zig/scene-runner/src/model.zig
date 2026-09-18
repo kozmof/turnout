@@ -939,7 +939,11 @@ test "action effect schedule follows model declaration order" {
     defer runtime.deinit();
     const first = (try runtime.step()).need_effect;
     try std.testing.expectEqualStrings("load_first", first.hook);
-    try runtime.@"resume"(first.id, .{ .prepare = .{ .ok = "1" } });
+    // load_first supplies two bindings, so its payload is a record naming both.
+    const payload =
+        \\{"first": 1, "first_again": 2}
+    ;
+    try runtime.@"resume"(first.id, .{ .prepare = .{ .ok = payload } });
     const second = (try runtime.step()).need_effect;
     try std.testing.expectEqualStrings("load_second", second.hook);
 }

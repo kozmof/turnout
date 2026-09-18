@@ -12,7 +12,7 @@
       "owner": "split",
       "hosts": {
         "typescript": "supported",
-        "zig-native": "partial"
+        "zig-native": "supported"
       }
     },
     {

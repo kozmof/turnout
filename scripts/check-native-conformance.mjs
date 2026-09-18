@@ -46,10 +46,22 @@ function runVector(vector) {
     mismatchPath,
   ];
 
-  const stdout = execFileSync(host, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  let stdout;
+  let failed = false;
+  try {
+    stdout = execFileSync(host, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (error) {
+    // A run that fails prints the engine's code as JSON and exits non-zero.
+    stdout = error.stdout ?? "";
+    failed = true;
+  }
   const mismatches = readFileSync(mismatchPath, "utf8").trim();
   if (mismatches.length > 0) throw new Error(mismatches);
-  return JSON.parse(stdout);
+  // A successful run prints the whole outcome; a failed one prints the engine
+  // code on its own line, after whatever it managed first.
+  const text = stdout.trim();
+  const outcome = JSON.parse(failed ? (text.split("\n").at(-1) ?? "{}") : text);
+  return { outcome, failed };
 }
 
 /**
@@ -63,8 +75,18 @@ function entryFlag(vector) {
   return isRoute ? "--route" : "--scene";
 }
 
-function compare(vector, outcome) {
+function compare(vector, { outcome, failed }) {
   const problems = [];
+  // The code is the engine's, which is why a vector can name one at all: both
+  // hosts report what the engine raised rather than a name of their own.
+  if (vector.expect.error !== undefined) {
+    if (!failed) return ["expected the run to fail, and it did not"];
+    if (outcome.error !== vector.expect.error.code) {
+      problems.push(`error: expected ${vector.expect.error.code}, got ${outcome.error}`);
+    }
+    return problems;
+  }
+  if (failed) return [`the run failed with ${outcome.error}`];
   if (vector.expect.finalState !== undefined) {
     const actual = JSON.stringify(sortKeys(outcome.finalState));
     const expected = JSON.stringify(sortKeys(vector.expect.finalState));
@@ -105,17 +127,8 @@ for (const file of readdirSync(vectorDir)
   .toSorted()) {
   const suite = JSON.parse(readFileSync(join(vectorDir, file), "utf8"));
   for (const vector of suite.vectors) {
-    // Error vectors name a code from the TypeScript host's taxonomy, which the
-    // engine does not yet share: it raises MissingPrepareHook where the host
-    // reports UnregisteredHook. Comparing them would be comparing two
-    // vocabularies. Recorded in todo/aligned-runtime-hosts.md as the next gap.
     const capability = coverage.get(suite.capability) ?? { complete: true, passing: true };
     coverage.set(suite.capability, capability);
-    if (vector.expect.error !== undefined) {
-      skipped.push(`${vector.name} (error taxonomy is not shared yet)`);
-      capability.complete = false;
-      continue;
-    }
     try {
       const problems = compare(vector, runVector(vector));
       if (problems.length === 0) passed += 1;
