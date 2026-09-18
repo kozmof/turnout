@@ -1,4 +1,3 @@
-import { buildNull, type AnyValue } from "runtime";
 import type {
   ActionTrace,
   ActionWarning,
@@ -86,13 +85,10 @@ export async function advanceZigRuntime(
   handle: number,
   hooks: HookRegistry,
   signal: AbortSignal,
-  prepareBindings: ReadonlyMap<string, readonly string[]> = new Map(),
-  prepareInitialContext: (request: ZigEffectRequest) => Record<string, AnyValue> = () => ({}),
 ): Promise<RunnerStepResult> {
   let activeSceneId: string | undefined;
   let activeActionId: string | undefined;
   const publishOutcomes: PublishHookOutcome[] = [];
-  const prepareContexts = new Map<string, Record<string, AnyValue>>();
   while (true) {
     throwIfAborted(signal);
     const response = client.step<ZigRuntimeEvent>(handle);
@@ -115,23 +111,7 @@ export async function advanceZigRuntime(
       case "needEffect": {
         activeSceneId = event.sceneId;
         activeActionId = event.actionId;
-        const contextKey = prepareActionKey(event);
-        let prepareContext = prepareContexts.get(contextKey);
-        // Extend hooks run before any binding, so building the context on one
-        // would resolve from_state values against the pre-merge model and miss
-        // a field the merge is about to introduce.
-        if (event.kind === "prepare" && event.role !== "extend" && prepareContext === undefined) {
-          prepareContext = prepareInitialContext(event);
-          prepareContexts.set(contextKey, prepareContext);
-        }
-        const result = await dispatchZigEffect(
-          event,
-          hooks,
-          signal,
-          prepareBindings.get(prepareEffectKey(event)) ?? [],
-          prepareContext,
-        );
-        recordPreparedValues(event, result, prepareContext);
+        const result = await dispatchZigEffect(event, hooks, signal);
         recordPublishOutcome(event, result, publishOutcomes);
         if (result.kind === "prepare" && result.status === "missing") {
           throw new PrepareError(
@@ -179,31 +159,6 @@ export async function advanceZigRuntime(
   }
 }
 
-function prepareActionKey(request: Pick<ZigEffectRequest, "sceneId" | "actionId">): string {
-  return `${request.sceneId}\u0000${request.actionId}`;
-}
-
-function recordPreparedValues(
-  request: ZigEffectRequest,
-  result: ZigEffectResult,
-  context: Record<string, AnyValue> | undefined,
-): void {
-  if (request.kind !== "prepare" || result.kind !== "prepare" || result.status !== "ok") return;
-  // An extend payload is a model, not values. Recording it would splat the
-  // model's own fields into the action's bindings.
-  if (request.role === "extend") return;
-  if (context === undefined) return;
-  if (request.binding !== null) {
-    context[request.binding] = fromCanonicalValue(result.value);
-    return;
-  }
-  const values = asRecord(result.value);
-  if (values === undefined) return;
-  for (const [binding, value] of Object.entries(values)) {
-    context[binding] = fromCanonicalValue(value);
-  }
-}
-
 function recordPublishOutcome(
   request: ZigEffectRequest,
   result: ZigEffectResult,
@@ -233,86 +188,6 @@ function mapPublishHookFailed(
     stateManagerFromUnchecked(readState()),
     outcomes,
   );
-}
-
-function prepareEffectKey(
-  request: Pick<ZigEffectRequest, "sceneId" | "actionId" | "hook">,
-): string {
-  return `${request.sceneId}\u0000${request.actionId}\u0000${request.hook}`;
-}
-
-/**
- * The two prepare indexes an adapter needs, built from one walk of the model.
- *
- * `hookBindings` maps a scene/action/hook to the binding names that hook must
- * return; `stateSources` maps a scene/action to its `binding ← state path`
- * pairs. Both are read from the same `action.prepare` list, so they are built
- * together rather than by two passes over two parses of the same bytes.
- */
-type PrepareIndex = {
-  hookBindings: ReadonlyMap<string, readonly string[]>;
-  stateSources: ReadonlyMap<string, readonly [string, string][]>;
-};
-
-/**
- * Index the prepare entries of an encoded runtime model.
- *
- * `model` is an opaque blob as far as this adapter is concerned: it is handed
- * to the runtime unread, and indexed here only to recover information the
- * runtime's effect events do not carry. Bytes that are not the JSON this reader
- * expects therefore yield an empty index rather than an error — the runtime
- * remains the authority on whether the model is loadable, and it reports that
- * from `create`.
- *
- * The cost of the empty index is that a `prepare` hook returning the wrong
- * field is no longer caught by name, so the missing value surfaces later. That
- * only arises for a model this reader could not parse, which the runtime will
- * itself reject moments later.
- */
-export function buildPrepareIndex(model: Uint8Array): PrepareIndex {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(new TextDecoder().decode(model));
-  } catch {
-    return { hookBindings: new Map(), stateSources: new Map() };
-  }
-  const root = asRecord(parsed);
-  const hookBindings = new Map<string, string[]>();
-  const stateSources = new Map<string, [string, string][]>();
-
-  for (const sceneValue of Array.isArray(root?.scenes) ? root.scenes : []) {
-    const scene = asRecord(sceneValue);
-    if (typeof scene?.id !== "string") continue;
-    for (const actionValue of Array.isArray(scene.actions) ? scene.actions : []) {
-      const action = asRecord(actionValue);
-      if (typeof action?.id !== "string") continue;
-      const actionSources: [string, string][] = [];
-      for (const prepareValue of Array.isArray(action.prepare) ? action.prepare : []) {
-        const prepare = asRecord(prepareValue);
-        if (typeof prepare?.binding !== "string") continue;
-        if (typeof prepare.fromHook === "string") {
-          const key = prepareEffectKey({
-            sceneId: scene.id,
-            actionId: action.id,
-            hook: prepare.fromHook,
-          });
-          const required = hookBindings.get(key);
-          if (required === undefined) hookBindings.set(key, [prepare.binding]);
-          else required.push(prepare.binding);
-        }
-        if (typeof prepare.fromState === "string") {
-          actionSources.push([prepare.binding, prepare.fromState]);
-        }
-      }
-      if (actionSources.length > 0) {
-        stateSources.set(
-          prepareActionKey({ sceneId: scene.id, actionId: action.id }),
-          actionSources,
-        );
-      }
-    }
-  }
-  return { hookBindings, stateSources };
 }
 
 function asRecord(input: unknown): Record<string, unknown> | undefined {
@@ -449,11 +324,9 @@ export interface ZigRuntimeLifecycleTransport extends ZigRuntimeTransport {
  *
  * Model bytes can be handed over on every creation, which makes the runtime
  * parse, validate, index, and lower them again each time, or once through
- * `prepareModel`, after which creation is just the run's own setup. The prepare
- * index is carried alongside because building it also reads the whole model.
+ * `prepareModel`, after which creation is just the run's own setup.
  */
 export interface RuntimeModelSource {
-  readonly prepareIndex: PrepareIndex;
   create(request: unknown): ZigResponse<CreatedRuntime>;
 }
 
@@ -462,18 +335,14 @@ export function modelSourceFromBytes(
   client: ZigRuntimeLifecycleTransport,
   model: Uint8Array,
 ): RuntimeModelSource {
-  return {
-    prepareIndex: buildPrepareIndex(model),
-    create: (request) => client.create(model, request),
-  };
+  return { create: (request) => client.create(model, request) };
 }
 
 /** A source backed by a model the runtime has already prepared under a handle. */
 export function modelSourceFromHandle(
   create: (request: unknown) => ZigResponse<CreatedRuntime>,
-  prepareIndex: PrepareIndex,
 ): RuntimeModelSource {
-  return { prepareIndex, create };
+  return { create };
 }
 
 function toModelSource(
@@ -496,7 +365,6 @@ export function createZigSceneRunner(
     publish: Object.create(null) as HookRegistry["publish"],
   };
   const source = toModelSource(client, model);
-  const { hookBindings: prepareBindings, stateSources: prepareStateSources } = source.prepareIndex;
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
@@ -532,16 +400,6 @@ export function createZigSceneRunner(
     );
   }
 
-  function initialPrepareContext(request: ZigEffectRequest): Record<string, AnyValue> {
-    const state = readState();
-    return Object.fromEntries(
-      (prepareStateSources.get(prepareActionKey(request)) ?? []).map(([binding, path]) => [
-        binding,
-        state[path] ?? buildNull("missing"),
-      ]),
-    );
-  }
-
   function finish(): void {
     if (done) return;
     finalState = readState();
@@ -572,14 +430,7 @@ export function createZigSceneRunner(
     if (done) return { done: true };
     let result: RunnerStepResult;
     try {
-      result = await advanceZigRuntime(
-        client,
-        handle,
-        hooks,
-        signal,
-        prepareBindings,
-        initialPrepareContext,
-      );
+      result = await advanceZigRuntime(client, handle, hooks, signal);
     } catch (error) {
       if (error instanceof ZigRuntimeStatusError) {
         const publishError = mapPublishHookFailed(error, sceneId, readState);
@@ -688,7 +539,6 @@ export function createZigRouteRunner(
     publish: Object.create(null) as HookRegistry["publish"],
   };
   const source = toModelSource(client, model);
-  const { hookBindings: prepareBindings, stateSources: prepareStateSources } = source.prepareIndex;
   const signal = options.signal ?? new AbortController().signal;
   const initialState = Object.fromEntries(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
@@ -725,16 +575,6 @@ export function createZigRouteRunner(
       Object.entries(snapshot.payload.state).map(([path, entry]) => [
         path,
         fromCanonicalValue(entry),
-      ]),
-    );
-  }
-
-  function initialPrepareContext(request: ZigEffectRequest): Record<string, AnyValue> {
-    const state = readState();
-    return Object.fromEntries(
-      (prepareStateSources.get(prepareActionKey(request)) ?? []).map(([binding, path]) => [
-        binding,
-        state[path] ?? buildNull("missing"),
       ]),
     );
   }
@@ -815,14 +655,7 @@ export function createZigRouteRunner(
 
   async function advanceRouteRuntime(): Promise<RunnerStepResult> {
     try {
-      return await advanceZigRuntime(
-        client,
-        handle,
-        hooks,
-        signal,
-        prepareBindings,
-        initialPrepareContext,
-      );
+      return await advanceZigRuntime(client, handle, hooks, signal);
     } catch (error) {
       if (
         error instanceof ZigRuntimeStatusError &&

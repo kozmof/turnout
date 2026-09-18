@@ -1,0 +1,198 @@
+{
+  "state": {
+    "namespaces": [
+      {
+        "name": "order",
+        "fields": [
+          {
+            "name": "subtotal",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "discount",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "total",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "settled",
+            "type": "number",
+            "value": 0
+          }
+        ]
+      }
+    ]
+  },
+  "scenes": [
+    {
+      "id": "checkout",
+      "entryAction": "price",
+      "actions": [
+        {
+          "id": "price",
+          "compute": {
+            "root": "total",
+            "prog": {
+              "name": "price_graph",
+              "bindings": [
+                {
+                  "name": "subtotal",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "discount",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "shipping",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "tax",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "__local_total_lhs_1",
+                  "type": "number",
+                  "expr": {
+                    "combine": {
+                      "fn": "sub",
+                      "args": [
+                        {
+                          "ref": "subtotal"
+                        },
+                        {
+                          "ref": "discount"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "__local_total_lhs_0",
+                  "type": "number",
+                  "expr": {
+                    "combine": {
+                      "fn": "add",
+                      "args": [
+                        {
+                          "ref": "__local_total_lhs_1"
+                        },
+                        {
+                          "ref": "shipping"
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "total",
+                  "type": "number",
+                  "expr": {
+                    "combine": {
+                      "fn": "add",
+                      "args": [
+                        {
+                          "ref": "__local_total_lhs_0"
+                        },
+                        {
+                          "ref": "tax"
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "subtotal",
+              "fromState": "order.subtotal"
+            },
+            {
+              "binding": "discount",
+              "fromState": "order.discount"
+            },
+            {
+              "binding": "shipping",
+              "fromHook": "quote_shipping"
+            },
+            {
+              "binding": "tax",
+              "fromHook": "quote_tax"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "total",
+              "toState": "order.total"
+            }
+          ],
+          "next": [
+            {
+              "action": "settle"
+            }
+          ]
+        },
+        {
+          "id": "settle",
+          "compute": {
+            "root": "settled",
+            "prog": {
+              "name": "settle_graph",
+              "bindings": [
+                {
+                  "name": "total",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "settled",
+                  "type": "number",
+                  "expr": {
+                    "combine": {
+                      "fn": "mul",
+                      "args": [
+                        {
+                          "ref": "total"
+                        },
+                        {
+                          "lit": 2
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "total",
+              "fromState": "order.total"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "settled",
+              "toState": "order.settled"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "version": 2,
+  "minVersion": 2,
+  "maxVersion": 2
+}

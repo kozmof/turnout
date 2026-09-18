@@ -1143,7 +1143,7 @@ const ActionCompleteJson = struct {
 
 fn eventResponse(event: runtime.Event) usize {
     return switch (event) {
-        .need_effect => |request| jsonResponse(.ok, .{ .event = "needEffect", .id = request.id, .kind = @tagName(request.kind), .role = @tagName(request.role), .hook = request.hook, .sceneId = request.scene_id, .actionId = request.action_id, .callbackIndex = request.callback_index, .binding = request.binding, .contextJson = request.context_json }),
+        .need_effect => |request| jsonResponse(.ok, .{ .event = "needEffect", .id = request.id, .kind = @tagName(request.kind), .role = @tagName(request.role), .hook = request.hook, .sceneId = request.scene_id, .actionId = request.action_id, .callbackIndex = request.callback_index, .binding = request.binding, .bindings = request.bindings, .contextJson = request.context_json }),
         .action_complete => |completed| jsonResponse(.ok, ActionCompleteJson{ .completed = completed }),
         .extend_model => jsonResponse(.internal_error, .{ .@"error" = "UnappliedExtend" }),
         .scene_changed => |changed| jsonResponse(.ok, .{ .event = "sceneChanged", .from = changed.from, .to = changed.to }),

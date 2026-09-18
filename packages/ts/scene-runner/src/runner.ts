@@ -21,7 +21,6 @@ import {
 } from "./runner-validation.js";
 import { defaultZigRuntimeClient } from "./zig-runtime/default-client.js";
 import {
-  buildPrepareIndex,
   createZigRouteRunner,
   createZigSceneRunner,
   modelSourceFromHandle,
@@ -243,10 +242,7 @@ export function prepareModel(inputModel: TurnModel): PreparedModel {
   return new PreparedModel(
     migratedModel,
     handle,
-    modelSourceFromHandle(
-      (request) => defaultZigRuntimeClient.createWithModel(handle, request),
-      buildPrepareIndex(encoded),
-    ),
+    modelSourceFromHandle((request) => defaultZigRuntimeClient.createWithModel(handle, request)),
   );
 }
 

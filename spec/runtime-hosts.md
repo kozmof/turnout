@@ -95,6 +95,10 @@ merge lands, how results are bound — belongs to the engine.
   advances.
 - A host cannot decide what a hook's result binds to, or in what order hooks
   fire. Both are fixed by the compiled model and scheduled by the engine.
+- A host cannot build the context a hook reads, or work out which bindings a
+  hook owes. The engine sends both with the request, because it holds the model
+  and STATE that answer them; a host computing its own could disagree with the
+  engine that executes the action.
 - A host cannot mutate STATE directly. STATE is written only through the merge
   points the source declared.
 

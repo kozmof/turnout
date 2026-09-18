@@ -72,9 +72,9 @@ Verdicts assume the two decisions above.
 | Piece | Where it is now | Verdict |
 | --- | --- | --- |
 | Effect pump loop | `runner-adapter.ts:84` `advanceZigRuntime` | Policy moves down; suspension stays at the boundary |
-| Prepare-context accumulation | `runner-adapter.ts:186` `recordPreparedValues` | Moves down — Zig owns the model and STATE |
-| Prepare binding index | `runner-adapter.ts:272` `buildPrepareIndex` | Deletes — re-parses a model Zig already has |
-| `from_state` context construction | `prepareInitialContext` callback | Deletes — same reason |
+| Prepare-context accumulation | `runner-adapter.ts:186` `recordPreparedValues` | **Moved down** (phase 1a) |
+| Prepare binding index | `runner-adapter.ts:272` `buildPrepareIndex` | **Deleted** (phase 1a) |
+| `from_state` context construction | `prepareInitialContext` callback | **Deleted** (phase 1a) |
 | Extend ordering, multi-model pre-merge | `effect-dispatcher.ts:79` `dispatchExtend` | Moves down — `merge.zig` already holds the rules |
 | Trace assembly, warning order | `runner-adapter.ts:347` `actionTrace` | Moves down |
 | Publish outcome collection | `runner-adapter.ts:207` | Moves down |
@@ -212,6 +212,43 @@ One thing to carry into phase 2: writing the ability lists down made it clear
 they are still prose. `spec/capabilities.json` is what turns them into rows a
 host can be checked against, and the projection artifact is the shape it should
 copy.
+
+## Phase 1a: the prepare boundary
+
+The first slice of phase 1, and the one that needed no ABI break. Two things a
+host had to work out for itself now arrive with the effect request.
+
+**What a hook owes.** A hook supplying several bindings shapes its payload as a
+record, and the request's `binding` goes null to say so — which left a host with
+no way to know what the several were. `buildPrepareIndex` re-parsed the whole
+model to recover them. The schedule builder in `model.zig` already groups
+prepare entries by hook, so the list was there; `effect.Request.bindings` now
+carries it.
+
+**What a hook reads.** `contextJson` existed but was `"{}"` for every prepare
+request: the context was entirely a TypeScript construction, seeded from a full
+STATE snapshot per action and accumulated across hook results. The runtime now
+builds it — the action's `from_state` bindings resolved through the same
+`state.read` execution uses, with earlier hook results layered over them. It
+resolves at the first prepare effect that binds values, so an `extend` merge
+earlier in the same action can still introduce a field a `from_state` binding
+reads, which is the ordering the host was careful about and the engine now keeps.
+
+Net: 211 lines of TypeScript deleted for 39 added, one STATE round trip per
+prepare effect gone, and one model parse per runner gone.
+
+Two decisions worth recording. A prepare spec's `context_json` is no longer
+honoured — the runtime overrides it — because a caller-supplied context cannot
+be told apart from the default, and the runtime is the authority on what a hook
+sees. And building a context tolerates a malformed earlier payload rather than
+raising on it: execution reports that a moment later, against the hook that
+caused it, and raising here would attribute an earlier hook's fault to this one.
+
+The end-to-end test is the one that matters. Unit tests on either side of the
+boundary would both pass with it broken, so `tests/e2e/prepare-context.test.ts`
+compiles a `.tu` fixture and runs it through the real runtime, asserting what a
+hook sees. Verified by disabling the resolution in Zig and watching all three
+cases fail.
 
 ## Risks
 

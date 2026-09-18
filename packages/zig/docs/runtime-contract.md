@@ -144,7 +144,13 @@ Set exactly one of `sceneId` or `routeId`. Initial STATE entries use canonical t
 
 The success payload is `{"handle":1,"maxSceneSteps":10000,"maxRouteTransitions":1000}`. The two limits are the ones actually in force, whether they came from the request or from the defaults above. A host omits a limit it does not want to override and reads the effective value back, so the defaults are stated here and nowhere else.
 
-`turnout_runtime_step(handle)` advances the runtime to its next event. The success payload has an `event` field. Effect events also contain the stable effect ID, kind, hook, scene and action IDs, callback index, optional binding, and `contextJson`.
+`turnout_runtime_step(handle)` advances the runtime to its next event. The success payload has an `event` field. Effect events also contain the stable effect ID, kind, hook, scene and action IDs, callback index, optional binding, `bindings`, and `contextJson`.
+
+`bindings` lists every binding the hook is declared to supply. `binding` says how the payload is shaped — one value for a hook supplying exactly one binding, a record of them otherwise, in which case it is null — so `bindings` is what a host validates the payload against. It is empty for publish and extend effects, which bind nothing.
+
+`contextJson` is what the hook reads, as canonical tagged Values. For a prepare effect it is the action's `from_state` bindings resolved against current STATE, with the results of hooks earlier in the same action layered over them; a binding supplied by both takes the hook's value. It is resolved at the first prepare effect of the action that binds values, so an `extend` hook merging a model earlier in the same action can introduce a STATE field that a `from_state` binding then reads. For a publish effect it is the whole STATE after merge. Extend effects carry no context.
+
+A host derives neither. Both come from the model and STATE the runtime holds, so a host that re-read the model to compute them could disagree with the runtime that executes it.
 
 An `actionComplete` event contains `sceneId`, `actionId`, canonical tagged `computeRoot`, ordered `nextActionIds`, `publishOutcomes`, and `warnings`. Warnings are ordered as merge warnings, an optional unchecked-STATE-write warning, then next-rule warnings. The event borrows no WASM memory after the response is decoded.
 

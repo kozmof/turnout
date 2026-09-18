@@ -25,6 +25,14 @@ export type ZigEffectRequest = {
   actionId: string;
   callbackIndex: number;
   binding: string | null;
+  /**
+   * Every binding this hook is declared to supply.
+   *
+   * The runtime reads it off the model it already holds. A host validates the
+   * payload against this rather than parsing the model again to find out what
+   * the hook owes.
+   */
+  bindings: readonly string[];
   contextJson: string;
 };
 
@@ -56,14 +64,12 @@ export async function dispatchZigEffect(
   request: ZigEffectRequest,
   hooks: HookRegistry,
   signal: AbortSignal,
-  requiredPrepareBindings: readonly string[] = [],
-  prepareContext?: Record<string, AnyValue>,
 ): Promise<ZigEffectResult> {
   throwIfAborted(signal);
   if (request.kind !== "prepare") return dispatchPublish(request, hooks, signal);
   return request.role === "extend"
     ? dispatchExtend(request, hooks, signal)
-    : dispatchPrepare(request, hooks, signal, requiredPrepareBindings, prepareContext);
+    : dispatchPrepare(request, hooks, signal);
 }
 
 /**
@@ -137,14 +143,14 @@ async function dispatchPrepare(
   request: ZigEffectRequest,
   hooks: HookRegistry,
   signal: AbortSignal,
-  requiredPrepareBindings: readonly string[],
-  prepareContext: Record<string, AnyValue> | undefined,
 ): Promise<ZigEffectResult> {
   const hook = Object.hasOwn(hooks.prepare, request.hook) ? hooks.prepare[request.hook] : undefined;
   if (hook === undefined) {
     return { id: request.id, kind: "prepare", status: "missing" };
   }
-  const prepared = prepareContext ?? decodeContext(request.contextJson);
+  // The action's `from_state` bindings with earlier hook results over them,
+  // resolved by the runtime that owns the model and STATE.
+  const prepared = decodeContext(request.contextJson);
   const context: PrepareHookContext = {
     actionId: request.actionId,
     hookName: request.hook,
@@ -171,7 +177,7 @@ async function dispatchPrepare(
       `prepare hook "${request.hook}" returned a non-object result: got ${JSON.stringify(result)}`,
     );
   }
-  const bindings = request.binding === null ? requiredPrepareBindings : [request.binding];
+  const bindings = request.binding === null ? request.bindings : [request.binding];
   for (const binding of bindings) {
     const value = Object.hasOwn(result, binding) ? result[binding] : undefined;
     if (value === undefined) {

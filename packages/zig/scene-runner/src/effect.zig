@@ -19,6 +19,17 @@ pub const Request = struct {
     action_id: []const u8,
     callback_index: usize,
     binding: ?[]const u8,
+    /// Every binding this hook is declared to supply.
+    ///
+    /// `binding` says how the payload is shaped — one value when the hook
+    /// supplies exactly one binding, a record of them when it supplies several
+    /// — and goes null in the second case. That left a host with no way to know
+    /// what the several were, so each one re-read the model to find out. The
+    /// model is the runtime's, and so is this answer: a host validates the
+    /// payload against the list it was given rather than deriving its own.
+    ///
+    /// Empty for publish and extend effects, which bind nothing.
+    bindings: []const []const u8 = &.{},
     context_json: []const u8,
 };
 pub const Spec = struct {
@@ -29,6 +40,7 @@ pub const Spec = struct {
     action_id: []const u8,
     callback_index: usize,
     binding: ?[]const u8 = null,
+    bindings: []const []const u8 = &.{},
     context_json: []const u8 = "{}",
 };
 pub const Result = union(Kind) { prepare: PrepareOutcome, publish: PublishOutcome };

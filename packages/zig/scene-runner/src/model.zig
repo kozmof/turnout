@@ -52,10 +52,21 @@ pub const EffectSchedule = struct {
     specs: []effect.Spec,
 
     pub fn deinit(self: *EffectSchedule, allocator: std.mem.Allocator) void {
-        allocator.free(self.specs);
+        freeSpecs(self.specs, allocator);
         self.* = undefined;
     }
 };
+
+/// Releases a schedule's specs and the binding lists they carry.
+///
+/// A spec's binding names borrow from the model tree, but the slice holding
+/// them is allocated per spec, so ownership of the two differs and only the
+/// slice is freed. Exported because `Runtime` takes a schedule over and has to
+/// release it the same way.
+pub fn freeSpecs(specs: []const effect.Spec, allocator: std.mem.Allocator) void {
+    for (specs) |spec| if (spec.bindings.len > 0) allocator.free(spec.bindings);
+    allocator.free(specs);
+}
 
 /// Identifies one lowered program inside a model: an action's own compute, or
 /// the compute of one of its next rules.
@@ -331,6 +342,14 @@ pub const RuntimeModel = struct {
         const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
         var specs = std.ArrayList(effect.Spec).empty;
         errdefer specs.deinit(allocator);
+        // One binding list per spec, parallel to `specs` and empty for the
+        // specs that bind nothing. They are moved onto the specs at the end, so
+        // this owns them until then.
+        var binding_lists = std.ArrayList(std.ArrayListUnmanaged([]const u8)).empty;
+        errdefer {
+            for (binding_lists.items) |*list| list.deinit(allocator);
+            binding_lists.deinit(allocator);
+        }
         var scheduled_prepare_hooks: std.StringHashMapUnmanaged(usize) = .empty;
         defer scheduled_prepare_hooks.deinit(allocator);
         // Extend hooks come first so the merge they feed is settled before any
@@ -340,6 +359,7 @@ pub const RuntimeModel = struct {
             if (extend != .array) return error.InvalidExtend;
             for (extend.array.items, 0..) |hook, index| {
                 if (hook != .string or hook.string.len == 0) return error.InvalidExtend;
+                try binding_lists.append(allocator, .empty);
                 try specs.append(allocator, .{
                     .kind = .prepare,
                     .role = .extend,
@@ -360,9 +380,12 @@ pub const RuntimeModel = struct {
                 if (binding != .string or binding.string.len == 0) return error.InvalidPrepare;
                 if (scheduled_prepare_hooks.get(from_hook.string)) |spec_index| {
                     specs.items[spec_index].binding = null;
+                    try binding_lists.items[spec_index].append(allocator, binding.string);
                     continue;
                 }
                 try scheduled_prepare_hooks.put(allocator, from_hook.string, specs.items.len);
+                try binding_lists.append(allocator, .empty);
+                try binding_lists.items[specs.items.len].append(allocator, binding.string);
                 try specs.append(allocator, .{
                     .kind = .prepare,
                     .hook = from_hook.string,
@@ -377,6 +400,7 @@ pub const RuntimeModel = struct {
             if (publish != .array) return error.InvalidPublish;
             for (publish.array.items, 0..) |hook, index| {
                 if (hook != .string or hook.string.len == 0) return error.InvalidPublish;
+                try binding_lists.append(allocator, .empty);
                 try specs.append(allocator, .{
                     .kind = .publish,
                     .hook = hook.string,
@@ -386,7 +410,31 @@ pub const RuntimeModel = struct {
                 });
             }
         }
-        return .{ .specs = try specs.toOwnedSlice(allocator) };
+        const owned_specs = try specs.toOwnedSlice(allocator);
+        errdefer freeSpecs(owned_specs, allocator);
+        for (owned_specs, 0..) |*spec, spec_index| {
+            if (binding_lists.items[spec_index].items.len == 0) continue;
+            spec.bindings = try binding_lists.items[spec_index].toOwnedSlice(allocator);
+        }
+        for (binding_lists.items) |*list| list.deinit(allocator);
+        binding_lists.deinit(allocator);
+        return .{ .specs = owned_specs };
+    }
+
+    /// The `from_state` bindings of one action, resolved against STATE.
+    ///
+    /// The context a prepare hook reads. Resolved here rather than by a host
+    /// because the model says which entries exist and STATE holds the values,
+    /// and the runtime owns both.
+    pub fn actionStateBindings(
+        self: *const RuntimeModel,
+        scene_id: []const u8,
+        action_id: []const u8,
+        state: *const state_runtime.State,
+        allocator: std.mem.Allocator,
+    ) !action_runtime.StateBindings {
+        const action = self.findAction(scene_id, action_id) orelse return error.ActionNotFound;
+        return action_runtime.stateBindings(.{ .object = action }, state, allocator);
     }
 
     pub fn selectNextAfterAction(
@@ -911,6 +959,63 @@ test "action effect schedule caches repeated prepare hooks" {
     try std.testing.expectEqual(@as(usize, 1), schedule.specs.len);
     try std.testing.expectEqualStrings("load", schedule.specs[0].hook);
     try std.testing.expectEqual(@as(usize, 0), schedule.specs[0].callback_index);
+    // One hook supplying two bindings shapes its payload as a record, so
+    // `binding` goes null and the names move to `bindings`. A host validates
+    // the payload against that list instead of re-reading the model for it.
+    try std.testing.expect(schedule.specs[0].binding == null);
+    try std.testing.expectEqual(@as(usize, 2), schedule.specs[0].bindings.len);
+    try std.testing.expectEqualStrings("first", schedule.specs[0].bindings[0]);
+    try std.testing.expectEqualStrings("second", schedule.specs[0].bindings[1]);
+}
+
+test "action effect schedule names the single binding of a one-binding hook" {
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
+        \\"id":"start","extend":["grow"],"prepare":[
+        \\{"binding":"only","fromHook":"load"},
+        \\{"binding":"from_state","fromState":"app.value"}
+        \\],"publish":["save"] }]}]}
+    ;
+    var model = try RuntimeModel.init(std.testing.allocator, source, .{});
+    defer model.deinit();
+    var schedule = try model.actionEffectSchedule("main", "start", std.testing.allocator);
+    defer schedule.deinit(std.testing.allocator);
+    try std.testing.expectEqual(@as(usize, 3), schedule.specs.len);
+    // Extend hooks answer with a model and publish hooks bind nothing, so the
+    // list is empty for both; only the prepare hook names what it supplies.
+    try std.testing.expectEqual(@as(usize, 0), schedule.specs[0].bindings.len);
+    try std.testing.expectEqual(@as(usize, 1), schedule.specs[1].bindings.len);
+    try std.testing.expectEqualStrings("only", schedule.specs[1].bindings[0]);
+    try std.testing.expectEqualStrings("only", schedule.specs[1].binding.?);
+    try std.testing.expectEqual(@as(usize, 0), schedule.specs[2].bindings.len);
+}
+
+test "action state bindings resolve through the model index" {
+    const allocator = std.testing.allocator;
+    const source =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"start","actions":[{
+        \\"id":"start","prepare":[
+        \\{"binding":"count","fromState":"app.value"},
+        \\{"binding":"loaded","fromHook":"load"}
+        \\]}]}]}
+    ;
+    var model = try RuntimeModel.init(allocator, source, .{});
+    defer model.deinit();
+    var initial: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
+    defer initial.deinit(allocator);
+    try initial.put(allocator, "app.value", .{ .value = .{ .number = 4 } });
+    var state = try state_runtime.State.initUnchecked(&initial, allocator);
+    defer state.deinit(allocator);
+
+    var bindings = try model.actionStateBindings("main", "start", &state, allocator);
+    defer bindings.deinit(allocator);
+    try std.testing.expectEqual(@as(usize, 1), bindings.values.count());
+    try std.testing.expectEqual(@as(f64, 4), bindings.values.get("count").?.value.number);
+
+    try std.testing.expectError(
+        error.ActionNotFound,
+        model.actionStateBindings("main", "absent", &state, allocator),
+    );
 }
 
 test "model executes action and selects first matching prepared next rule" {

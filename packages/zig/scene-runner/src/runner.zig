@@ -129,6 +129,13 @@ pub const Runtime = struct {
     pending: ?effect.Request = null,
     pending_context: ?[]u8 = null,
     action_state_context: ?[]u8 = null,
+    /// The current action's `from_state` bindings, resolved once.
+    ///
+    /// They are the floor of every prepare hook's context, with the results of
+    /// earlier hooks layered over them. Resolved lazily rather than when the
+    /// action begins, because `extend` hooks run first and a merge may
+    /// introduce the STATE field a `from_state` binding reads.
+    action_state_bindings: ?action_runtime.StateBindings = null,
     scheduled: []const effect.Spec = &.{},
     owns_scheduled: bool = false,
     schedule_index: usize = 0,
@@ -167,7 +174,9 @@ pub const Runtime = struct {
         self.completed.clearRetainingCapacity();
         if (self.action_state_context) |context| self.allocator.free(context);
         self.action_state_context = null;
-        if (self.owns_scheduled) self.allocator.free(self.scheduled);
+        if (self.action_state_bindings) |*bindings| bindings.deinit(self.allocator);
+        self.action_state_bindings = null;
+        if (self.owns_scheduled) model_runtime.freeSpecs(self.scheduled, self.allocator);
         self.scheduled = schedule.specs;
         self.owns_scheduled = true;
         self.schedule_index = 0;
@@ -177,9 +186,10 @@ pub const Runtime = struct {
     pub fn deinit(self: *Runtime) void {
         if (self.pending_context) |context| self.allocator.free(context);
         if (self.action_state_context) |context| self.allocator.free(context);
+        if (self.action_state_bindings) |*bindings| bindings.deinit(self.allocator);
         for (self.completed.items) |*item| item.deinit(self.allocator);
         self.completed.deinit(self.allocator);
-        if (self.owns_scheduled) self.allocator.free(self.scheduled);
+        if (self.owns_scheduled) model_runtime.freeSpecs(self.scheduled, self.allocator);
         self.* = undefined;
     }
 
@@ -371,9 +381,73 @@ pub const Runtime = struct {
         if (spec.kind == .publish) {
             if (self.action_state_context) |context| spec.context_json = context;
         }
+        if (spec.kind == .prepare and spec.role == .binding) {
+            const context = try self.prepareContextJson(spec);
+            errdefer self.allocator.free(context);
+            spec.context_json = context;
+            const prepare_event = try self.requestEffectWithContext(spec);
+            self.pending_context = context;
+            self.schedule_index += 1;
+            return prepare_event;
+        }
         const event = try self.requestEffectWithContext(spec);
         self.schedule_index += 1;
         return event;
+    }
+
+    /// True when the next scheduled effect is a prepare hook that binds values.
+    ///
+    /// A driver asks so it can resolve the action's `from_state` bindings
+    /// before the request is built, and only once it is needed: the extend
+    /// hooks ahead of it may still change what STATE holds.
+    pub fn nextEffectBindsValues(self: *const Runtime) bool {
+        if (self.pending != null or self.status != .active) return false;
+        if (self.schedule_index == self.scheduled.len) return false;
+        const spec = self.scheduled[self.schedule_index];
+        return spec.kind == .prepare and spec.role == .binding;
+    }
+
+    /// Records the action's resolved `from_state` bindings, taking ownership.
+    pub fn setActionStateBindings(self: *Runtime, bindings: action_runtime.StateBindings) void {
+        if (self.action_state_bindings) |*previous| previous.deinit(self.allocator);
+        self.action_state_bindings = bindings;
+    }
+
+    pub fn hasActionStateBindings(self: *const Runtime) bool {
+        return self.action_state_bindings != null;
+    }
+
+    /// What a prepare hook sees: the action's `from_state` bindings, with the
+    /// values earlier hooks in the same action returned layered over them.
+    ///
+    /// Both halves are borrowed for the length of the call and serialized
+    /// before it returns, so nothing here is cloned.
+    fn prepareContextJson(self: *Runtime, spec: effect.Spec) RuntimeError![]u8 {
+        // A hook that answered `missing`, failed, or returned a payload that is
+        // not an object leaves nothing to layer on. Execution reports that a
+        // moment later, against the hook that caused it and with the error that
+        // names it; building a context is not the place to re-raise it, and
+        // doing so would attribute an earlier hook's fault to this one.
+        var prepared = self.preparedValues(spec.scene_id, spec.action_id) catch |err| switch (err) {
+            error.OutOfMemory => return error.OutOfMemory,
+            else => PreparedValues{},
+        };
+        defer prepared.deinit(self.allocator);
+        var merged: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+        defer merged.deinit(self.allocator);
+        if (self.action_state_bindings) |*base| {
+            var entries = base.values.iterator();
+            while (entries.next()) |entry|
+                try merged.put(self.allocator, entry.key_ptr.*, entry.value_ptr.*);
+        }
+        var entries = prepared.values.iterator();
+        while (entries.next()) |entry|
+            try merged.put(self.allocator, entry.key_ptr.*, entry.value_ptr.*);
+        return value.canonicalMapJson(&merged, self.allocator) catch |err| switch (err) {
+            // Serializing into an allocating writer fails only when the
+            // allocation does; WriteFailed is that, reported by the writer.
+            error.WriteFailed, error.OutOfMemory => error.OutOfMemory,
+        };
     }
 
     pub fn requestEffect(self: *Runtime, kind: effect.Kind, hook: []const u8, scene: []const u8, action: []const u8) RuntimeError!Event {
@@ -599,7 +673,22 @@ pub const ActionDriver = struct {
         while (true) {
             if (try self.takeExtendModels()) |event| return event;
             switch (self.runtime.actionPhase()) {
-                .prepare, .publish => return self.runtime.step(),
+                .prepare, .publish => {
+                    // Resolved here, at the first hook that binds values, so
+                    // every extend merge for this action has already landed and
+                    // a STATE field one of them introduced is readable.
+                    if (self.runtime.nextEffectBindsValues() and
+                        !self.runtime.hasActionStateBindings())
+                    {
+                        self.runtime.setActionStateBindings(try model.actionStateBindings(
+                            self.scene_id,
+                            self.action_id,
+                            &self.state,
+                            self.allocator,
+                        ));
+                    }
+                    return self.runtime.step();
+                },
                 .execute => {
                     if (self.action_result != null) return error.ActionInProgress;
                     self.action_result = try self.runtime.executePreparedAction(
@@ -991,7 +1080,6 @@ test "step preserves declaration order and callback context" {
             .action_id = "start",
             .callback_index = 0,
             .binding = "input",
-            .context_json = "{\"prepared\":[]}",
         },
         .{
             .kind = .publish,
@@ -1007,7 +1095,10 @@ test "step preserves declaration order and callback context" {
     const first = (try runtime.step()).need_effect;
     try std.testing.expectEqual(@as(u64, 1), first.id);
     try std.testing.expectEqualStrings("input", first.binding.?);
-    try std.testing.expectEqualStrings("{\"prepared\":[]}", first.context_json);
+    // A prepare request carries a context the runtime builds, never one the
+    // spec supplied: the action's `from_state` bindings with earlier hook
+    // results over them. Neither exists here, so it is empty.
+    try std.testing.expectEqualStrings("{}", first.context_json);
     const replay = (try runtime.step()).need_effect;
     try std.testing.expectEqual(first.id, replay.id);
     try runtime.@"resume"(first.id, .{ .prepare = .{ .ok = "{\"input\":1}" } });
@@ -1665,4 +1756,102 @@ test "route driver emits actions and scene transitions incrementally" {
     var score = try driver.partialState().read("score", std.testing.allocator);
     defer score.deinit(std.testing.allocator);
     try std.testing.expectEqual(@as(f64, 2), score.value.number);
+}
+
+test "prepare context carries state bindings under earlier hook results" {
+    const allocator = std.testing.allocator;
+    const scheduled = [_]effect.Spec{
+        .{ .kind = .prepare, .hook = "first", .scene_id = "main", .action_id = "start", .callback_index = 0, .binding = "loaded" },
+        .{ .kind = .prepare, .hook = "second", .scene_id = "main", .action_id = "start", .callback_index = 1, .binding = "other" },
+    };
+    var runtime = Runtime.init(allocator, &scheduled);
+    defer runtime.deinit();
+
+    var bindings: action_runtime.StateBindings = .{};
+    try bindings.values.put(allocator, "count", .{ .value = .{ .number = 7 } });
+    try bindings.values.put(allocator, "loaded", .{ .value = .{ .number = 1 } });
+    runtime.setActionStateBindings(bindings);
+    try std.testing.expect(runtime.hasActionStateBindings());
+
+    // The first hook sees STATE only: nothing has answered yet.
+    const first = (try runtime.step()).need_effect;
+    try expectContextNumber(first.context_json, "count", 7);
+    try expectContextNumber(first.context_json, "loaded", 1);
+
+    // Its result layers over the STATE value of the same binding.
+    try runtime.@"resume"(first.id, .{ .prepare = .{ .ok = "42" } });
+    const second = (try runtime.step()).need_effect;
+    try expectContextNumber(second.context_json, "count", 7);
+    try expectContextNumber(second.context_json, "loaded", 42);
+}
+
+test "prepare context survives a malformed earlier payload" {
+    const allocator = std.testing.allocator;
+    const scheduled = [_]effect.Spec{
+        .{ .kind = .prepare, .hook = "first", .scene_id = "main", .action_id = "start", .callback_index = 0, .binding = null },
+        .{ .kind = .prepare, .hook = "second", .scene_id = "main", .action_id = "start", .callback_index = 1, .binding = "other" },
+    };
+    var runtime = Runtime.init(allocator, &scheduled);
+    defer runtime.deinit();
+    var bindings: action_runtime.StateBindings = .{};
+    try bindings.values.put(allocator, "count", .{ .value = .{ .number = 7 } });
+    runtime.setActionStateBindings(bindings);
+
+    const first = (try runtime.step()).need_effect;
+    // A multi-binding hook must answer with an object. This one does not, which
+    // execution reports; building the next context must not raise it first.
+    try runtime.@"resume"(first.id, .{ .prepare = .{ .ok = "1" } });
+    const second = (try runtime.step()).need_effect;
+    try expectContextNumber(second.context_json, "count", 7);
+    try std.testing.expectError(error.InvalidPreparePayload, runtime.preparedValues("main", "start"));
+}
+
+test "publish and extend effects carry no binding context" {
+    const allocator = std.testing.allocator;
+    const scheduled = [_]effect.Spec{
+        .{ .kind = .prepare, .role = .extend, .hook = "grow", .scene_id = "main", .action_id = "start", .callback_index = 0 },
+    };
+    var runtime = Runtime.init(allocator, &scheduled);
+    defer runtime.deinit();
+    var bindings: action_runtime.StateBindings = .{};
+    try bindings.values.put(allocator, "count", .{ .value = .{ .number = 7 } });
+    runtime.setActionStateBindings(bindings);
+
+    // An extend hook answers with a model, so a binding context would be noise.
+    const extend = (try runtime.step()).need_effect;
+    try std.testing.expectEqualStrings("{}", extend.context_json);
+}
+
+test "nextEffectBindsValues distinguishes the hooks that take a context" {
+    const scheduled = [_]effect.Spec{
+        .{ .kind = .prepare, .role = .extend, .hook = "grow", .scene_id = "main", .action_id = "start", .callback_index = 0 },
+        .{ .kind = .prepare, .hook = "load", .scene_id = "main", .action_id = "start", .callback_index = 1, .binding = "input" },
+        .{ .kind = .publish, .hook = "save", .scene_id = "main", .action_id = "start", .callback_index = 0 },
+    };
+    var runtime = Runtime.init(std.testing.allocator, &scheduled);
+    defer runtime.deinit();
+    try std.testing.expect(!runtime.nextEffectBindsValues());
+    const extend = (try runtime.step()).need_effect;
+    // Not while one is pending: the answer is about the next request to build.
+    try std.testing.expect(!runtime.nextEffectBindsValues());
+    try runtime.@"resume"(extend.id, .{ .prepare = .{ .ok = "{}" } });
+    try std.testing.expect(runtime.nextEffectBindsValues());
+    const prepare = (try runtime.step()).need_effect;
+    try runtime.@"resume"(prepare.id, .{ .prepare = .{ .ok = "1" } });
+    try std.testing.expect(!runtime.nextEffectBindsValues());
+    runtime.cancel();
+    try std.testing.expect(!runtime.nextEffectBindsValues());
+}
+
+fn expectContextNumber(context_json: []const u8, key: []const u8, expected: f64) !void {
+    const parsed = try std.json.parseFromSlice(std.json.Value, std.testing.allocator, context_json, .{});
+    defer parsed.deinit();
+    const entry = parsed.value.object.get(key) orelse return error.TestExpectedEqual;
+    // A whole number serializes without a fractional part and parses as an integer.
+    const number = switch (entry.object.get("value").?) {
+        .float => |float| float,
+        .integer => |integer| @as(f64, @floatFromInt(integer)),
+        else => return error.TestExpectedEqual,
+    };
+    try std.testing.expectEqual(expected, number);
 }

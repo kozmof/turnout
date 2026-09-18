@@ -651,7 +651,12 @@ describe("advanceZigRuntime", () => {
     expect(error).toMatchObject({ sceneId: "main", actionId: "start" });
   });
 
-  it("hydrates route prepare context from state with a missing-value fallback", async () => {
+  it("passes the runtime's prepare context to the hook unchanged", async () => {
+    // The context is built by the runtime, which owns the model and STATE: the
+    // action's `from_state` bindings with earlier hook results layered over
+    // them, an unwritten path reading as null-missing. The adapter's job is to
+    // decode it and hand it over, so that is what this asserts. Resolution
+    // itself is covered in Zig, in action.zig's state-binding tests.
     const events: unknown[] = [
       {
         event: "needEffect",
@@ -662,7 +667,10 @@ describe("advanceZigRuntime", () => {
         actionId: "start",
         callbackIndex: 0,
         binding: "loaded",
-        contextJson: "{}",
+        bindings: ["loaded"],
+        contextJson: JSON.stringify({
+          prior: { symbol: "null", reason: "missing", tags: [] },
+        }),
       },
       {
         event: "actionComplete",
@@ -685,25 +693,7 @@ describe("advanceZigRuntime", () => {
       resume: () => ({ status: "ok", payload: { resumed: 70 } }),
       snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: false } }),
     };
-    const model = new TextEncoder().encode(
-      JSON.stringify({
-        scenes: [
-          {
-            id: "main",
-            actions: [
-              {
-                id: "start",
-                prepare: [
-                  { fromState: "missing.path", binding: "prior" },
-                  { fromHook: "load", binding: "loaded" },
-                ],
-              },
-            ],
-          },
-        ],
-      }),
-    );
-    const runner = createZigRouteRunner(client, model, "route", {
+    const runner = createZigRouteRunner(client, new TextEncoder().encode("{}"), "route", {
       entryId: "route",
       initialState: {},
     });

@@ -33,6 +33,57 @@ pub const Result = struct {
     }
 };
 
+/// The action's `from_state` bindings, resolved against STATE.
+///
+/// This is the context a prepare hook reads. Execution resolves the same
+/// entries the same way in `executeWithPrepared` below, a moment later; both
+/// answer through `state.read`, so a hook sees the value the action will bind
+/// rather than an approximation of it. Hook results layer on top, which is why
+/// this is separate from them rather than folded in.
+pub const StateBindings = struct {
+    values: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty,
+
+    pub fn deinit(self: *StateBindings, allocator: std.mem.Allocator) void {
+        for (self.values.values()) |*item| value.deinitTaggedValue(item, allocator);
+        self.values.deinit(allocator);
+        self.* = undefined;
+    }
+};
+
+pub fn stateBindings(
+    action: std.json.Value,
+    state: *const state_runtime.State,
+    allocator: std.mem.Allocator,
+) !StateBindings {
+    var bindings: StateBindings = .{};
+    errdefer bindings.deinit(allocator);
+    if (action != .object) return bindings;
+    const prepare = action.object.get("prepare") orelse return bindings;
+    if (prepare != .array) return error.InvalidAction;
+    for (prepare.array.items) |entry| {
+        if (entry != .object) return error.InvalidPrepare;
+        const binding = entry.object.get("binding") orelse return error.InvalidPrepare;
+        if (binding != .string or binding.string.len == 0) return error.InvalidPrepare;
+        if (entry.object.get("fromHook") != null) continue;
+        const from_state = entry.object.get("fromState") orelse continue;
+        if (from_state != .string) return error.InvalidPrepare;
+        var resolved = try state.read(from_state.string, allocator);
+        const tagged = resolved.borrowed();
+        // A binding declared twice takes its last declaration, matching the
+        // resolution order execution uses.
+        if (bindings.values.getPtr(binding.string)) |previous| {
+            value.deinitTaggedValue(previous, allocator);
+            previous.* = tagged;
+            continue;
+        }
+        bindings.values.put(allocator, binding.string, tagged) catch |err| {
+            resolved.deinit(allocator);
+            return err;
+        };
+    }
+    return bindings;
+}
+
 pub fn execute(
     action: std.json.Value,
     program: ?*const compute.Program,
@@ -263,4 +314,76 @@ test "action consumes resumed prepare values by binding" {
     defer result.deinit(allocator);
     try std.testing.expectEqual(@as(f64, 7), result.compute_root.value.number);
     try std.testing.expect(value.hasTag(result.binding_values.getPtr("input").?.borrowed(), "host"));
+}
+
+test "state bindings resolve from STATE and ignore hook-supplied ones" {
+    const allocator = std.testing.allocator;
+    const source =
+        \\{
+        \\  "id":"start",
+        \\  "prepare":[
+        \\    {"binding":"count","fromState":"counter.value"},
+        \\    {"binding":"loaded","fromHook":"load"},
+        \\    {"binding":"absent","fromState":"counter.missing"}
+        \\  ]
+        \\}
+    ;
+    const parsed = try std.json.parseFromSlice(std.json.Value, allocator, source, .{});
+    defer parsed.deinit();
+    var initial: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer initial.deinit(allocator);
+    try initial.put(allocator, "counter.value", .{ .value = .{ .number = 7 } });
+    var state = try state_runtime.State.initUnchecked(&initial, allocator);
+    defer state.deinit(allocator);
+
+    var bindings = try stateBindings(parsed.value, &state, allocator);
+    defer bindings.deinit(allocator);
+    // A hook-supplied binding is the hook's to answer, not STATE's.
+    try std.testing.expectEqual(@as(usize, 2), bindings.values.count());
+    try std.testing.expectEqual(@as(f64, 7), bindings.values.get("count").?.value.number);
+    // An unwritten path reads as null-missing, the same as at execution.
+    try std.testing.expectEqual(
+        value.NullReason.missing,
+        bindings.values.get("absent").?.value.null_value,
+    );
+}
+
+test "state bindings take the last declaration of a repeated binding" {
+    const allocator = std.testing.allocator;
+    const source =
+        \\{
+        \\  "id":"start",
+        \\  "prepare":[
+        \\    {"binding":"count","fromState":"counter.first"},
+        \\    {"binding":"count","fromState":"counter.second"}
+        \\  ]
+        \\}
+    ;
+    const parsed = try std.json.parseFromSlice(std.json.Value, allocator, source, .{});
+    defer parsed.deinit();
+    var initial: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer initial.deinit(allocator);
+    try initial.put(allocator, "counter.first", .{ .value = .{ .number = 1 } });
+    try initial.put(allocator, "counter.second", .{ .value = .{ .number = 2 } });
+    var state = try state_runtime.State.initUnchecked(&initial, allocator);
+    defer state.deinit(allocator);
+
+    var bindings = try stateBindings(parsed.value, &state, allocator);
+    defer bindings.deinit(allocator);
+    try std.testing.expectEqual(@as(usize, 1), bindings.values.count());
+    try std.testing.expectEqual(@as(f64, 2), bindings.values.get("count").?.value.number);
+}
+
+test "state bindings are empty for an action that declares no prepare" {
+    const allocator = std.testing.allocator;
+    const parsed = try std.json.parseFromSlice(std.json.Value, allocator, "{\"id\":\"start\"}", .{});
+    defer parsed.deinit();
+    var empty: std.StringArrayHashMapUnmanaged(value.TaggedValue) = .empty;
+    defer empty.deinit(allocator);
+    var state = try state_runtime.State.initUnchecked(&empty, allocator);
+    defer state.deinit(allocator);
+
+    var bindings = try stateBindings(parsed.value, &state, allocator);
+    defer bindings.deinit(allocator);
+    try std.testing.expectEqual(@as(usize, 0), bindings.values.count());
 }

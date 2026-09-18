@@ -17,6 +17,7 @@ function hooks(): HookRegistry {
 function request(
   kind: "prepare" | "publish",
   context: Record<string, unknown> = {},
+  bindings: readonly string[] = [],
 ): ZigEffectRequest {
   return {
     event: "needEffect",
@@ -27,6 +28,7 @@ function request(
     actionId: "start",
     callbackIndex: 0,
     binding: null,
+    bindings,
     contextJson: JSON.stringify(context),
   };
 }
@@ -161,7 +163,7 @@ describe("dispatchZigEffect", () => {
 
     registry.prepare.load = () => ({ first: buildNumber(1) });
     await expect(
-      dispatchZigEffect(request("prepare"), registry, signal, ["first", "second"]),
+      dispatchZigEffect(request("prepare", {}, ["first", "second"]), registry, signal),
     ).rejects.toMatchObject({
       name: "PrepareError",
       code: "MissingHookField",
@@ -223,13 +225,14 @@ describe("dispatchZigEffect", () => {
     registry.prepare.load = (context) => ({ loaded: context.get("seed") });
     await expect(
       dispatchZigEffect(
-        { ...request("prepare"), binding: "loaded", contextJson: "not json" },
+        {
+          ...request("prepare", { seed: { symbol: "string", value: "seeded", tags: [] } }),
+          binding: "loaded",
+        },
         registry,
         signal,
-        [],
-        { seed: buildString("override") },
       ),
-    ).resolves.toMatchObject({ status: "ok", value: { symbol: "string", value: "override" } });
+    ).resolves.toMatchObject({ status: "ok", value: { symbol: "string", value: "seeded" } });
 
     registry.prepare.load = () => 42 as never;
     await expect(dispatchZigEffect(request("prepare"), registry, signal)).rejects.toMatchObject({
