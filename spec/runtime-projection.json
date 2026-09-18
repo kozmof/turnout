@@ -1,0 +1,101 @@
+{
+  "compilerOnly": [
+    {
+      "message": "TurnModel",
+      "field": "annotations",
+      "path": "annotations",
+      "why": "validator-only sigil metadata"
+    },
+    {
+      "message": "TypeDeclModel",
+      "field": "source_pos",
+      "path": "typeDecls[].sourcePos",
+      "why": "diagnostics anchor for type declarations"
+    },
+    {
+      "message": "ViewBlock",
+      "field": "nodes",
+      "path": "scenes[].view.nodes",
+      "why": "structured overview graph; view.flow carries the same graph"
+    },
+    {
+      "message": "ViewBlock",
+      "field": "edges",
+      "path": "scenes[].view.edges",
+      "why": "structured overview graph; view.flow carries the same graph"
+    },
+    {
+      "message": "ViewBlock",
+      "field": "source_pos",
+      "path": "scenes[].view.sourcePos",
+      "why": "diagnostics anchor for the overview keyword"
+    },
+    {
+      "message": "ProgModel",
+      "field": "sigils",
+      "path": "scenes[].actions[].compute.prog.sigils",
+      "why": "ingress/egress direction, resolved into prepare and merge entries"
+    },
+    {
+      "message": "BindingModel",
+      "field": "ext_expr",
+      "path": "scenes[].actions[].compute.prog.bindings[].extExpr",
+      "why": "HCL re-emission form; the runtime reads expr"
+    },
+    {
+      "message": "BindingModel",
+      "field": "source_pos",
+      "path": "scenes[].actions[].compute.prog.bindings[].sourcePos",
+      "why": "diagnostics anchor for user-declared bindings"
+    },
+    {
+      "message": "BindingModel",
+      "field": "declared_type",
+      "path": "scenes[].actions[].compute.prog.bindings[].declaredType",
+      "why": "structured source type annotation; the runtime reads type"
+    },
+    {
+      "message": "ProgModel",
+      "field": "sigils",
+      "path": "scenes[].actions[].next[].compute.prog.sigils",
+      "why": "ingress/egress direction, resolved into prepare and merge entries"
+    },
+    {
+      "message": "BindingModel",
+      "field": "ext_expr",
+      "path": "scenes[].actions[].next[].compute.prog.bindings[].extExpr",
+      "why": "HCL re-emission form; the runtime reads expr"
+    },
+    {
+      "message": "BindingModel",
+      "field": "source_pos",
+      "path": "scenes[].actions[].next[].compute.prog.bindings[].sourcePos",
+      "why": "diagnostics anchor for user-declared bindings"
+    },
+    {
+      "message": "BindingModel",
+      "field": "declared_type",
+      "path": "scenes[].actions[].next[].compute.prog.bindings[].declaredType",
+      "why": "structured source type annotation; the runtime reads type"
+    }
+  ],
+  "retained": {
+    "TurnModel": ["state", "scenes", "routes", "version", "min_version", "max_version", "type_decls"],
+    "StateModel": ["namespaces"],
+    "NamespaceModel": ["name", "fields"],
+    "FieldModel": ["name", "type", "value"],
+    "SceneBlock": ["id", "entry_action", "actions", "view"],
+    "ViewBlock": ["name", "flow", "enforce"],
+    "ActionModel": ["id", "compute", "prepare", "merge", "publish", "next", "text"],
+    "ComputeModel": ["root", "prog"],
+    "ProgModel": ["name", "bindings"],
+    "BindingModel": ["name", "type", "value", "expr"],
+    "PrepareEntry": ["binding", "from_state", "from_hook"],
+    "MergeEntry": ["binding", "to_state"],
+    "NextRuleModel": ["compute", "prepare", "action"],
+    "NextComputeModel": ["condition", "prog"],
+    "NextPrepareEntry": ["binding", "from_action", "from_state", "from_literal"],
+    "RouteModel": ["id", "match", "entry_scene_id"],
+    "MatchArm": ["patterns", "target"]
+  }
+}

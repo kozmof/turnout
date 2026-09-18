@@ -2,6 +2,8 @@
 
 This document records the first Zig runtime boundary. It uses converter JSON as the parity baseline.
 
+It covers mechanics: the wire format, the ABI, ownership, and limits. Which abilities belong to the engine and which to the host that drives it is normative and lives in [`spec/runtime-hosts.md`](../../../spec/runtime-hosts.md). The set of compiler-only fields named below is declared in [`spec/runtime-projection.json`](../../../spec/runtime-projection.json) and gated against all three implementations.
+
 ## Transport
 
 The Go converter's sanitized JSON output is the only accepted transport in the first milestone. Protobuf bytes are not accepted. Unknown JSON fields are ignored so a newer converter can add fields without breaking an older runtime.

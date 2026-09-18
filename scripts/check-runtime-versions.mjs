@@ -6,6 +6,16 @@ const versions = JSON.parse(await readFile(new URL("spec/runtime-versions.json",
 
 const checks = [
   {
+    // The compiler stamps the version every runtime then checks, so it belongs
+    // in this gate more than either runtime does. min_version and max_version
+    // are deliberately absent: they are a compatibility window the compiler is
+    // free to widen, not a restatement of the model version.
+    file: "packages/go/converter/internal/emit/json.go",
+    pattern: /jsonModelVersion = (\d+)/,
+    expected: versions.model,
+    name: "Go model",
+  },
+  {
     file: "packages/ts/scene-runner/src/migration.ts",
     pattern: /const CURRENT_VERSION = (\d+);/,
     expected: versions.model,

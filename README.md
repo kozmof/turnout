@@ -62,16 +62,22 @@ the action's result. More examples live in `spec/examples/`.
 
 ## How it fits together
 
-Turnout runs in two phases.
+Turnout compiles ahead of time and executes behind a host.
 
 ```
-.tu source  ──[Go compiler]──>  HCL or JSON model  ──[TypeScript runtime]──>  state changes
+.tu source  ──[Go compiler]──>  HCL or JSON model  ──[host]──>  Zig engine  ──>  state changes
 ```
 
 The compiler parses the source, resolves the state schema, lowers everything to
 a protobuf model, and type-checks it. Nothing reaches the runtime until it
-passes. The runtime loads the model and executes each action's computation
-graph, merging results into state at the points the source declared.
+passes.
+
+Execution is a Zig engine: values, preset functions, computation graphs, STATE,
+and the action, scene, and route drivers all live there. A host drives it and
+supplies the two things it cannot have — the hooks, which are code in the host's
+own language, and that language's public API.
+`packages/ts/scene-runner` is the host that ships today, reaching the engine
+through WASM. `spec/runtime-hosts.md` records where the boundary falls.
 
 Splitting it this way means authoring errors surface once, at build time, and
 the runtime only ever sees a model that already type-checks.
@@ -287,8 +293,13 @@ the lexer and parser.
 ## Specifications
 
 `spec/` holds the normative documents. Start with `spec/convert-runtime-spec.md`
-for the pipeline, then `spec/scene-graph.md` for the scene and action model.
-The rest cover the type system, hooks, routes, and state shape.
+for the pipeline, then `spec/runtime-hosts.md` for the split between the engine
+and the host that drives it, then `spec/scene-graph.md` for the scene and action
+model. The rest cover the type system, hooks, routes, and state shape.
+
+Three files in `spec/` are data rather than prose, each read by more than one
+language and gated against drift: `fn-aliases.json`, `field-types.json`, and
+`runtime-projection.json`.
 
 ## License
 
