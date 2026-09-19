@@ -13,6 +13,7 @@ const scene_runner = @import("turnout_scene_runner");
 const turnout_value = @import("turnout_runtime").value;
 
 const effect = scene_runner.effect;
+const model_merge = scene_runner.merge;
 const model_runtime = scene_runner.model;
 const runner = scene_runner.runner;
 const state_runtime = scene_runner.state;
@@ -100,7 +101,50 @@ const Driver = union(enum) {
             inline else => |*driver| driver.partialState(),
         };
     }
+
+    /// Re-resolves what the driver holds against a model that has just grown.
+    ///
+    /// Only a route driver holds anything: its lowered match block lives in the
+    /// retired model's arena, and taking the new one is also what brings arms
+    /// naming a newly arrived scene to life.
+    fn rebind(self: *Driver, model: *const model_runtime.RuntimeModel) !void {
+        switch (self.*) {
+            .scene => {},
+            .route => |*driver| try driver.rebind(model),
+        }
+    }
 };
+
+/// Merges the models an action's extend hooks returned into the running one.
+///
+/// The same rules as `mergeModels`, because it is the same implementation:
+/// every collision is an error, and the running model is named "model" in the
+/// message while every other input is named by the hook it came from.
+fn mergedModelBytes(
+    arena: std.mem.Allocator,
+    base: std.json.Value,
+    payloads: []const []const u8,
+    labels: []const []const u8,
+) ![]const u8 {
+    const roots = try arena.alloc(std.json.Value, payloads.len + 1);
+    roots[0] = base;
+    for (payloads, 0..) |payload, index| {
+        const parsed = std.json.parseFromSlice(std.json.Value, arena, payload, .{}) catch
+            return error.InvalidExtendPayload;
+        roots[index + 1] = parsed.value;
+    }
+    const named = try arena.alloc([]const u8, labels.len + 1);
+    named[0] = "model";
+    @memcpy(named[1..], labels);
+    return switch (try model_merge.merge(arena, roots, named)) {
+        .conflicts => error.ModelMergeConflict,
+        .merged => |merged| blk: {
+            var output: std.Io.Writer.Allocating = .init(arena);
+            try std.json.Stringify.value(merged.root, .{}, &output.writer);
+            break :blk output.written();
+        },
+    };
+}
 
 /// Runs one model to completion, answering every effect through `hooks`.
 ///
@@ -138,8 +182,18 @@ pub fn run(
     const trace_allocator = arena.allocator();
     var actions: std.ArrayList(ActionRecord) = .empty;
 
+    // A model that grew mid-run. The driver borrows ids from whichever model it
+    // was running against, so every one of them is retained until the run is
+    // over and the trace has copied what it needs.
+    var grown: std.ArrayList(model_runtime.RuntimeModel) = .empty;
+    defer {
+        for (grown.items) |*retired| retired.deinit();
+        grown.deinit(allocator);
+    }
+    var current = model;
+
     while (true) {
-        const event = try driver.step(model, options.fail_on_publish_error);
+        const event = try driver.step(current, options.fail_on_publish_error);
         switch (event) {
             .need_effect => |request| {
                 // One arena per effect: a hook's answer is copied into the
@@ -165,7 +219,19 @@ pub fn run(
                 });
             },
             .scene_changed => {},
-            .extend_model => return error.UnappliedExtend,
+            .extend_model => |extend| {
+                var merge_arena: std.heap.ArenaAllocator = .init(allocator);
+                defer merge_arena.deinit();
+                const bytes = try mergedModelBytes(
+                    merge_arena.allocator(),
+                    current.parsed.value,
+                    extend.payloads,
+                    extend.labels,
+                );
+                try grown.append(allocator, try model_runtime.RuntimeModel.init(allocator, bytes, .{}));
+                current = &grown.items[grown.items.len - 1];
+                try driver.rebind(current);
+            },
             .complete, .cancelled => break,
         }
     }

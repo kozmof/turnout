@@ -11,6 +11,7 @@ import type { PublishHookOutcome } from "./types/harness-types.js";
 export type PrepareErrorCode =
   | "MissingStateBinding"
   | "UnregisteredHook"
+  | "MissingExtendHook"
   | "MissingHookField"
   | "MissingActionBinding"
   | "InvalidHookValue";

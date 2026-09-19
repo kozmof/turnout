@@ -1,0 +1,82 @@
+{
+  "state": {
+    "namespaces": [
+      {
+        "name": "cart",
+        "fields": [
+          {
+            "name": "item_count",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "is_return",
+            "type": "bool",
+            "value": false
+          },
+          {
+            "name": "lane",
+            "type": "str",
+            "value": ""
+          }
+        ]
+      }
+    ]
+  },
+  "scenes": [
+    {
+      "id": "checkout",
+      "entryAction": "take_payment",
+      "actions": [
+        {
+          "id": "take_payment",
+          "compute": {
+            "root": "total",
+            "prog": {
+              "name": "payment_graph",
+              "bindings": [
+                {
+                  "name": "item_count",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "total",
+                  "type": "number",
+                  "expr": {
+                    "combine": {
+                      "fn": "mul",
+                      "args": [
+                        {
+                          "ref": "item_count"
+                        },
+                        {
+                          "lit": 10
+                        }
+                      ]
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "item_count",
+              "fromState": "cart.item_count"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "total",
+              "toState": "cart.item_count"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "version": 2,
+  "minVersion": 2,
+  "maxVersion": 2
+}

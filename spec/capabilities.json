@@ -32,6 +32,15 @@
         "typescript": "supported",
         "zig-native": "supported"
       }
+    },
+    {
+      "id": "model-extension",
+      "summary": "A model can grow while it runs: an extend hook returns a model, it is merged before the action prepares, and every collision is an error rather than an override.",
+      "owner": "split",
+      "hosts": {
+        "typescript": "supported",
+        "zig-native": "supported"
+      }
     }
   ]
 }

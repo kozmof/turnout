@@ -67,6 +67,7 @@ route "shopping" {
   entry = triage
   to {
     triage.pick_lane -> checkout,
+    empty_cart.say_empty -> .,
     _ -> empty_cart
   }
 }

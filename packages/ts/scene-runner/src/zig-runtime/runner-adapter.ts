@@ -114,8 +114,10 @@ export async function advanceZigRuntime(
         const result = await dispatchZigEffect(event, hooks, signal);
         recordPublishOutcome(event, result, publishOutcomes);
         if (result.kind === "prepare" && result.status === "missing") {
+          // The engine's names for the two, so a host reporting one is
+          // reporting what the engine raised rather than a name of its own.
           throw new PrepareError(
-            "UnregisteredHook",
+            event.role === "extend" ? "MissingExtendHook" : "UnregisteredHook",
             event.actionId,
             `${event.role === "extend" ? "extend" : "prepare"} hook "${event.hook}" is not registered`,
           );

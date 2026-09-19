@@ -1,0 +1,37 @@
+{
+  "capability": "model-extension",
+  "vectors": [
+    {
+      "name": "a-scene-that-arrives-mid-run-becomes-reachable",
+      "why": "An extend hook returns a model, it is merged before any binding resolves, and a route arm naming a scene the model did not have goes live.",
+      "model": "packages/ts/scene-runner/tests/fixtures/extend-base.json",
+      "entryId": "shopping",
+      "initialState": {
+        "cart.item_count": { "symbol": "number", "value": 2, "tags": [] },
+        "cart.is_return": { "symbol": "boolean", "value": false, "tags": [] }
+      },
+      "hooks": {
+        "extend": {
+          "load_lane": { "returnsModel": "packages/ts/scene-runner/tests/fixtures/extend-lane.json" }
+        }
+      },
+      "expect": {
+        "actions": [{ "actionId": "pick_lane" }, { "actionId": "take_payment" }],
+        "finalState": {
+          "cart.item_count": { "symbol": "number", "value": 20, "tags": [] },
+          "cart.is_return": { "symbol": "boolean", "value": false, "tags": [] },
+          "cart.lane": { "symbol": "string", "value": "checkout", "tags": [] }
+        }
+      }
+    },
+    {
+      "name": "an-unregistered-extend-hook-fails-the-action",
+      "why": "An action that asked for a model and did not get one cannot run, the same policy as a prepare hook.",
+      "model": "packages/ts/scene-runner/tests/fixtures/extend-base.json",
+      "entryId": "shopping",
+      "initialState": { "cart.item_count": { "symbol": "number", "value": 1, "tags": [] } },
+      "hooks": { "extend": {} },
+      "expect": { "error": { "code": "MissingExtendHook" } }
+    }
+  ]
+}

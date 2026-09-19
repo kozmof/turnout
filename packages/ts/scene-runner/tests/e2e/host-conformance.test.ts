@@ -39,6 +39,8 @@ type PublishHookScript = {
   message?: string;
 };
 
+type ExtendHookScript = { returnsModel: string };
+
 type Vector = {
   name: string;
   why: string;
@@ -48,6 +50,7 @@ type Vector = {
   hooks?: {
     prepare?: Record<string, PrepareHookScript>;
     publish?: Record<string, PublishHookScript>;
+    extend?: Record<string, ExtendHookScript>;
   };
   expect: {
     actions?: Array<{ actionId: string; publishOutcomes?: PublishHookOutcome[] }>;
@@ -144,6 +147,11 @@ function scriptedHooks(vector: Vector): {
         ? { hookName: name, status: "error", message: script.message ?? "" }
         : undefined;
     };
+  }
+
+  for (const [name, script] of Object.entries(vector.hooks?.extend ?? {})) {
+    hooks.extend[name] = () =>
+      JSON.parse(readFileSync(resolve(repoRoot, script.returnsModel), "utf8"));
   }
 
   return { hooks, mismatches };

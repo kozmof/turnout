@@ -11,6 +11,9 @@ export async function runHarness(options: HarnessOptions): Promise<FullHarnessRe
   for (const [name, handler] of Object.entries(options.hooks?.publish ?? {})) {
     runner.usePublishHook(name, handler);
   }
+  for (const [name, handler] of Object.entries(options.hooks?.extend ?? {})) {
+    runner.useExtendHook(name, handler);
+  }
 
   return runner.run();
 }

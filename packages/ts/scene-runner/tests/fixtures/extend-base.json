@@ -1,0 +1,173 @@
+{
+  "state": {
+    "namespaces": [
+      {
+        "name": "cart",
+        "fields": [
+          {
+            "name": "item_count",
+            "type": "number",
+            "value": 0
+          },
+          {
+            "name": "is_return",
+            "type": "bool",
+            "value": false
+          },
+          {
+            "name": "lane",
+            "type": "str",
+            "value": ""
+          }
+        ]
+      }
+    ]
+  },
+  "scenes": [
+    {
+      "id": "triage",
+      "entryAction": "pick_lane",
+      "actions": [
+        {
+          "id": "pick_lane",
+          "compute": {
+            "root": "lane",
+            "prog": {
+              "name": "lane_graph",
+              "bindings": [
+                {
+                  "name": "item_count",
+                  "type": "number",
+                  "value": 0
+                },
+                {
+                  "name": "has_items",
+                  "type": "bool",
+                  "expr": {
+                    "combine": {
+                      "fn": "gt",
+                      "args": [
+                        {
+                          "ref": "item_count"
+                        },
+                        {
+                          "lit": 0
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "__local_lane_cond_1",
+                  "type": "bool",
+                  "expr": {
+                    "combine": {
+                      "fn": "bool_and",
+                      "args": [
+                        {
+                          "ref": "has_items"
+                        },
+                        {
+                          "lit": true
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "__local_lane_then_value_2",
+                  "type": "str",
+                  "value": "checkout"
+                },
+                {
+                  "name": "__local_lane_then_fn_3",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "__local_lane_then_value_2"
+                        },
+                        {
+                          "lit": ""
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "__local_lane_else_value_4",
+                  "type": "str",
+                  "value": "empty"
+                },
+                {
+                  "name": "__local_lane_else_fn_5",
+                  "type": "str",
+                  "expr": {
+                    "combine": {
+                      "fn": "str_concat",
+                      "args": [
+                        {
+                          "ref": "__local_lane_else_value_4"
+                        },
+                        {
+                          "lit": ""
+                        }
+                      ]
+                    }
+                  }
+                },
+                {
+                  "name": "lane",
+                  "type": "str",
+                  "expr": {
+                    "cond": {
+                      "condition": {
+                        "ref": "__local_lane_cond_1"
+                      },
+                      "then": {
+                        "funcRef": "__local_lane_then_fn_3"
+                      },
+                      "elseBranch": {
+                        "funcRef": "__local_lane_else_fn_5"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "prepare": [
+            {
+              "binding": "item_count",
+              "fromState": "cart.item_count"
+            }
+          ],
+          "merge": [
+            {
+              "binding": "lane",
+              "toState": "cart.lane"
+            }
+          ],
+          "extend": ["load_lane"]
+        }
+      ]
+    }
+  ],
+  "routes": [
+    {
+      "id": "shopping",
+      "match": [
+        {
+          "patterns": ["triage.pick_lane"],
+          "target": "checkout"
+        }
+      ],
+      "entrySceneId": "triage"
+    }
+  ],
+  "version": 2,
+  "minVersion": 2,
+  "maxVersion": 2
+}

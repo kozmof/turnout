@@ -399,6 +399,57 @@ Two things worth carrying forward instead:
   Making Go the only implementation was the performance half of that idea, and
   the performance half is the half that did not pay.
 
+## Recheck: what the conformance vectors were not looking at
+
+A pass over the two hosts after phase 4, asking what could differ without any
+gate noticing. Twelve vectors passing on both hosts was true and still hid a
+whole ability.
+
+**The manifest's coverage is the manifest's blind spot.** `capabilities.json`
+declared three capabilities, so three were checked. Nothing declared model
+extension, and nothing therefore checked it — and the native host did not
+implement it at all: `run.zig` answered the `extend_model` event with
+`error.UnappliedExtend`. A documented language feature, working in one host,
+absent in the other, invisible to every gate.
+
+Now implemented natively and declared as `model-extension`, with two vectors.
+The merge itself is `merge.zig`, the same implementation the WASM shell and
+`mergeModels` call, so there is still one set of rules and one set of messages.
+
+**Two more defects fell out of writing the vector.**
+
+- `runHarness` registered prepare and publish hooks and silently dropped extend
+  ones, so every model with an `extend` block was unrunnable through the
+  harness — including `runServerHarness`, which is what the end-to-end tests and
+  the README's server path use. Two lines missing, no test covering it, because
+  no test ran an extend model through the harness.
+- A missing extend hook was `UnregisteredHook` in TypeScript and
+  `MissingExtendHook` in the engine: the same divergence closed for prepare
+  hooks one commit earlier, still open one row down. The engine's name wins, as
+  before.
+
+**And one in a shipped example.** `spec/examples/07-plugin-scenes.tu` never
+terminated: its `_ -> empty_cart` catchall matches again once `empty_cart`
+itself reaches a terminal state, so the route bounced between them until it hit
+`MaxRouteTransitionsExceeded`. Both hosts reported the same failure, which is
+itself evidence they agree. The example predates `_ -> .`, the terminal
+spelling `route-terminal-spelling.md` landed on 2026-09-08; it has an
+`empty_cart.say_empty -> .` arm now and runs `triage -> checkout ->
+empty_cart` on both hosts.
+
+### Still open, and now written down
+
+| Gap | Where |
+| --- | --- |
+| `mergeModels` ahead of a run — TypeScript has it, the native host has no CLI for it | undeclared capability |
+| Cancellation — TypeScript takes an `AbortSignal`, the native host has none | undeclared capability |
+| Prepared models — `prepareModel` amortises creation; the native host is one run per process | arguably not applicable |
+| TypeScript's duplicate prepare-answer checks | recorded under phase 1a |
+| `scene.executeScene` and `runtime_error.Code` — an engine surface no host reaches, carrying a second, snake_case vocabulary | dead relative to hosts |
+
+The first two are the ones worth declaring next, because the lesson of this pass
+is that an undeclared capability is an unchecked one.
+
 ## Risks
 
 - **ABI v2 is breaking.** The compatibility window rules apply; hosts and
