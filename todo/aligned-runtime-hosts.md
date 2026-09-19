@@ -448,7 +448,9 @@ empty_cart` on both hosts.
 | `scene.executeScene` and `runtime_error.Code` — an engine surface no host reaches, carrying a second, snake_case vocabulary | dead relative to hosts |
 
 The first two are the ones worth declaring next, because the lesson of this pass
-is that an undeclared capability is an unchecked one.
+is that an undeclared capability is an unchecked one. `todo/host-parity.md`
+plans that work, starting with the coverage check that would have caught this
+pass's gap before a vector had to.
 
 ## Risks
 
