@@ -4,6 +4,8 @@ This baseline compares full scene execution through the TypeScript and Zig/WASM 
 
 The Zig/WASM figure below was the evidence that prompted the runtime redesign. What that redesign changed, and what re-running this workload afterwards showed, are in [performance-redesign.md](./performance-redesign.md).
 
+**These numbers are historical and are no longer the shape of the workload.** The same 20-action scene now runs at about 1,075 runs/s created per run, and about 10,200 runs/s against a model prepared once — an order of magnitude past the TypeScript engine these figures were measured against. Re-run `packages/ts/scene-runner/bench/runner-creation.mjs` rather than quoting the table below.
+
 ## Method
 
 The migration benchmark command was removed with the TypeScript executor. The method and results below are retained as the final dual-engine baseline. Recreate an equivalent comparison only from a revision that still contains both engines.

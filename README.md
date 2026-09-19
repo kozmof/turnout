@@ -149,8 +149,9 @@ for await (const step of runner.runAsync()) {
 returns the steps it took. Use it when something outside the flow drives it.
 
 Running the same model repeatedly, prepare it once. `createRunner` otherwise
-re-validates, re-encodes, and re-loads the model on every call, which is most of
-what creating a runner costs.
+snapshots, re-validates, re-encodes, and re-loads the model on every call, which
+is most of what creating a runner costs — about 850 µs of a 930 µs run on a
+20-action scene, against 13 µs from a prepared model.
 
 ```ts
 import { createRunner, prepareModel } from "turnout-scene-runner";

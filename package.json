@@ -28,12 +28,13 @@
     "test:ts:all": "pnpm run build:zig && (cd packages/ts/runtime && ./node_modules/.bin/vitest --run) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run)",
     "test:go": "env TMPDIR=/tmp sh scripts/go-test.sh test",
     "test:e2e": "env TMPDIR=/tmp pnpm run build:zig && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run tests/e2e)",
-    "lint": "./packages/ts/runtime/node_modules/.bin/oxlint -c .oxlintrc.json packages/ts/runtime/src packages/ts/scene-runner/src packages/ts/scene-runner/tests scripts",
+    "lint": "./packages/ts/runtime/node_modules/.bin/oxlint -c .oxlintrc.json packages/ts/runtime/src packages/ts/scene-runner/src packages/ts/scene-runner/tests packages/ts/scene-runner/bench scripts",
     "test:coverage": "env TMPDIR=/tmp pnpm run test:coverage:all",
     "test:coverage:all": "pnpm run build:zig && (cd packages/ts/runtime && ./node_modules/.bin/vitest --run --coverage) && (cd packages/ts/scene-runner && ./node_modules/.bin/vitest --run --coverage) && sh scripts/go-test.sh coverage",
     "test:dist": "pnpm run build:zig:dist && (cd packages/ts/runtime && pnpm run build) && (cd packages/ts/scene-runner && pnpm run build) && node scripts/smoke-dist.mjs",
-    "format": "find packages/go/converter -path \"*/vendor\" -prune -o -name \"*.go\" -print | xargs gofmt -w && ./packages/ts/runtime/node_modules/.bin/oxfmt packages/ts/runtime/src packages/ts/scene-runner/src packages/ts/scene-runner/tests scripts \"!packages/ts/scene-runner/src/types/turnout-model_pb.ts\"",
-    "check:format": "test -z \"$(find packages/go/converter -path '*/vendor' -prune -o -name '*.go' -print | xargs gofmt -l)\" && ./packages/ts/runtime/node_modules/.bin/oxfmt --check packages/ts/runtime/src packages/ts/scene-runner/src packages/ts/scene-runner/tests scripts \"!packages/ts/scene-runner/src/types/turnout-model_pb.ts\"",
+    "bench": "(cd packages/ts/scene-runner && pnpm run build && node bench/runner-creation.mjs)",
+    "format": "find packages/go/converter -path \"*/vendor\" -prune -o -name \"*.go\" -print | xargs gofmt -w && ./packages/ts/runtime/node_modules/.bin/oxfmt packages/ts/runtime/src packages/ts/scene-runner/src packages/ts/scene-runner/tests packages/ts/scene-runner/bench scripts \"!packages/ts/scene-runner/src/types/turnout-model_pb.ts\"",
+    "check:format": "test -z \"$(find packages/go/converter -path '*/vendor' -prune -o -name '*.go' -print | xargs gofmt -l)\" && ./packages/ts/runtime/node_modules/.bin/oxfmt --check packages/ts/runtime/src packages/ts/scene-runner/src packages/ts/scene-runner/tests packages/ts/scene-runner/bench scripts \"!packages/ts/scene-runner/src/types/turnout-model_pb.ts\"",
     "test:go:quality": "sh scripts/go-test.sh vet && sh scripts/go-test.sh race"
   },
   "devDependencies": {

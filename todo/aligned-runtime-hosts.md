@@ -1,6 +1,6 @@
 # Align the two runtime paths: Go → TypeScript and Go → Zig
 
-> Status: phases 0, 1a, 2 and 3 landed; 1b abandoned with reasons; 4 proposed
+> Status: phases 0, 1a, 2 and 3 landed; 1b and 4 abandoned with reasons
 > Decisions taken: the direct path is a **native Zig host with a CLI**, and the
 > **host half moves down into Zig** rather than being written once per host.
 > Origin: the pipeline documented as `.tu → Go → model → TypeScript runtime` is
@@ -167,9 +167,8 @@ Each phase is shippable and gated by the existing suites.
    machine did not, and should not (1b, below).
 2. ~~**Capability manifest and host conformance vectors.**~~ Landed. See below.
 3. ~~**`packages/zig/host` — the native CLI and hook transport.**~~ Landed. See below.
-4. **Go emits the runtime projection directly.** Removes the last re-encode; the
-   measurement from `zig-architecture-redesign.md` step 8 says this is where the
-   remaining creation cost is.
+4. ~~**Go emits the runtime projection directly.**~~ Measured first, and the
+   measurement said not to. See below.
 
 Phase 1 before 3 is the load-bearing ordering: build the native host first and
 the state machine gets written twice, which is the failure this whole plan
@@ -352,6 +351,53 @@ with the field name in it. They agree with the engine because the vectors make
 them agree, not by construction. Removing them is the honest finish — it costs
 message quality unless the engine carries the detail, which is the trade to
 weigh when someone picks this up.
+
+## Phase 4: measured, then abandoned
+
+The plan said the last re-encode is where the remaining creation cost is, on the
+authority of `zig-architecture-redesign.md` step 8: "roughly 90% of the ~1240 µs
+that creating a runner still costs is TypeScript-side". That was true when it was
+written. It is not true now — step 9's model handle landed, and phase 1a removed
+a model parse per runner.
+
+Measured before building, on the workload
+`packages/zig/docs/performance-baseline.md` describes — 20-action scene, three
+bindings per action, 1,000 iterations. The benchmark is
+`packages/ts/scene-runner/bench/runner-creation.mjs`, kept so the next person can
+re-run it rather than trust this table.
+
+| | µs | share of creation |
+| --- | ---: | ---: |
+| `snapshotModel` — the defensive deep clone | 403 | 47% |
+| `encodeZigRuntimeModel` — **what phase 4 deletes** | 219 | 26% |
+| engine create from bytes: parse, validate, index, lower | 123 | 14% |
+| `validateModel` | 6 | <1% |
+| remainder | ~100 | 12% |
+| **creation, unprepared** | **851** | |
+
+And the number that decides it:
+
+| | runs/s | µs/action |
+| --- | ---: | ---: |
+| created per run | 1,075 | 46.5 |
+| against a prepared model | **10,183** | **4.9** |
+
+Creation is 91% of an unprepared run, and preparing removes essentially all of
+it — 851 µs becomes 13 µs. So phase 4 deletes 26% of a cost the caller is
+already told how to avoid entirely, and **0% of the prepared path**, which is
+what the README recommends and what any repeated-run caller should be on.
+
+Two things worth carrying forward instead:
+
+- **If the unprepared path ever needs to be faster, the target is the snapshot,
+  not the projection.** It is nearly twice the size of what phase 4 aimed at.
+  But it buys a documented property — callers cannot mutate a model out from
+  under a running runner, and the identity caches downstream depend on it — so
+  that is a design trade, not a cleanup.
+- **The projection artifact from phase 0 already did the durable part.** Go, the
+  TypeScript encoder and the engine now answer to one declaration of the rule.
+  Making Go the only implementation was the performance half of that idea, and
+  the performance half is the half that did not pay.
 
 ## Risks
 
