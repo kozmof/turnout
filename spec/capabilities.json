@@ -3,13 +3,82 @@
     "supported",
     "partial",
     "planned",
-    "unsupported"
+    "unsupported",
+    "not-applicable"
   ],
   "capabilities": [
+    {
+      "id": "abi-boundary",
+      "summary": "A host outside the engine's address space can call it: a version to check, memory to allocate, and memory to give back.",
+      "owner": "engine",
+      "engineSurface": {
+        "exports": [
+          "turnout_abi_version",
+          "turnout_alloc",
+          "turnout_free"
+        ]
+      },
+      "evidence": [
+        "packages/zig/wasm/src/abi.zig"
+      ],
+      "hosts": {
+        "typescript": "supported",
+        "zig-native": "not-applicable"
+      },
+      "note": "The native host links the engine and calls it directly, so it never crosses this boundary. Not a gap; a different shape of host."
+    },
+    {
+      "id": "stateless-compute",
+      "summary": "A compute graph or a single preset call can be executed on its own, without a model or a run, which is what backs the authoring API.",
+      "owner": "engine",
+      "engineSurface": {
+        "exports": [
+          "turnout_compute_execute",
+          "turnout_value_operate"
+        ]
+      },
+      "evidence": [
+        "packages/zig/runtime/src/value_vectors.zig",
+        "packages/zig/runtime/src/preset_vectors.zig",
+        "packages/zig/runtime/src/compute_vectors.zig"
+      ],
+      "hosts": {
+        "typescript": "supported",
+        "zig-native": "not-applicable"
+      },
+      "note": "Pinned by the shared vectors above, run natively and under WASM with TypeScript counterparts, rather than by host vectors that would restate them. The native CLI runs models; it exposes no value or compute API."
+    },
+    {
+      "id": "model-preparation",
+      "summary": "A model is parsed, validated, indexed, and lowered once, and many runs execute against that one prepared form.",
+      "owner": "engine",
+      "engineSurface": {
+        "exports": [
+          "turnout_model_create",
+          "turnout_model_destroy"
+        ]
+      },
+      "evidence": [
+        "packages/zig/wasm/src/abi.zig"
+      ],
+      "hosts": {
+        "typescript": "supported",
+        "zig-native": "planned"
+      },
+      "note": "TypeScript exposes this as prepareModel/PreparedModel.release(), and \"WASM model handle runs many runtimes against one prepared model\" in abi.zig pins the engine side. The native host prepares a model and runs it once; no vector shows it reusing one, so its status is what the vectors earn and not what the code looks like it could do."
+    },
     {
       "id": "prepare-hooks",
       "summary": "An action can take binding values from host code, and the runtime tells the hook what it owes and what it may read.",
       "owner": "split",
+      "engineSurface": {
+        "exports": [
+          "turnout_runtime_resume"
+        ],
+        "events": [
+          "need_effect"
+        ]
+      },
       "hosts": {
         "typescript": "supported",
         "zig-native": "supported"
@@ -19,6 +88,14 @@
       "id": "publish-hooks",
       "summary": "An action can hand its post-merge STATE to host code, and the outcome is recorded on the action rather than raised.",
       "owner": "split",
+      "engineSurface": {
+        "exports": [
+          "turnout_runtime_resume"
+        ],
+        "events": [
+          "need_effect"
+        ]
+      },
       "hosts": {
         "typescript": "supported",
         "zig-native": "supported"
@@ -28,6 +105,21 @@
       "id": "scene-and-route-execution",
       "summary": "Actions run in the order the model's next rules select, across scenes when a route drives them, over one STATE.",
       "owner": "engine",
+      "engineSurface": {
+        "exports": [
+          "turnout_runtime_create",
+          "turnout_runtime_create_with_model",
+          "turnout_runtime_step",
+          "turnout_runtime_snapshot",
+          "turnout_runtime_destroy"
+        ],
+        "events": [
+          "action_complete",
+          "scene_changed",
+          "complete",
+          "cancelled"
+        ]
+      },
       "hosts": {
         "typescript": "supported",
         "zig-native": "supported"
@@ -37,10 +129,19 @@
       "id": "model-extension",
       "summary": "A model can grow while it runs: an extend hook returns a model, it is merged before the action prepares, and every collision is an error rather than an override.",
       "owner": "split",
+      "engineSurface": {
+        "exports": [
+          "turnout_model_merge"
+        ],
+        "events": [
+          "extend_model"
+        ]
+      },
       "hosts": {
         "typescript": "supported",
         "zig-native": "supported"
-      }
+      },
+      "note": "Both hosts bound how many times a run may merge, because every merge retains the model it replaced: maxModelMerges on the WASM create request, --max-model-merges on the native CLI."
     }
   ]
 }

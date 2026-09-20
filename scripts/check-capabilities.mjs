@@ -9,8 +9,17 @@
 // Running the vectors is a host's own job — each host runs them in its own
 // language against its own runner. This script checks the wiring between the
 // two files, and that every vector names a model that exists.
+//
+// It also checks the manifest against the engine itself. A row asserting that
+// two hosts support something is only as good as the list of somethings, and
+// that list was hand-written with nothing tying it to what the engine exposes.
+// That is not a hypothetical: `turnout_model_merge` and `event:extend_model`
+// were both live and claimed by no capability, so twelve vectors passed on
+// both hosts while one of them could not run a documented language feature at
+// all. Every export and every event now has to be claimed by someone.
 import assert from "node:assert/strict";
 import { readdir, readFile, stat } from "node:fs/promises";
+import { abiExports, runnerEvents } from "./engine-surface.mjs";
 
 const root = new URL("../", import.meta.url);
 const manifest = JSON.parse(await readFile(new URL("spec/capabilities.json", root), "utf8"));
@@ -30,6 +39,45 @@ for (const capability of manifest.capabilities) {
     );
   }
   declared.set(capability.id, { capability, vectors: [] });
+}
+
+// ── The manifest against the engine ──────────────────────────────────────────
+//
+// Claimed by *at least* one capability rather than exactly one: `need_effect`
+// genuinely carries prepare, publish and extend, and making each of those name
+// it is more honest than inventing one owner.
+const engine = {
+  exports: await abiExports(root),
+  events: await runnerEvents(root),
+};
+
+const claimed = { exports: new Set(), events: new Set() };
+for (const capability of manifest.capabilities) {
+  const surface = capability.engineSurface ?? {};
+  for (const kind of ["exports", "events"]) {
+    for (const name of surface[kind] ?? []) {
+      assert(
+        engine[kind].includes(name),
+        `capability "${capability.id}" claims ${kind.slice(0, -1)} "${name}", which the engine does not expose`,
+      );
+      claimed[kind].add(name);
+    }
+  }
+}
+
+for (const name of engine.exports) {
+  assert(
+    claimed.exports.has(name),
+    `export "${name}" is exposed by packages/zig/wasm/src/abi.zig but no capability claims it — ` +
+      `add it to a capability's engineSurface.exports, or say which capability it belongs to`,
+  );
+}
+for (const name of engine.events) {
+  assert(
+    claimed.events.has(name),
+    `event "${name}" is emitted by runner.Event but no capability claims it — ` +
+      `add it to a capability's engineSurface.events`,
+  );
 }
 
 const files = (await readdir(vectorDir)).filter((name) => name.endsWith(".json")).toSorted();
@@ -60,11 +108,22 @@ for (const file of files) {
   }
 }
 
-// The rule the manifest exists for.
+// The rule the manifest exists for: evidence, not assertion. Host vectors are
+// the usual form, but some abilities are already pinned somewhere better —
+// values, presets and compute have shared vectors run natively and under WASM —
+// and pointing at those beats restating them as host vectors that would drift.
 for (const [id, entry] of declared) {
+  const evidence = entry.capability.evidence ?? [];
+  for (const path of evidence) {
+    assert(
+      (await stat(new URL(path, root)).catch(() => null))?.isFile(),
+      `capability "${id}" names evidence that does not exist: ${path}`,
+    );
+  }
   assert(
-    entry.vectors.length > 0,
-    `capability "${id}" has no conformance vector; a capability with no evidence is a claim, not a capability`,
+    entry.vectors.length > 0 || evidence.length > 0,
+    `capability "${id}" has neither a conformance vector nor named evidence; ` +
+      `a capability with no evidence is a claim, not a capability`,
   );
 }
 
@@ -75,5 +134,6 @@ const supported = manifest.capabilities.flatMap((capability) =>
 );
 console.log(
   `capabilities: ${declared.size} declared, ${names.size} vectors, ` +
-    `${new Set(supported).size} host(s) claiming support`,
+    `${new Set(supported).size} host(s) claiming support; ` +
+    `engine surface ${engine.exports.length} exports and ${engine.events.length} events, all claimed`,
 );

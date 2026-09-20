@@ -154,9 +154,16 @@ function earnedStatus(seen) {
 
 // What the manifest claims for this host has to be what just happened. A status
 // nobody checks is the failure mode the capability file exists to avoid.
+//
+// "not-applicable" is the one status a run cannot earn or refute, because it
+// says the ability is not this host's shape at all: a host that links the
+// engine and calls it directly never crosses the WASM boundary, and no vector
+// could show that it does. Those rows are held to naming their evidence
+// instead, which check-capabilities.mjs enforces.
 const manifest = JSON.parse(readFileSync(resolve(root, "spec/capabilities.json"), "utf8"));
 for (const capability of manifest.capabilities) {
   const claimed = capability.hosts["zig-native"];
+  if (claimed === "not-applicable") continue;
   const seen = coverage.get(capability.id);
   const earned = earnedStatus(seen);
   if (claimed !== earned) {
