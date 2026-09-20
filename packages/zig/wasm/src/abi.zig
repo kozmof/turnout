@@ -211,6 +211,21 @@ var instances: std.AutoHashMapUnmanaged(u32, *Instance) = .empty;
 var models: std.AutoHashMapUnmanaged(u32, *ModelEntry) = .empty;
 var next_handle: u32 = 1;
 
+/// Hands out the next handle, and never the same one twice.
+///
+/// Runtime and model handles share this counter and are never recycled. That
+/// is deliberate: a recycled handle would let a host holding a stale one reach
+/// a live instance it has nothing to do with, and the host cannot always know
+/// its handle is stale — `turnout_model_destroy` on a model a runtime still
+/// runs against leaves the host with a number that outlived what it named.
+/// Monotonic handles turn that into `invalid_handle` instead.
+///
+/// The cost is that the space is finite. The counter wraps at 2^32 and the zero
+/// it wraps to is the sentinel, so an instance that has issued four billion
+/// handles refuses to issue more, permanently. It fails closed — every call
+/// gets `HandleSpaceExhausted`, none gets a handle someone else is holding —
+/// and the recovery is a new instance, the same recovery a trap needs. A host
+/// creating a thousand runtimes a second would reach it in about seven weeks.
 fn takeHandle() !u32 {
     if (next_handle == 0) return error.HandleSpaceExhausted;
     const handle = next_handle;
