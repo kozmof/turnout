@@ -1,4 +1,4 @@
-import type { MergeOrigin } from "./zig-runtime/client.js";
+import type { MergeOrigin, ZigRuntimeClient } from "./zig-runtime/client.js";
 import { zigRuntimeModelJson } from "./model-encoding.js";
 import type {
   FieldModel,
@@ -44,6 +44,11 @@ export interface MergeOptions {
    * a label are called "model 0", "model 1", and so on.
    */
   labels?: readonly string[];
+  /**
+   * The Zig runtime that applies the merge rules. Defaults to the process-wide
+   * client. Pass the same one the resulting model will be prepared on.
+   */
+  client?: ZigRuntimeClient;
 }
 
 /**
@@ -56,6 +61,14 @@ export interface MergeOptions {
  *
  * All conflicts are collected before throwing, so one merge reports everything
  * wrong rather than the first thing wrong.
+ *
+ * Merging one model returns that model, not a copy of it: there is nothing to
+ * combine, and copying an arbitrarily large model to produce an identical one
+ * is a cost with no benefit. Two or more return a newly assembled model. So the
+ * result aliases the input in the single-model case and not otherwise — treat
+ * it as read-only rather than relying on which case you are in. The ordinary
+ * path onward is unaffected either way, since prepareModel and createRunner
+ * both snapshot what they are given.
  */
 export function mergeModels(models: readonly TurnModel[], options: MergeOptions = {}): TurnModel {
   if (models.length === 0) throw new ModelMergeError(["no models to merge"]);
@@ -63,10 +76,8 @@ export function mergeModels(models: readonly TurnModel[], options: MergeOptions 
   if (first === undefined) throw new ModelMergeError(["no models to merge"]);
   if (models.length === 1) return first;
 
-  const response = defaultZigRuntimeClient.mergeModels(
-    models.map(zigRuntimeModelJson),
-    options.labels ?? [],
-  );
+  const client = options.client ?? defaultZigRuntimeClient;
+  const response = client.mergeModels(models.map(zigRuntimeModelJson), options.labels ?? []);
   if (response.status !== "ok") {
     throw new ModelMergeError(conflictsOf(response.payload));
   }

@@ -1,4 +1,5 @@
 import type { AnyValue } from "runtime";
+import type { ZigRuntimeClient } from "../zig-runtime/client.js";
 import type { TurnModel } from "./turnout-model_pb.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -154,6 +155,17 @@ export type ExecutionOptions = {
    * surface any failed publishes without aborting.
    */
   failOnPublishError?: boolean;
+  /**
+   * The Zig runtime this run executes on. Defaults to the process-wide client.
+   *
+   * A WASM instance that traps cannot be repaired, and the default client is a
+   * module-level binding that cannot be replaced — so a trap makes every later
+   * run in the process throw `ZigTrapError`. A caller that has to survive one
+   * owns its own client from `instantiateZigRuntime` and builds a new one on
+   * failure, noting that every runtime and model handle dies with the old
+   * instance.
+   */
+  client?: ZigRuntimeClient;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

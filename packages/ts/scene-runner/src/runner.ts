@@ -19,6 +19,7 @@ import {
   validateExecutionLimits,
   warnUncheckedState,
 } from "./runner-validation.js";
+import type { ZigRuntimeClient } from "./zig-runtime/client.js";
 import { defaultZigRuntimeClient } from "./zig-runtime/default-client.js";
 import {
   createZigRouteRunner,
@@ -58,7 +59,8 @@ export function createSceneRunner(
     warnUncheckedState(options, detail);
   }
   const model = syntheticModel([scene], []);
-  return createZigSceneRunner(defaultZigRuntimeClient, encodeZigRuntimeModel(model), scene.id, {
+  const client = options.client ?? defaultZigRuntimeClient;
+  return createZigSceneRunner(client, encodeZigRuntimeModel(model), scene.id, {
     ...options,
     initialState: initialState?.snapshot() ?? options.initialState,
   });
@@ -100,7 +102,8 @@ export function createRouteRunner(
   const scenes = Object.values(sceneMap);
   if (!scenes.some((scene) => scene.id === entryScene.id)) scenes.unshift(entryScene);
   const model = syntheticModel(scenes, [route]);
-  return createZigRouteRunner(defaultZigRuntimeClient, encodeZigRuntimeModel(model), route.id, {
+  const client = options.client ?? defaultZigRuntimeClient;
+  return createZigRouteRunner(client, encodeZigRuntimeModel(model), route.id, {
     ...options,
     initialState: initialState?.snapshot() ?? options.initialState,
   });
@@ -210,14 +213,26 @@ function syntheticModel(scenes: SceneBlock[], routes: RouteModel[]): TurnModel {
 export class PreparedModel {
   /** @internal */ readonly model: TurnModel;
   /** @internal */ readonly source: RuntimeModelSource;
+  /**
+   * The client the handle below lives in. A handle means nothing to any other
+   * instance, so it is carried with the model rather than looked up again.
+   * @internal
+   */
+  readonly client: ZigRuntimeClient;
   readonly #handle: number;
   #released = false;
 
   /** @internal */
-  constructor(model: TurnModel, handle: number, source: RuntimeModelSource) {
+  constructor(
+    model: TurnModel,
+    handle: number,
+    source: RuntimeModelSource,
+    client: ZigRuntimeClient,
+  ) {
     this.model = model;
     this.#handle = handle;
     this.source = source;
+    this.client = client;
   }
 
   /** True once {@link release} has been called. */
@@ -232,7 +247,7 @@ export class PreparedModel {
   release(): void {
     if (this.#released) return;
     this.#released = true;
-    defaultZigRuntimeClient.destroyModel(this.#handle);
+    this.client.destroyModel(this.#handle);
   }
 }
 
@@ -242,12 +257,16 @@ export class PreparedModel {
  * Validates exactly as `createRunner` does, so a malformed model throws here
  * rather than on first use.
  */
-export function prepareModel(inputModel: TurnModel): PreparedModel {
+export function prepareModel(
+  inputModel: TurnModel,
+  options: { client?: ZigRuntimeClient } = {},
+): PreparedModel {
+  const client = options.client ?? defaultZigRuntimeClient;
   const migratedModel = migrateModel(snapshotModel(inputModel));
   const validationErrors = validateModel(migratedModel);
   if (validationErrors.length > 0) throw new ModelValidationError(validationErrors);
   const encoded = encodeZigRuntimeModel(migratedModel);
-  const prepared = defaultZigRuntimeClient.prepareModel(encoded);
+  const prepared = client.prepareModel(encoded);
   if (prepared.status !== "ok") {
     throw new ModelValidationError([`runtime rejected the model: ${String(prepared.status)}`]);
   }
@@ -255,7 +274,8 @@ export function prepareModel(inputModel: TurnModel): PreparedModel {
   return new PreparedModel(
     migratedModel,
     handle,
-    modelSourceFromHandle((request) => defaultZigRuntimeClient.createWithModel(handle, request)),
+    modelSourceFromHandle((request) => client.createWithModel(handle, request)),
+    client,
   );
 }
 
@@ -264,6 +284,19 @@ function createZigRunner(
   options: RunnerOptions,
 ): Runner<FullHarnessResult> {
   const prepared = inputModel instanceof PreparedModel ? inputModel : undefined;
+  // A prepared model's handle exists only inside the instance that prepared it,
+  // so running it on another one would hand that instance a handle it never
+  // issued. Say so here rather than let it surface as an invalid handle.
+  if (
+    prepared !== undefined &&
+    options.client !== undefined &&
+    options.client !== prepared.client
+  ) {
+    throw new ModelValidationError([
+      "the prepared model belongs to a different Zig runtime client than options.client",
+    ]);
+  }
+  const client = prepared?.client ?? options.client ?? defaultZigRuntimeClient;
   const migratedModel = prepared?.model ?? runValidation(inputModel as TurnModel);
   validateExecutionLimits(options);
   const target = resolveDispatchTarget(migratedModel, options.entryId);
@@ -277,8 +310,8 @@ function createZigRunner(
   const source = prepared?.source ?? encodeZigRuntimeModel(migratedModel);
   const inner =
     target.kind === "route"
-      ? createZigRouteRunner(defaultZigRuntimeClient, source, target.route.id, options)
-      : createZigSceneRunner(defaultZigRuntimeClient, source, target.scene.id, options);
+      ? createZigRouteRunner(client, source, target.route.id, options)
+      : createZigSceneRunner(client, source, target.scene.id, options);
   return mapRunnerResult(inner, (result) => ({ ...result, model: migratedModel }));
 }
 
