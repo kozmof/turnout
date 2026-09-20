@@ -323,10 +323,13 @@ model. The rest cover the type system, hooks, routes, and state shape.
 
 Several files in `spec/` are data rather than prose, each read by more than one
 language and gated against drift: `fn-aliases.json`, `field-types.json`,
-`runtime-projection.json`, `runtime-versions.json`, and `limits.json`. The
-first three pin shared names, the fourth pins shared versions, and the last
-pins shared bounds — a limit the compiler and the engine each chose alone is
-how a model the compiler accepted became one the engine refused to load.
+`runtime-projection.json`, `runtime-versions.json`, `limits.json`, and
+`structural-rules.json`. The first three pin shared names, the fourth pins
+shared versions, and the fifth pins shared bounds — a limit the compiler and
+the engine each chose alone is how a model the compiler accepted became one the
+engine refused to load. The last pins the structural checks the engine and the
+TypeScript host both run, and records the two the host adds on purpose, so a
+rule appearing on one side alone has to be classified before it passes.
 `capabilities.json` lists what a host must be able to do, and
 `conformance/host/` holds the vectors that prove it can.
 

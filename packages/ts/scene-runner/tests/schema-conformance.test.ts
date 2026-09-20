@@ -147,6 +147,52 @@ describe("validateModel", () => {
     expect(errors[0]).toMatch(/binding "out" has neither value nor expr/);
   });
 
+  // The engine consults the prepare schedule before raising this
+  // (packages/zig/scene-runner/src/structure.zig, checkProgBindings). A model
+  // whose binding is filled by a prepare entry runs there, so rejecting it
+  // here would make this host stricter than the engine by accident.
+  it("accepts a valueless binding that a prepare entry fills", () => {
+    const action = {
+      id: "a",
+      next: [],
+      prepare: [{ binding: "out", fromHook: "quote" }],
+      merge: [],
+      publish: [],
+      compute: {
+        prog: { name: "p", bindings: [{ name: "out", type: "bool" }] },
+      },
+    } as unknown as ActionModel;
+    const model = {
+      scenes: [makeScene("s1", [action, makeAction("b")])],
+      routes: [],
+    } as unknown as TurnModel;
+    expect(validateModel(model)).toHaveLength(0);
+  });
+
+  it("accepts a valueless next-rule binding that a next prepare entry fills", () => {
+    const action = {
+      id: "a",
+      merge: [],
+      publish: [],
+      prepare: [],
+      next: [
+        {
+          action: "b",
+          prepare: [{ binding: "gate", fromState: "app.ready" }],
+          compute: {
+            condition: "gate",
+            prog: { name: "p", bindings: [{ name: "gate", type: "bool" }] },
+          },
+        },
+      ],
+    } as unknown as ActionModel;
+    const model = {
+      scenes: [makeScene("s1", [action, makeAction("b")])],
+      routes: [],
+    } as unknown as TurnModel;
+    expect(validateModel(model)).toHaveLength(0);
+  });
+
   it("reports a binding with both value and expr set", () => {
     const action = {
       id: "a",

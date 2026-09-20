@@ -1,0 +1,114 @@
+{
+  "why": [
+    "The structural invariants of a loaded model are checked twice: by the engine in",
+    "packages/zig/scene-runner/src/structure.zig, and by the TypeScript host in",
+    "packages/ts/scene-runner/src/validate-model.ts. The host's copy is a convenience —",
+    "a synchronous ModelValidationError before any engine call — not a second opinion.",
+    "",
+    "Two copies of one rule set is exactly the shape every other shared name in this",
+    "repository is gated against: field types, function aliases, the runtime projection,",
+    "the model versions, the shared bounds. This one was not. The wording in the two",
+    "files is identical, which is what a port looks like, and nothing failed when they",
+    "disagreed — the host rejected a valueless binding that a prepare entry fills while",
+    "the engine ran it, and no test on either side noticed.",
+    "",
+    "So: `shared` is what both must enforce, and `hostOnly` is what the host adds on",
+    "purpose. A rule in neither list, appearing in either file, is drift.",
+    "",
+    "The Go compiler checks the same ground earlier, in internal/validate, and is not",
+    "gated here. Its diagnostics carry error codes and source positions and are worded",
+    "for an author looking at a .tu file, not for a host handed a model — a different",
+    "surface with a different audience, which spec/convert-runtime-spec.md covers."
+  ],
+  "engine": "packages/zig/scene-runner/src/structure.zig",
+  "host": "packages/ts/scene-runner/src/validate-model.ts",
+  "shared": [
+    {
+      "id": "duplicate-scene-id",
+      "why": "Two scenes with one id make every reference to it ambiguous.",
+      "fragments": ["duplicate scene id \""]
+    },
+    {
+      "id": "duplicate-route-id",
+      "why": "Two routes with one id make dispatch by entryId ambiguous.",
+      "fragments": ["duplicate route id \""]
+    },
+    {
+      "id": "route-id-conflicts-with-scene-id",
+      "why": "entryId resolves against both namespaces, so a shared id is ambiguous.",
+      "fragments": ["\" conflicts with a scene id"]
+    },
+    {
+      "id": "route-has-no-entry-scene",
+      "why": "A route with no entry scene has nowhere to start.",
+      "fragments": ["has no entry scene declared"]
+    },
+    {
+      "id": "route-entry-scene-not-in-model",
+      "why": "The entry scene must be present before the run begins; unlike a match target, it cannot arrive from an extend hook later.",
+      "fragments": ["entry scene \"", "\" is not in the model"]
+    },
+    {
+      "id": "route-match-target-not-in-model",
+      "why": "A transition to a scene that does not exist cannot be taken. Suppressed when the model declares an extend hook, because the target may still arrive.",
+      "fragments": ["match target \"", "\" is not in the model"]
+    },
+    {
+      "id": "duplicate-action-id",
+      "why": "Two actions with one id make every next rule naming it ambiguous.",
+      "fragments": [": duplicate action id \""]
+    },
+    {
+      "id": "entry-action-not-declared",
+      "why": "A scene whose entry action does not exist cannot start.",
+      "fragments": [": entry action \"", "\" is not declared"]
+    },
+    {
+      "id": "compute-root-not-declared",
+      "why": "The root names the binding whose value is the action's result.",
+      "fragments": ["compute: root \"", "\" is not declared in prog bindings"]
+    },
+    {
+      "id": "next-condition-not-declared",
+      "why": "The condition names the binding whose boolean gates the transition.",
+      "fragments": ["condition \"", "\" is not declared in prog bindings"]
+    },
+    {
+      "id": "duplicate-binding",
+      "why": "Two bindings with one name make every reference to it ambiguous.",
+      "fragments": [": duplicate binding \""]
+    },
+    {
+      "id": "binding-has-neither-value-nor-expr",
+      "why": "A binding with no value, no expression and no prepare entry can never hold anything. The prepare schedule is part of the rule: a binding filled from STATE, a hook, or an earlier action legitimately carries neither.",
+      "fragments": ["has neither value nor expr, and no prepare entry fills it"]
+    },
+    {
+      "id": "binding-has-both-value-and-expr",
+      "why": "Two sources for one binding, with no rule for which wins.",
+      "fragments": ["\" has both value and expr"]
+    }
+  ],
+  "hostOnly": [
+    {
+      "id": "merge-binding-not-declared",
+      "why": [
+        "The engine warns and carries on: fixtures/scene-route-vectors.json pins it,",
+        "in 'post-merge state and action output', which merges a binding called",
+        "`absent`. The TypeScript host rejects it as a likely typo. That is a host",
+        "judgement about what to hand its callers, which spec/runtime-hosts.md leaves",
+        "to the host — it is not a claim that the engine cannot run the model."
+      ],
+      "fragments": ["merge: binding \""]
+    },
+    {
+      "id": "next-target-action-not-declared",
+      "why": [
+        "The engine warns and carries on: fixtures/scene-route-vectors.json pins it,",
+        "in 'conditional action and wildcard route', which routes past a rule",
+        "targeting `never`. Rejected by the host for the same reason as above."
+      ],
+      "fragments": ["next-rule: target action \""]
+    }
+  ]
+}
