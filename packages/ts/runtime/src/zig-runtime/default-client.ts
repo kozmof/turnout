@@ -1,23 +1,16 @@
-import { readFile } from "node:fs/promises";
 import { instantiateZigRuntime } from "./client.js";
+import { isMissingFile, readWasmBytes } from "./wasm-bytes.js";
 
 async function loadRuntimeBytes(): Promise<Uint8Array> {
   const packagedUrl = new URL("./turnout-runtime.wasm", import.meta.url);
   try {
-    return await readFile(packagedUrl);
+    return await readWasmBytes(packagedUrl);
   } catch (error) {
     if (!isMissingFile(error)) throw error;
-    return readFile(new URL("../../../../zig/zig-out/bin/turnout-runtime.wasm", import.meta.url));
+    return readWasmBytes(
+      new URL("../../../../zig/zig-out/bin/turnout-runtime.wasm", import.meta.url),
+    );
   }
-}
-
-function isMissingFile(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "ENOENT"
-  );
 }
 
 /**
