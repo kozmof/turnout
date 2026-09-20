@@ -143,6 +143,84 @@ for (const file of readdirSync(vectorDir)
   }
 }
 
+/**
+ * A model the engine refuses must come back as a code, not as a stack trace.
+ *
+ * The shared vectors cannot check this. They assert on values, ordering,
+ * outcomes and error codes and never on wording — which is right, because
+ * wording is the one thing a host owns — and a Zig stack trace escaping `main`
+ * is not wording. It is the absence of any report at all: no JSON on stdout for
+ * a caller to parse, and this host's source on stderr instead of the caller's
+ * model. So it belongs here, with the rest of what is true of the native host
+ * specifically, rather than in a vector the TypeScript host would also run.
+ *
+ * The model is built here rather than checked in because the compiler no longer
+ * emits one: a STATE type nested past the engine's node pool is now a compile
+ * error with a source position, which is where it belongs. What remains is a
+ * model from some other producer, and the host still has to refuse it civilly.
+ */
+function checkRefusalIsReported() {
+  const deep = "arr<".repeat(200) + "number" + ">".repeat(200);
+  const modelPath = join(work, "unloadable.json");
+  writeFileSync(
+    modelPath,
+    JSON.stringify({
+      version: 2,
+      minVersion: 2,
+      maxVersion: 2,
+      state: { namespaces: [{ name: "s", fields: [{ name: "a", type: deep, value: [] }] }] },
+      scenes: [
+        {
+          id: "x",
+          entryAction: "go",
+          actions: [
+            {
+              id: "go",
+              compute: {
+                root: "v",
+                prog: { name: "c", bindings: [{ name: "v", type: "number", value: 1 }] },
+              },
+            },
+          ],
+        },
+      ],
+    }),
+  );
+
+  let stdout = "";
+  let stderr = "";
+  let status = 0;
+  try {
+    stdout = execFileSync(host, ["run", modelPath, "--scene", "x"], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  } catch (error) {
+    stdout = error.stdout ?? "";
+    stderr = error.stderr ?? "";
+    status = error.status ?? 0;
+  }
+
+  const problems = [];
+  if (status === 0) problems.push("expected a non-zero exit for a model the engine cannot load");
+  if (/^\s*\S+\.zig:\d+/m.test(stderr)) {
+    problems.push(`reported a Zig stack trace rather than a code:\n${stderr.trimEnd()}`);
+  }
+  let reported;
+  try {
+    reported = JSON.parse(stdout.trim().split("\n").at(-1) ?? "");
+  } catch {
+    problems.push(`expected a JSON code on stdout, got ${JSON.stringify(stdout.trim())}`);
+  }
+  if (reported !== undefined && reported.error !== "UnknownSchemaType") {
+    problems.push(`expected error UnknownSchemaType, got ${JSON.stringify(reported.error)}`);
+  }
+  if (problems.length > 0) failures.push(`a refused model is reported\n  ${problems.join("\n  ")}`);
+  else passed += 1;
+}
+
+checkRefusalIsReported();
+
 rmSync(work, { recursive: true, force: true });
 
 /** The status this run actually earned for one capability. */

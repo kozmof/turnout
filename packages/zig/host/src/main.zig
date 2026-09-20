@@ -72,12 +72,11 @@ pub fn main(init: std.process.Init) !u8 {
         return 2;
     };
 
-    const model_bytes = try std.Io.Dir.cwd().readFileAlloc(io, args.model_path, gpa, .limited(16 << 20));
+    const model_bytes = std.Io.Dir.cwd().readFileAlloc(io, args.model_path, gpa, .limited(16 << 20)) catch |err|
+        return report(io, @errorName(err), "{s}: {t}\n", .{ args.model_path, err });
     defer gpa.free(model_bytes);
-    var model = model_runtime.RuntimeModel.init(gpa, model_bytes, .{}) catch |err| {
-        try fail(io, "{s}: {t}\n", .{ args.model_path, err });
-        return 1;
-    };
+    var model = model_runtime.RuntimeModel.init(gpa, model_bytes, .{}) catch |err|
+        return report(io, @errorName(err), "{s}: {t}\n", .{ args.model_path, err });
     defer model.deinit();
 
     if (args.check) {
@@ -89,6 +88,9 @@ pub fn main(init: std.process.Init) !u8 {
             for (issues.messages) |message| {
                 try fail(io, "{s}: {s}\n", .{ args.model_path, message });
             }
+            // Not `report`: this is the one failure that carries a list as well
+            // as a code, because a model with four mistakes should take one fix
+            // cycle rather than four.
             var error_buffer: [4096]u8 = undefined;
             var error_out = std.Io.File.stdout().writer(io, &error_buffer);
             try error_out.interface.print("{{\"error\":\"MalformedModel\",\"errors\":", .{});
@@ -107,25 +109,31 @@ pub fn main(init: std.process.Init) !u8 {
         if (parsed_state) |*parsed| parsed.deinit();
     }
     if (args.state_path) |path| {
-        const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(16 << 20));
+        const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(16 << 20)) catch |err|
+            return report(io, @errorName(err), "{s}: {t}\n", .{ path, err });
         defer gpa.free(bytes);
-        parsed_state = try std.json.parseFromSlice(std.json.Value, gpa, bytes, .{});
+        parsed_state = std.json.parseFromSlice(std.json.Value, gpa, bytes, .{}) catch |err|
+            return report(io, "InvalidJson", "{s}: {t}\n", .{ path, err });
         if (parsed_state.?.value != .object) {
-            try fail(io, "{s}: initial STATE must be a JSON object\n", .{path});
-            return 1;
+            return report(io, "InvalidState", "{s}: initial STATE must be a JSON object\n", .{path});
         }
         var entries = parsed_state.?.value.object.iterator();
         while (entries.next()) |entry| {
-            var owned = try turnout_value.fromCanonicalValue(entry.value_ptr.*, gpa);
+            var owned = turnout_value.fromCanonicalValue(entry.value_ptr.*, gpa) catch |err|
+                return report(io, @errorName(err), "{s}: {s}: {t}\n", .{ path, entry.key_ptr.*, err });
             errdefer owned.deinit(gpa);
             try initial_values.put(gpa, entry.key_ptr.*, owned.borrowed());
         }
     }
 
-    var initial_state = if (model.root().get("state")) |state_model|
-        try state_runtime.State.initFromModel(state_model, &initial_values, gpa)
+    // A model can declare a STATE the engine cannot hold — a schema type nested
+    // past its node pool is the one that reaches here — and that has to read as
+    // a refusal of the model, not as this host falling over.
+    var initial_state = (if (model.root().get("state")) |state_model|
+        state_runtime.State.initFromModel(state_model, &initial_values, gpa)
     else
-        try state_runtime.State.initUnchecked(&initial_values, gpa);
+        state_runtime.State.initUnchecked(&initial_values, gpa)) catch |err|
+        return report(io, @errorName(err), "{s}: STATE rejected: {t}\n", .{ args.model_path, err });
     defer initial_state.deinit(gpa);
 
     var fixture: ?hooks.FixtureHooks = null;
@@ -139,12 +147,15 @@ pub fn main(init: std.process.Init) !u8 {
         defer program_argv.deinit(gpa);
         try program_argv.append(gpa, program);
         try program_argv.appendSlice(gpa, args.hook_args);
-        process_hooks = try hooks.ProcessHooks.init(gpa, io, program_argv.items);
+        process_hooks = hooks.ProcessHooks.init(gpa, io, program_argv.items) catch |err|
+            return report(io, @errorName(err), "{s}: {t}\n", .{ program, err });
         break :blk process_hooks.?.source();
     } else if (args.hooks_path) |path| blk: {
-        const bytes = try std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(16 << 20));
+        const bytes = std.Io.Dir.cwd().readFileAlloc(io, path, gpa, .limited(16 << 20)) catch |err|
+            return report(io, @errorName(err), "{s}: {t}\n", .{ path, err });
         defer gpa.free(bytes);
-        fixture = try hooks.FixtureHooks.init(gpa, bytes);
+        fixture = hooks.FixtureHooks.init(gpa, bytes) catch |err|
+            return report(io, @errorName(err), "{s}: {t}\n", .{ path, err });
         break :blk fixture.?.source();
     } else noHooks();
 
@@ -155,17 +166,7 @@ pub fn main(init: std.process.Init) !u8 {
         &initial_state,
         hook_source,
         args.options,
-    ) catch |err| {
-        // The engine's own name for the failure, on stdout as JSON, because a
-        // caller comparing hosts needs the code rather than a sentence. The
-        // sentence goes to stderr for a caller reading along.
-        try fail(io, "run failed: {t}\n", .{err});
-        var error_buffer: [512]u8 = undefined;
-        var error_out = std.Io.File.stdout().writer(io, &error_buffer);
-        try error_out.interface.print("{{\"error\":\"{t}\"}}\n", .{err});
-        try error_out.interface.flush();
-        return 1;
-    };
+    ) catch |err| return report(io, @errorName(err), "run failed: {t}\n", .{err});
     defer outcome.deinit(gpa);
 
     var buffer: [64 * 1024]u8 = undefined;
@@ -239,6 +240,25 @@ fn fail(io: std.Io, comptime format: []const u8, args: anytype) !void {
     var stderr = std.Io.File.stderr().writer(io, &buffer);
     try stderr.interface.print(format, args);
     try stderr.interface.flush();
+}
+
+/// Report a failure and return the exit code for it: a sentence on stderr for
+/// someone reading along, and the code as JSON on stdout for something parsing.
+///
+/// Every way a model the compiler produced can be refused goes through here. A
+/// bare `try` that lets one escape `main` prints a Zig stack trace instead,
+/// which names this host's source rather than the caller's model — and the
+/// conformance vectors will not catch it, because they assert on error codes
+/// and never on wording. A trace is not wording.
+fn report(io: std.Io, code: []const u8, comptime format: []const u8, args: anytype) !u8 {
+    try fail(io, format, args);
+    var error_buffer: [512]u8 = undefined;
+    var error_out = std.Io.File.stdout().writer(io, &error_buffer);
+    try error_out.interface.print("{{\"error\":", .{});
+    try std.json.Stringify.value(code, .{}, &error_out.interface);
+    try error_out.interface.print("}}\n", .{});
+    try error_out.interface.flush();
+    return 1;
 }
 
 const ArgError = error{
