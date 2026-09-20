@@ -32,3 +32,35 @@ export function isMissingFile(error: unknown): boolean {
     (error as { code?: unknown }).code === "ENOENT"
   );
 }
+
+/**
+ * Read the engine's bytes from the first of `candidates` that has them.
+ *
+ * Only a missing file moves on to the next candidate; anything else is the
+ * answer. Running out of candidates raises one error naming all of them,
+ * because the bare ENOENT that used to come back named the last place looked —
+ * a monorepo build directory — which in an installed copy has nothing to do
+ * with anything the reader installed. What went wrong is that the package is
+ * missing its engine, and no single path says that.
+ *
+ * This lives here rather than beside its caller for the same reason the rest of
+ * this module does: the caller instantiates the runtime at import time, so
+ * nothing in it can be exercised by a test.
+ */
+export async function readFirstAvailable(candidates: readonly URL[]): Promise<Uint8Array> {
+  let lastMissing: unknown;
+  for (const candidate of candidates) {
+    try {
+      return await readWasmBytes(candidate);
+    } catch (error) {
+      if (!isMissingFile(error)) throw error;
+      lastMissing = error;
+    }
+  }
+  throw new Error(
+    `turnout: the WASM engine is missing. Looked for it at ` +
+      `${candidates.map((url) => url.href).join(" and at ")}. ` +
+      `Run \`pnpm build\` from the repository, or reinstall the package.`,
+    { cause: lastMissing },
+  );
+}

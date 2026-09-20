@@ -1,16 +1,17 @@
 import { instantiateZigRuntime } from "./client.js";
-import { isMissingFile, readWasmBytes } from "./wasm-bytes.js";
+import { readFirstAvailable } from "./wasm-bytes.js";
 
-async function loadRuntimeBytes(): Promise<Uint8Array> {
-  const packagedUrl = new URL("./turnout-runtime.wasm", import.meta.url);
-  try {
-    return await readWasmBytes(packagedUrl);
-  } catch (error) {
-    if (!isMissingFile(error)) throw error;
-    return readWasmBytes(
-      new URL("../../../../zig/zig-out/bin/turnout-runtime.wasm", import.meta.url),
-    );
-  }
+/**
+ * Where the engine's bytes may be: the copy a built package carries next to
+ * this file, then the one `zig build` leaves in the monorepo for a checkout
+ * that has not run `pnpm build` yet. Order matters — a packaged copy is the
+ * one that belongs to this install.
+ */
+function runtimeBytesCandidates(): readonly URL[] {
+  return [
+    new URL("./turnout-runtime.wasm", import.meta.url),
+    new URL("../../../../zig/zig-out/bin/turnout-runtime.wasm", import.meta.url),
+  ];
 }
 
 /**
@@ -27,4 +28,6 @@ async function loadRuntimeBytes(): Promise<Uint8Array> {
  * The known ones are bounded and return a status instead; see
  * `docs/runtime-contract.md`.
  */
-export const defaultZigRuntimeClient = await instantiateZigRuntime(await loadRuntimeBytes());
+export const defaultZigRuntimeClient = await instantiateZigRuntime(
+  await readFirstAvailable(runtimeBytesCandidates()),
+);

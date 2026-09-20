@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { isMissingFile, readWasmBytes } from "./wasm-bytes.js";
+import { isMissingFile, readFirstAvailable, readWasmBytes } from "./wasm-bytes.js";
 
 describe("readWasmBytes", () => {
   afterEach(() => {
@@ -52,5 +52,61 @@ describe("readWasmBytes", () => {
     expect(isMissingFile(undefined)).toBe(false);
     expect(isMissingFile({ code: "EACCES" })).toBe(false);
     expect(isMissingFile({ code: "ENOENT" })).toBe(true);
+  });
+});
+
+describe("readFirstAvailable", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const absent = (name: string) => pathToFileURL(join(tmpdir(), `turnout-absent-${name}.wasm`));
+
+  it("returns the first candidate that exists", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "turnout-wasm-"));
+    try {
+      const path = join(dir, "module.wasm");
+      await writeFile(path, new Uint8Array([0, 97, 115, 109]));
+      const bytes = await readFirstAvailable([pathToFileURL(path), absent("second")]);
+      expect(Array.from(bytes)).toEqual([0, 97, 115, 109]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("falls past a missing candidate to a later one", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "turnout-wasm-"));
+    try {
+      const path = join(dir, "module.wasm");
+      await writeFile(path, new Uint8Array([1, 2]));
+      const bytes = await readFirstAvailable([absent("first"), pathToFileURL(path)]);
+      expect(Array.from(bytes)).toEqual([1, 2]);
+    } finally {
+      await rm(dir, { recursive: true, force: true });
+    }
+  });
+
+  // The message is the point. A bare ENOENT names the last path tried, which in
+  // an installed copy is a monorepo build directory the reader has never seen.
+  it("names every candidate when the engine is nowhere", async () => {
+    const first = absent("packaged");
+    const second = absent("built");
+    const error = await readFirstAvailable([first, second]).catch((caught: unknown) => caught);
+
+    expect(error).toBeInstanceOf(Error);
+    const message = (error as Error).message;
+    expect(message).toContain("the WASM engine is missing");
+    expect(message).toContain(first.href);
+    expect(message).toContain(second.href);
+    expect(isMissingFile((error as Error).cause)).toBe(true);
+  });
+
+  // Only a missing file is worth trying the next candidate for. Anything else —
+  // a permission error, a bad fetch — is the answer, not a reason to look on.
+  it("does not fall through on a failure that is not a missing file", async () => {
+    vi.stubGlobal("fetch", async () => ({ ok: false, status: 500 }));
+    await expect(
+      readFirstAvailable([new URL("https://example.test/broken.wasm"), absent("unused")]),
+    ).rejects.toThrow("HTTP 500");
   });
 });
