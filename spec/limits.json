@@ -1,0 +1,8 @@
+{
+  "stateTypeNodes": 128,
+  "sourceExpressionDepth": 256,
+  "modelNesting": 128,
+  "inputNesting": 128,
+  "graphDepth": 256,
+  "inferenceDepth": 256
+}

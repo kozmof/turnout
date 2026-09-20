@@ -623,8 +623,19 @@ func (p *parser) parseLocalPrec(minPrec int) ast.LocalExpr {
 	return lhs
 }
 
+// parseLocalPrimary is the chokepoint every expression cycle passes through —
+// tuple, call, if, case, and the pipe steps all reach their operands from here
+// — so it is where the nesting depth is counted. The frame stays open for the
+// whole descent below it, which is what makes the count a depth rather than a
+// tally.
 func (p *parser) parseLocalPrimary() ast.LocalExpr {
 	t := p.peek()
+	leave, ok := p.enterExpression(t)
+	if !ok {
+		p.skipNestedExpression()
+		return &ast.LocalLitExpr{Pos: p.posOf(t), Value: &ast.BoolLiteral{}}
+	}
+	defer leave()
 	switch t.Kind {
 	case lexer.TokHashIt:
 		p.advance()

@@ -81,6 +81,22 @@ var (
 	nextFieldType = fieldTypeSentinel
 )
 
+// BaseFieldTypes returns the field types declared as constants, in declaration
+// order. These are the vocabulary the two languages pre-declare and that
+// spec/field-types.json enumerates.
+//
+// They are not the whole of what the type grammar accepts. `arr<` and `rec<`
+// compose to any depth the runtime can hold, and anything past this list is
+// interned on first sight — so the registry is open where this list is closed,
+// and only this list can be checked against the spec.
+func BaseFieldTypes() []FieldType {
+	types := make([]FieldType, 0, int(fieldTypeSentinel)-1)
+	for ft := FieldTypeInvalid + 1; ft < fieldTypeSentinel; ft++ {
+		types = append(types, ft)
+	}
+	return types
+}
+
 func fieldTypeDescriptor(ft FieldType) (fieldTypeDesc, bool) {
 	fieldTypesMu.RLock()
 	d, ok := fieldTypes[ft]
@@ -115,13 +131,84 @@ func splitRecordParams(s string) (string, string, bool) {
 	}
 	return "", "", false
 }
+
+// MaxTypeNodes bounds how many nodes a field type may be built from: one per
+// `arr<`, one per `rec<`, and one for the primitive at the bottom. It is the
+// size of the runtime's schema node pool (packages/zig/scene-runner/src/
+// state.zig), pinned to it through spec/limits.json.
+//
+// The compiler needs the same bound the engine has. Without it the compiler
+// accepted a type the engine could not represent and emitted a model that
+// failed to load — a type error surfacing at run time, with no source position,
+// which spec/runtime-hosts.md puts squarely on the compiler's side of the line.
+const MaxTypeNodes = 128
+
+// typeNodeCount returns the number of nodes a well-formed field type spelling
+// needs. A record's key is a flag rather than a node, matching how the engine
+// counts, so the leaf primitive at the bottom of the value spine is the `+ 1`.
+//
+// It counts rather than parses so that rejecting an over-deep type costs one
+// linear scan. Parsing it to find out how deep it is is the cost the bound
+// exists to avoid: the recursive form re-scans and re-concatenates at every
+// level, which is quadratic in the nesting depth.
+func typeNodeCount(s string) int {
+	return strings.Count(s, "arr<") + strings.Count(s, "rec<") + 1
+}
+
+// FieldTypeRejection says why FieldTypeFromString returned false. The three
+// are one `false` to a caller that only wants the type, and three different
+// mistakes to a caller that has to explain it: a spelling that is not a type, a
+// type too deep for the runtime to represent, and a type this process has no
+// room left to intern.
+type FieldTypeRejection int
+
+const (
+	// FieldTypeRejectedSpelling means s does not name a type at all.
+	FieldTypeRejectedSpelling FieldTypeRejection = iota
+	// FieldTypeRejectedTooDeep means s names a well-formed type with more than
+	// MaxTypeNodes nodes.
+	FieldTypeRejectedTooDeep
+	// FieldTypeRejectedRegistryFull means s names a type that would have been
+	// accepted, in a process that has already interned
+	// MaxRegisteredFieldTypes of them.
+	FieldTypeRejectedRegistryFull
+)
+
+// WhyFieldTypeRejected classifies a spelling FieldTypeFromString rejected, and
+// returns the node count that goes with FieldTypeRejectedTooDeep. Call it only
+// on the failure path: it re-does the parse the failure came from.
+func WhyFieldTypeRejected(s string) (FieldTypeRejection, int) {
+	nodes := typeNodeCount(s)
+	if nodes > MaxTypeNodes {
+		return FieldTypeRejectedTooDeep, nodes
+	}
+	if _, _, ok := parseFieldTypeCore(s); !ok {
+		return FieldTypeRejectedSpelling, nodes
+	}
+	// It parses, so the only thing that can have refused it is the registry.
+	return FieldTypeRejectedRegistryFull, nodes
+}
+
+// parseFieldTypeString parses a field type spelling, rejecting anything past
+// MaxTypeNodes before recursing. The check is here rather than in the recursive
+// core so it runs once per type rather than once per level.
 func parseFieldTypeString(s string) (string, fieldTypeDesc, bool) {
+	if typeNodeCount(s) > MaxTypeNodes {
+		return "", fieldTypeDesc{}, false
+	}
+	return parseFieldTypeCore(s)
+}
+
+// parseFieldTypeCore is parseFieldTypeString's recursive body. Its depth is
+// bounded by its caller: every level strips an `arr<` or `rec<` prefix, so it
+// descends at most typeNodeCount(s) times.
+func parseFieldTypeCore(s string) (string, fieldTypeDesc, bool) {
 	s = strings.TrimSpace(s)
 	if s == "number" || s == "str" || s == "bool" {
 		return s, fieldTypeDesc{name: s, kind: fieldTypePrimitive}, true
 	}
 	if strings.HasPrefix(s, "arr<") && strings.HasSuffix(s, ">") {
-		inner, _, ok := parseFieldTypeString(s[4 : len(s)-1])
+		inner, _, ok := parseFieldTypeCore(s[4 : len(s)-1])
 		if !ok {
 			return "", fieldTypeDesc{}, false
 		}
@@ -132,11 +219,11 @@ func parseFieldTypeString(s string) (string, fieldTypeDesc, bool) {
 		if !ok {
 			return "", fieldTypeDesc{}, false
 		}
-		keyName, _, keyOK := parseFieldTypeString(key)
+		keyName, _, keyOK := parseFieldTypeCore(key)
 		if !keyOK || (keyName != "str" && keyName != "number") {
 			return "", fieldTypeDesc{}, false
 		}
-		valueName, _, valueOK := parseFieldTypeString(value)
+		valueName, _, valueOK := parseFieldTypeCore(value)
 		if !valueOK {
 			return "", fieldTypeDesc{}, false
 		}
@@ -144,6 +231,33 @@ func parseFieldTypeString(s string) (string, fieldTypeDesc, bool) {
 	}
 	return "", fieldTypeDesc{}, false
 }
+
+// MaxRegisteredFieldTypes bounds the process-global type registry.
+//
+// Composed types are interned on first sight and never released, because a
+// FieldType is an integer that has to keep meaning the same thing for as long
+// as anything holds it. That is fine for a CLI, which exits. It is not fine for
+// the callers the cached-schema API exists for — an LSP, an incremental
+// checker, the Node bridge — which compile source they did not write, for as
+// long as the process lives.
+//
+// The bound is far above any real schema and is not a budget to design
+// against: reaching it means something is generating type spellings, not
+// writing them. Registration past it fails rather than growing, which does make
+// the outcome depend on what the process compiled earlier. That is the lesser
+// of the two, and the honest fix is to stop interning into a global at all —
+// see RegisteredFieldTypes for what a caller can do in the meantime.
+const MaxRegisteredFieldTypes = 4096
+
+// RegisteredFieldTypes returns how many field types are interned, base types
+// included. A long-lived host can watch it to know whether it is approaching
+// MaxRegisteredFieldTypes, which it cannot recover from without restarting.
+func RegisteredFieldTypes() int {
+	fieldTypesMu.RLock()
+	defer fieldTypesMu.RUnlock()
+	return len(fieldTypesByName)
+}
+
 func FieldTypeFromString(s string) (FieldType, bool) {
 	name, desc, ok := parseFieldTypeString(s)
 	if !ok {
@@ -167,6 +281,10 @@ func FieldTypeFromString(s string) (FieldType, bool) {
 	defer fieldTypesMu.Unlock()
 	if existing, found := fieldTypesByName[name]; found {
 		return existing, true
+	}
+	// Re-checked under the write lock: the read in RegistryFull is only a hint.
+	if len(fieldTypesByName) >= MaxRegisteredFieldTypes {
+		return FieldTypeInvalid, false
 	}
 	ft := nextFieldType
 	nextFieldType++

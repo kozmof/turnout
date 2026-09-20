@@ -43,9 +43,18 @@ func loadFieldTypesSpec(t *testing.T) []fieldTypeSpecEntry {
 }
 
 // TestFieldTypesMatchSpec asserts the vocabulary in both directions: every name
-// in the spec parses to a valid FieldType, and every valid FieldType renders to a
-// name in the spec. The count check catches a simultaneous add and remove that
-// would slip past both directions.
+// in the spec parses to a valid FieldType, and every base FieldType renders to a
+// name in the spec. The second direction is what catches a rename on one side
+// alone, which is the drift this file exists for.
+//
+// It iterates BaseFieldTypes rather than every FieldType the process holds.
+// Composed types are interned on first sight — `arr<arr<number>>` is a type the
+// grammar accepts and the spec does not list — so "every FieldType is in the
+// spec" was never a property of the type system. It was a property of the order
+// the tests happened to run in, and it held only while nothing had yet asked
+// for a composed type. spec/field-types.json is the vocabulary both languages
+// pre-declare, not the set of types they accept; spec/limits.json bounds the
+// latter.
 func TestFieldTypesMatchSpec(t *testing.T) {
 	entries := loadFieldTypesSpec(t)
 
@@ -67,15 +76,16 @@ func TestFieldTypesMatchSpec(t *testing.T) {
 		}
 	}
 
-	var declared int
-	for ft := ast.FieldType(1); ft.Valid(); ft++ {
-		declared++
+	for _, ft := range ast.BaseFieldTypes() {
 		if !specNames[ft.ProtoString()] {
-			t.Errorf("FieldType %s is not listed in spec/field-types.json", ft)
+			t.Errorf("base FieldType %s is not listed in spec/field-types.json", ft)
 		}
 	}
-	if declared != len(entries) {
-		t.Errorf("ast declares %d field types, spec lists %d — counts must match", declared, len(entries))
+	// Every base type must be in the spec, and the spec may list composed types
+	// besides. A spec shorter than the base vocabulary means one was dropped.
+	if len(entries) < len(ast.BaseFieldTypes()) {
+		t.Errorf("spec lists %d types, fewer than the %d base types ast declares",
+			len(entries), len(ast.BaseFieldTypes()))
 	}
 }
 

@@ -226,3 +226,20 @@ const (
 	// literal/template type (§10, §23.1).
 	CodeNotAssignable ErrorCode = "NotAssignable"
 )
+
+// Resource-limit error codes. These report a size rather than a spelling: the
+// source is well-formed, and too large for a bound the runtime or the compiler
+// holds. The bounds themselves live in spec/limits.json.
+const (
+	// CodeTypeTooDeep reports a field type nesting deeper than the runtime's
+	// schema node pool. Without it the compiler emitted such a type and the
+	// failure surfaced at load time with no source position.
+	CodeTypeTooDeep ErrorCode = "TypeTooDeep"
+	// CodeExpressionTooDeep reports an expression nested deeper than the parser
+	// descends. Past it the parser exhausts the goroutine stack, which Go
+	// cannot recover into a diagnostic.
+	CodeExpressionTooDeep ErrorCode = "ExpressionTooDeep"
+	// CodeTypeRegistryFull reports that no new composed type can be interned in
+	// this process. It is a property of the process, not of the source.
+	CodeTypeRegistryFull ErrorCode = "TypeRegistryFull"
+)

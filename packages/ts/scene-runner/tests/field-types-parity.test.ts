@@ -3,7 +3,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { buildNumber, buildString, buildBoolean, buildArrayNumber } from "runtime";
-import { schemaTypeTable } from "../src/state/schema-types.js";
+import { getSchemaTypeEntry, schemaTypeTable } from "../src/state/schema-types.js";
 import { matchesSchemaType } from "../src/state/state-manager.js";
 
 // spec/field-types.json is the shared DSL type vocabulary. The Go converter
@@ -33,19 +33,35 @@ describe("schema type vocabulary parity", () => {
     }
   });
 
-  it("declares no type absent from the spec", () => {
+  // schemaTypeTable is a pre-built cache of the spec vocabulary, not the set of
+  // types this package accepts: getSchemaTypeEntry falls back to building an
+  // entry for anything absent, and the guard it builds asks the engine, which
+  // composes arr< and rec< to any depth it can hold. So this pins the cache's
+  // contents — a stale entry left behind by a rename — and says nothing about
+  // what a model may declare.
+  it("caches exactly the spec vocabulary and nothing stale", () => {
     const declared = new Set(fieldTypes.map((t) => t.dsl));
     for (const key of Object.keys(schemaTypeTable)) {
       expect(
         declared.has(key),
-        `schemaTypeTable declares "${key}", which is not in spec/field-types.json`,
+        `schemaTypeTable caches "${key}", which is not in spec/field-types.json`,
       ).toBe(true);
     }
+    // Catches a simultaneous add and remove, which would slip past both directions.
+    expect(Object.keys(schemaTypeTable).length).toBe(fieldTypes.length);
   });
 
-  // Catches a simultaneous add and remove, which would slip past both directions.
-  it("matches the spec entry count", () => {
-    expect(Object.keys(schemaTypeTable).length).toBe(fieldTypes.length);
+  // The fallback is the half that makes the vocabulary open. A composed type
+  // outside the cache must still produce a working entry, because the Go
+  // compiler accepts such types and emits them into models.
+  it("builds an entry for a composed type outside the cache", () => {
+    const composed = "arr<arr<number>>";
+    expect(schemaTypeTable).not.toHaveProperty(composed);
+    const entry = getSchemaTypeEntry(composed);
+    // A non-empty array of plain numbers: an empty one would match vacuously,
+    // there being no element for the inner arr<number> to reject.
+    expect(entry.guard(buildArrayNumber([buildNumber(1), buildNumber(2)]))).toBe(false);
+    expect(entry.guard(entry.build([[1, 2]]))).toBe(true);
   });
 
   it("names array types with an arr<element> spelling the spec agrees with", () => {

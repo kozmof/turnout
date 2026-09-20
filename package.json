@@ -2,7 +2,7 @@
   "type": "module",
   "scripts": {
     "check": "env TMPDIR=/tmp pnpm run check:all",
-    "check:all": "pnpm run check:proto && pnpm run check:projection && pnpm run check:capabilities && pnpm run check:fn-map && pnpm run check:unicode-case && pnpm run check:runtime-versions && pnpm run check:fieldtype && pnpm run check:zig && pnpm run check:format && pnpm run typecheck && pnpm run lint && pnpm run test:go:quality && pnpm test && pnpm run test:coverage",
+    "check:all": "pnpm run check:proto && pnpm run check:projection && pnpm run check:capabilities && pnpm run check:limits && pnpm run check:fn-map && pnpm run check:unicode-case && pnpm run check:runtime-versions && pnpm run check:fieldtype && pnpm run check:zig && pnpm run check:format && pnpm run typecheck && pnpm run lint && pnpm run test:go:quality && pnpm test && pnpm run test:coverage",
     "generate": "sh scripts/generate-proto.sh",
     "generate:fn-map": "node --experimental-strip-types scripts/gen-fn-map.ts",
     "generate:unicode-case": "node --experimental-strip-types scripts/gen-unicode-case.ts",
@@ -12,6 +12,7 @@
     "check:fn-map": "sh scripts/check-fn-map.sh",
     "check:unicode-case": "sh scripts/check-unicode-case.sh",
     "check:runtime-versions": "node scripts/check-runtime-versions.mjs",
+    "check:limits": "node scripts/check-limits.mjs",
     "check:fieldtype": "! find packages/go/converter/internal -name '*.go' | xargs grep -En 'var [A-Za-z_, ]+ (ast\\.)?FieldType$' || (echo 'ERROR: bare FieldType declaration found (zero-value hazard — initialise to FieldTypeInvalid)' && exit 1)",
     "build": "pnpm run build:zig:dist && (cd packages/ts/runtime && pnpm run build) && (cd packages/ts/scene-runner && pnpm run build)",
     "build:zig": "zig build --build-file packages/zig/build.zig wasm",

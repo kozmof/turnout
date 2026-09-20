@@ -61,7 +61,52 @@ type parser struct {
 	// sources differ by context (NEW_SYNTAX.md 3), and the two contexts are
 	// distinct parse paths, so tracking it here keeps the check at the token.
 	inNextCompute bool
+	// exprDepth is how many expression frames are currently open, and
+	// exprTooDeep records that the cap has already been reported. See
+	// enterExpression.
+	exprDepth   int
+	exprTooDeep bool
 	diag.DiagSink
+}
+
+// maxExpressionDepth bounds how deep the expression grammar may nest. It is
+// pinned through spec/limits.json alongside the engine's own nesting caps.
+//
+// Every other limit in this package is a courtesy — a cap on diagnostics, a cap
+// on input size — and exceeding one produces a diagnostic. This one is not.
+// Expression parsing is mutually recursive (parseLocalTupleExpr →
+// parseLocalExpr → parseLocalPrec → parseLocalPrimary → parseLocalTupleExpr),
+// so `(((…` descends one frame per character, and past roughly a million frames
+// the goroutine stack is exhausted. A Go stack overflow is a fatal runtime
+// error, not a panic: neither recoverInternalPanic in the converter package nor
+// safeRun in cmd/turnout can turn it into a diagnostic, because recover() never
+// runs. The process dies.
+//
+// So the bound has to be here, ahead of the recursion, and it has to be low
+// enough that the frames below it cannot add up to a stack. 256 is the same
+// number the engine uses for its own graph and inference depths, and is far
+// past any expression anyone writes.
+const maxExpressionDepth = 256
+
+// enterExpression opens one expression frame, and returns whether there was
+// room for it along with the function that closes it. A caller that is refused
+// must return a placeholder node without recursing.
+//
+// The diagnostic is recorded once per source. A refusal happens at every level
+// of an over-deep expression, and again for each sibling the parser reaches
+// afterwards; reporting each one would bury the file's real errors under a
+// hundred copies of this one.
+func (p *parser) enterExpression(t lexer.Token) (func(), bool) {
+	if p.exprDepth >= maxExpressionDepth {
+		if !p.exprTooDeep {
+			p.exprTooDeep = true
+			p.errorWithCode(t, diag.CodeExpressionTooDeep,
+				"expression nests deeper than %d levels", maxExpressionDepth)
+		}
+		return func() {}, false
+	}
+	p.exprDepth++
+	return func() { p.exprDepth-- }, true
 }
 
 func (p *parser) peek() lexer.Token { return p.peekAt(0) }
@@ -203,6 +248,55 @@ func (p *parser) skipBlock() {
 			depth--
 		}
 		p.advance()
+	}
+}
+
+// skipNestedExpression consumes the whole operand the cursor is sitting on:
+// a balanced group, a call's name together with its argument list, or one
+// token when it is neither. It is the recovery for an expression refused by
+// enterExpression — the frames below the cap unwind without parsing anything,
+// so something has to consume what they would have, or the tokens come back as
+// a hundred cascading syntax errors and the one that matters scrolls away.
+//
+// The call case is not an extra: `add(add(…))` and `if(true, 1, if(…))` nest
+// through a name rather than through a bracket, so a cursor on the name that
+// consumed only the name would leave the argument list behind — which is
+// exactly the cascade this exists to stop.
+//
+// Consuming a token even in the last case is what guarantees the caller makes
+// progress.
+func (p *parser) skipNestedExpression() {
+	openers := map[lexer.TokenKind]lexer.TokenKind{
+		lexer.TokLParen:   lexer.TokRParen,
+		lexer.TokLBracket: lexer.TokRBracket,
+		lexer.TokLBrace:   lexer.TokRBrace,
+	}
+	// A call: consume the callee, then fall through to its argument list.
+	if p.peek().Kind == lexer.TokIdent {
+		if _, opensArgs := openers[p.peekAt(1).Kind]; !opensArgs {
+			p.advance()
+			return
+		}
+		p.advance()
+	}
+	closer, isOpener := openers[p.peek().Kind]
+	if !isOpener {
+		p.advance()
+		return
+	}
+	opener := p.peek().Kind
+	depth := 0
+	for p.peek().Kind != lexer.TokEOF {
+		switch p.peek().Kind {
+		case opener:
+			depth++
+		case closer:
+			depth--
+		}
+		p.advance()
+		if depth == 0 {
+			return
+		}
 	}
 }
 

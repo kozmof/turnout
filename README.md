@@ -256,8 +256,11 @@ state {
 }
 ```
 
-Fourteen types are available: three scalars, an array of each, records keyed by
-string or by number, and two nested combinations.
+Three scalars, `arr<T>` for a list of any type, and `rec<K, V>` for a record
+keyed by `str` or by `number`. The two constructors compose, so the fourteen
+below are the vocabulary both languages pre-declare rather than the whole of
+what you may write — `arr<arr<number>>` is a type, and so is
+`rec<str, arr<rec<str, bool>>>`.
 
 | Type | Holds |
 | --- | --- |
@@ -275,6 +278,12 @@ string or by number, and two nested combinations.
 Both languages assert this vocabulary against `spec/field-types.json`, so a
 rename in one cannot drift from the other. Function names are pinned the same
 way through `spec/fn-aliases.json`.
+
+Composition is bounded. A type is built from one node per `arr<`, one per
+`rec<`, and one for the scalar at the bottom, and the runtime holds
+`spec/limits.json`'s `stateTypeNodes` of them — so nesting is finite, and the
+compiler refuses a deeper type against the file it parsed rather than leaving
+it to fail at load.
 
 Reading an undeclared path is an error, and writing the wrong type is an error.
 Larger schemas can move to their own file with `state_file = "schema.tu"`.
@@ -313,9 +322,13 @@ and the host that drives it, then `spec/scene-graph.md` for the scene and action
 model. The rest cover the type system, hooks, routes, and state shape.
 
 Several files in `spec/` are data rather than prose, each read by more than one
-language and gated against drift: `fn-aliases.json`, `field-types.json`, and
-`runtime-projection.json`. `capabilities.json` lists what a host must be able
-to do, and `conformance/host/` holds the vectors that prove it can.
+language and gated against drift: `fn-aliases.json`, `field-types.json`,
+`runtime-projection.json`, `runtime-versions.json`, and `limits.json`. The
+first three pin shared names, the fourth pins shared versions, and the last
+pins shared bounds — a limit the compiler and the engine each chose alone is
+how a model the compiler accepted became one the engine refused to load.
+`capabilities.json` lists what a host must be able to do, and
+`conformance/host/` holds the vectors that prove it can.
 
 ## License
 

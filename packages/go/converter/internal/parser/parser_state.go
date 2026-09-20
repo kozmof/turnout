@@ -8,6 +8,28 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
 )
 
+// reportTypeLimit records a diagnostic when a type token was rejected for its
+// size rather than its spelling, and reports whether it did. A misspelled type
+// is left to the caller, which knows what to suggest in its own context.
+//
+// The type text is deliberately not quoted into either message. A type that hit
+// either limit is long by definition, and the position already points at it.
+func (p *parser) reportTypeLimit(t lexer.Token) bool {
+	switch reason, nodes := ast.WhyFieldTypeRejected(t.Value); reason {
+	case ast.FieldTypeRejectedTooDeep:
+		p.errorWithCode(t, diag.CodeTypeTooDeep,
+			"type nests %d levels; the runtime holds at most %d", nodes, ast.MaxTypeNodes)
+		return true
+	case ast.FieldTypeRejectedRegistryFull:
+		p.errorWithCode(t, diag.CodeTypeRegistryFull,
+			"cannot register another composed type: this process has interned the maximum of %d",
+			ast.MaxRegisteredFieldTypes)
+		return true
+	default:
+		return false
+	}
+}
+
 // ─── parseFieldType ──────────────────────────────────────────────────────────
 
 // parseFieldType consumes a type token (TokIdent for scalar types, TokType for
@@ -22,6 +44,9 @@ func (p *parser) parseFieldType(typeErrCode diag.ErrorCode) (ast.FieldType, bool
 		p.advance()
 		ft, ok := ast.FieldTypeFromString(t.Value)
 		if !ok {
+			if p.reportTypeLimit(t) {
+				return 0, false
+			}
 			p.errorWithCode(t, typeErrCode, "unknown array type %q", t.Value)
 			return 0, false
 		}
@@ -29,6 +54,10 @@ func (p *parser) parseFieldType(typeErrCode diag.ErrorCode) (ast.FieldType, bool
 	case lexer.TokIdent:
 		ft, ok := ast.FieldTypeFromString(t.Value)
 		if !ok {
+			if p.reportTypeLimit(t) {
+				p.advance()
+				return 0, false
+			}
 			p.errorWithCode(t, typeErrCode, "unknown type %q; expected number, str, bool, or arr<T>", t.Value)
 			return 0, false
 		}
@@ -55,7 +84,9 @@ func (p *parser) parseBindingType() (ast.FieldType, ast.Type, bool) {
 		p.advance()
 		ft, ok := ast.FieldTypeFromString(t.Value)
 		if !ok {
-			p.errorWithCode(t, diag.CodeParseSyntaxError, "unknown array type %q", t.Value)
+			if !p.reportTypeLimit(t) {
+				p.errorWithCode(t, diag.CodeParseSyntaxError, "unknown array type %q", t.Value)
+			}
 			return 0, nil, false
 		}
 		return ft, nil, true
@@ -82,8 +113,19 @@ func (p *parser) parseBindingType() (ast.FieldType, ast.Type, bool) {
 
 // ─── parseLiteral ─────────────────────────────────────────────────────────────
 
+// parseLiteral shares the expression depth counter with parseLocalPrimary.
+// `[[[[…` is the same unbounded descent as `((((…`, reachable from a STATE
+// default where no expression is involved at all, and a literal nested inside
+// an expression should be counted against the same budget rather than a second
+// one.
 func (p *parser) parseLiteral() ast.Literal {
 	t := p.peek()
+	leave, ok := p.enterExpression(t)
+	if !ok {
+		p.skipNestedExpression()
+		return ast.NewBoolLiteral(p.posOf(t), false)
+	}
+	defer leave()
 	switch t.Kind {
 	case lexer.TokBoolLit:
 		p.advance()
