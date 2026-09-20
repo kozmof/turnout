@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"os"
+	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
@@ -281,5 +282,77 @@ func TestRunConvertRejectsOversizedStdin(t *testing.T) {
 	})
 	if rc != 1 || !strings.Contains(stderr, "exceeds the 4-byte source limit") {
 		t.Fatalf("rc=%d stderr=%q", rc, stderr)
+	}
+}
+
+// A .tu file names the file its STATE comes from, so compiling one you did not
+// write is an arbitrary read unless the resolution is contained. The Go API has
+// always been able to contain it; until -contain-state-file the CLI could only
+// ask for it as a side effect of overriding the base directory, which is not
+// the same request and does not cover the default base at all.
+func TestRunValidateContainStateFileRejectsEscape(t *testing.T) {
+	dir := t.TempDir()
+	secret := filepath.Join(filepath.Dir(dir), "outside-schema.tu")
+	if err := os.WriteFile(secret, []byte("state { ns { v:number = 0 } }"), 0o600); err != nil {
+		t.Fatalf("write outside schema: %v", err)
+	}
+	t.Cleanup(func() { os.Remove(secret) })
+
+	src := "state_file = \"../outside-schema.tu\"\n" + `
+scene "s" {
+  entry_action = a
+  action "a" { compute "p" { r:bool := true } }
+}`
+	path := filepath.Join(dir, "flow.tu")
+	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+		t.Fatalf("write flow: %v", err)
+	}
+
+	_, stderr, rc := captureProcessIO(t, func() int {
+		return runValidate([]string{"-contain-state-file", path})
+	})
+	if rc != 1 {
+		t.Fatalf("runValidate(-contain-state-file) = %d, want 1; stderr: %s", rc, stderr)
+	}
+	if !strings.Contains(stderr, "StateFileOutsideBase") {
+		t.Fatalf("stderr = %q, want a StateFileOutsideBase diagnostic", stderr)
+	}
+
+	// Without the flag the same source still reads the file outside the base,
+	// which is the documented default and what the flag exists to opt out of.
+	_, stderr, rc = captureProcessIO(t, func() int {
+		return runValidate([]string{path})
+	})
+	if rc != 0 {
+		t.Fatalf("runValidate() = %d, want 0; stderr: %s", rc, stderr)
+	}
+}
+
+func TestRunConvertContainStateFileRejectsEscape(t *testing.T) {
+	dir := t.TempDir()
+	secret := filepath.Join(filepath.Dir(dir), "outside-convert-schema.tu")
+	if err := os.WriteFile(secret, []byte("state { ns { v:number = 0 } }"), 0o600); err != nil {
+		t.Fatalf("write outside schema: %v", err)
+	}
+	t.Cleanup(func() { os.Remove(secret) })
+
+	src := "state_file = \"../outside-convert-schema.tu\"\n" + `
+scene "s" {
+  entry_action = a
+  action "a" { compute "p" { r:bool := true } }
+}`
+	path := filepath.Join(dir, "flow.tu")
+	if err := os.WriteFile(path, []byte(src), 0o600); err != nil {
+		t.Fatalf("write flow: %v", err)
+	}
+
+	_, stderr, rc := captureProcessIO(t, func() int {
+		return runConvert([]string{"-contain-state-file", "-o", "-", path})
+	})
+	if rc != 1 {
+		t.Fatalf("runConvert(-contain-state-file) = %d, want 1; stderr: %s", rc, stderr)
+	}
+	if !strings.Contains(stderr, "StateFileOutsideBase") {
+		t.Fatalf("stderr = %q, want a StateFileOutsideBase diagnostic", stderr)
 	}
 }

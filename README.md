@@ -110,9 +110,15 @@ go build -o turnout ./cmd/turnout
 
 Three commands are available.
 
-- `turnout convert <input.tu> [-o output] [-state-file path] [-format hcl|json]` — compile to HCL or JSON
-- `turnout validate <input.tu> [-state-file path]` — type-check without writing output
+- `turnout convert <input.tu> [-o output] [-state-file path] [-contain-state-file] [-format hcl|json]` — compile to HCL or JSON
+- `turnout validate <input.tu> [-state-file path] [-contain-state-file]` — type-check without writing output
 - `turnout version` — print the build version
+
+A source names the file its STATE comes from, so compiling one you did not
+write reads whatever that file names. Pass `-contain-state-file` to reject a
+`state_file` that resolves outside the base directory, following symlinks.
+`-state-file` sets that base directory and implies containment; the flag is how
+you ask for it when the base is the default one, the input's own directory.
 
 Use `-format hcl` for canonical HCL that reads and diffs cleanly. Use
 `-format json` for the model the TypeScript runtime consumes. Both come from
