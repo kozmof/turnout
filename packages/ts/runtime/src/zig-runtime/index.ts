@@ -10,5 +10,9 @@ export {
   type ZigRuntimeExports,
   type ZigStatus,
 } from "./client.js";
-export { defaultZigRuntimeClient } from "./default-client.js";
+export {
+  defaultZigRuntimeClient,
+  setDefaultZigRuntimeClient,
+  reloadDefaultZigRuntimeClient,
+} from "./default-client.js";
 export { fromCanonicalValue, toCanonicalValue } from "./value-codec.js";

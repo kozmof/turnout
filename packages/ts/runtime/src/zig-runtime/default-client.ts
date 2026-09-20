@@ -1,4 +1,4 @@
-import { instantiateZigRuntime } from "./client.js";
+import { instantiateZigRuntime, type ZigRuntimeClient } from "./client.js";
 import { readFirstAvailable } from "./wasm-bytes.js";
 
 /**
@@ -17,17 +17,55 @@ function runtimeBytesCandidates(): readonly URL[] {
 /**
  * The process-wide runtime client, instantiated once on import.
  *
- * A trapped instance cannot be repaired, and this binding cannot be replaced,
- * so a trap here is terminal for the process: every later call throws
- * `ZigTrapError`. Check `defaultZigRuntimeClient.usable` if a caller needs to
- * distinguish that from an ordinary failure. A host that must survive a trap
- * should own its own client from {@link instantiateZigRuntime} and re-create it
- * — noting that every runtime and model handle dies with the old instance.
+ * Instantiating at import time is what lets the synchronous API be synchronous:
+ * `buildNumber`, `executeGraph` and the rest cross into the engine on every
+ * call, and none of them can await an instance that is not ready yet.
  *
- * Reaching that state means finding an input that still exhausts the module.
- * The known ones are bounded and return a status instead; see
+ * A trapped instance cannot be repaired. It can now be *replaced* — see
+ * {@link reloadDefaultZigRuntimeClient} and {@link setDefaultZigRuntimeClient}.
+ * This is a live binding, so every caller picks up the replacement on its next
+ * call without re-importing. Every runtime and model handle held against the
+ * old instance dies with it, so a caller holding one must discard it: a
+ * `PreparedModel` from the old instance, handed to a runner on the new one, is
+ * a handle that instance never issued.
+ *
+ * Check `defaultZigRuntimeClient.usable` to tell a trap from an ordinary
+ * failure. Reaching that state means finding an input that still exhausts the
+ * module; the known ones are bounded and return a status instead, per
  * `docs/runtime-contract.md`.
  */
-export const defaultZigRuntimeClient = await instantiateZigRuntime(
+export let defaultZigRuntimeClient: ZigRuntimeClient = await instantiateZigRuntime(
   await readFirstAvailable(runtimeBytesCandidates()),
 );
+
+/**
+ * Replace the process-wide client.
+ *
+ * For hosts that build their own instance with `instantiateZigRuntime` and want
+ * the synchronous API — value builders, `executeGraph`, the preset metadata
+ * lookups — to use it too. Those reach for this binding directly and take no
+ * client argument, so this is the only way to point them somewhere else.
+ *
+ * Replacing a working client abandons nothing on its own, but any handle taken
+ * from it becomes unusable the moment the last reference to it goes.
+ */
+export function setDefaultZigRuntimeClient(client: ZigRuntimeClient): void {
+  defaultZigRuntimeClient = client;
+}
+
+/**
+ * Instantiate a fresh engine and install it as the process-wide client.
+ *
+ * The recovery path after a trap, which is otherwise terminal for the process:
+ * every later call on a trapped instance throws `ZigTrapError`, and there is no
+ * way to reset one from outside. Reads the same bytes the original was built
+ * from.
+ *
+ * Returns the new client. Discard every runtime and model handle taken from the
+ * old one first — they mean nothing to this instance.
+ */
+export async function reloadDefaultZigRuntimeClient(): Promise<ZigRuntimeClient> {
+  const client = await instantiateZigRuntime(await readFirstAvailable(runtimeBytesCandidates()));
+  defaultZigRuntimeClient = client;
+  return client;
+}

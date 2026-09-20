@@ -7,4 +7,8 @@
  * files and nowhere else. Swapping the client, or renaming the package it
  * comes from, is a change to this directory rather than to every call site.
  */
-export { defaultZigRuntimeClient } from "runtime/zig-runtime";
+export {
+  defaultZigRuntimeClient,
+  setDefaultZigRuntimeClient,
+  reloadDefaultZigRuntimeClient,
+} from "runtime/zig-runtime";
