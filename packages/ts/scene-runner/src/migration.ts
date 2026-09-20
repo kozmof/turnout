@@ -2,9 +2,26 @@ import type { TurnModel, SceneBlock, ProgModel } from "./types/turnout-model_pb.
 
 type MigrationFn = (model: TurnModel) => TurnModel;
 
+const CURRENT_VERSION = 2;
+
+/**
+ * Every model version this package knows about, oldest first.
+ *
+ * Adding a version means adding it here and bumping CURRENT_VERSION — at which
+ * point `migrations` is missing a key and will not compile until the step that
+ * produces the new version is written. That is the point of spelling the
+ * versions out: the table used to be a `Record<number, MigrationFn>`, where a
+ * missing step was a string thrown at load time, on a model, in someone else's
+ * process.
+ */
+type ModelVersion = 0 | 1 | 2;
+
+/** The versions a model can still be migrated *from*. */
+type PriorVersion = Exclude<ModelVersion, typeof CURRENT_VERSION>;
+
 // Maps from-version to the migration that produces from-version+1.
 // Migrations run in order until the model reaches the current supported version.
-const migrations: Record<number, MigrationFn> = {
+const migrations: Record<PriorVersion, MigrationFn> = {
   // 0 → 1: version 0 predates the version field; semantically identical to v1.
   0: (model) => model,
   // 1 → 2: v2 adds literal & template type declarations and the template_extract
@@ -13,7 +30,17 @@ const migrations: Record<number, MigrationFn> = {
   1: (model) => model,
 };
 
-const CURRENT_VERSION = 2;
+/**
+ * Whether `version` is one this package can migrate from.
+ *
+ * `migrateModel` has already rejected anything above CURRENT_VERSION, so this
+ * is really asking about the bottom of the range: a model declaring a negative
+ * version reaches the loop otherwise, finds no handler, and reports a missing
+ * migration step — blaming this package for what the model got wrong.
+ */
+function isPriorVersion(version: number): version is PriorVersion {
+  return Number.isInteger(version) && version >= 0 && version < CURRENT_VERSION;
+}
 
 /**
  * Apply sequential migrations to bring `model` up to `CURRENT_VERSION`.
@@ -50,14 +77,14 @@ export function migrateModel(model: TurnModel): TurnModel {
 
   let current: TurnModel = model;
   while (version < CURRENT_VERSION) {
-    const migrate = migrations[version];
-    if (!migrate) {
+    if (!isPriorVersion(version)) {
       throw new Error(
-        `migration: no handler registered for version ${version} → ${version + 1}. ` +
-          `This is a bug in the scene-runner package; a migration step is missing.`,
+        `Model schema version ${version} is not a version this runtime can migrate from; ` +
+          `expected a whole number between 0 and ${CURRENT_VERSION}. ` +
+          `Regenerate the model with a compatible converter.`,
       );
     }
-    current = migrate(current);
+    current = migrations[version](current);
     version++;
   }
 
