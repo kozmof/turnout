@@ -32,7 +32,7 @@ const extendModelAttr = "model"
 // Like egress, the clause must continue the line its binding is declared on;
 // see parseInlineEgress for why an arrow opening a line is ambiguous.
 func (p *parser) parseInlineIngress() ast.InlineIngress {
-	if p.peek().Kind != lexer.TokSigilEgress {
+	if p.peek().Kind != lexer.TokSigilFromState {
 		return nil
 	}
 	// `<~ name:type` is a sigil leading the *next* binding, not this binding's
@@ -97,7 +97,7 @@ func (p *parser) parseInlineIngress() ast.InlineIngress {
 // binding's destination and as the next binding's sigil, and the two mean
 // opposite things. The line settles it.
 func (p *parser) parseInlineEgress() *ast.InlineEgress {
-	if p.peek().Kind != lexer.TokSigilIngress {
+	if p.peek().Kind != lexer.TokSigilToState {
 		return nil
 	}
 	// `~> name:type` is a sigil leading the *next* binding, not this binding's
@@ -154,21 +154,21 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	// A sigil belongs after the binding it applies to. Consume a leading one so
 	// the binding itself still parses and the rest of the block is checked in
 	// the same pass.
-	if t.Kind == lexer.TokSigilIngress || t.Kind == lexer.TokSigilEgress || t.Kind == lexer.TokSigilBiDir {
+	if t.Kind == lexer.TokSigilToState || t.Kind == lexer.TokSigilFromState || t.Kind == lexer.TokSigilBiDir {
 		p.errorf(t, "unexpected %s before binding name", kindName(t.Kind))
 		p.advance()
 	}
 
 	nameTok, ok := p.expectIdent()
 	if !ok {
-		p.syncToBlockItem(lexer.TokIdent, lexer.TokSigilBiDir, lexer.TokSigilEgress, lexer.TokSigilIngress)
+		p.syncToBlockItem(lexer.TokIdent, lexer.TokSigilBiDir, lexer.TokSigilFromState, lexer.TokSigilToState)
 		return nil
 	}
 
 	p.expect(lexer.TokColon)
 	ft, declared, ok := p.parseBindingType()
 	if !ok {
-		p.syncToBlockItem(lexer.TokIdent, lexer.TokSigilBiDir, lexer.TokSigilEgress, lexer.TokSigilIngress)
+		p.syncToBlockItem(lexer.TokIdent, lexer.TokSigilBiDir, lexer.TokSigilFromState, lexer.TokSigilToState)
 		return nil
 	}
 
@@ -247,9 +247,9 @@ func (p *parser) parseBindingDecl() *ast.BindingDecl {
 	case ingress != nil && egress != nil:
 		sigil = ast.SigilBiDir
 	case ingress != nil:
-		sigil = ast.SigilIngress
+		sigil = ast.SigilToState
 	case egress != nil:
-		sigil = ast.SigilEgress
+		sigil = ast.SigilFromState
 	}
 
 	return &ast.BindingDecl{
@@ -278,7 +278,7 @@ func (p *parser) parseAnonymousEgress() *ast.BindingDecl {
 	}
 	return &ast.BindingDecl{
 		Pos:       p.posOf(open),
-		Sigil:     ast.SigilEgress,
+		Sigil:     ast.SigilFromState,
 		Anonymous: true,
 		Type:      ast.FieldTypeInvalid,
 		RHS:       rhs,
@@ -633,7 +633,7 @@ func (p *parser) parseNextSugar(pos ast.Pos) *ast.NextRule {
 			Bindings: []*ast.BindingDecl{
 				{
 					Pos:   condPos,
-					Sigil: ast.SigilIngress,
+					Sigil: ast.SigilToState,
 					Name:  cond,
 					Type:  ast.FieldTypeBool,
 					RHS:   &ast.SigilInputRHS{},

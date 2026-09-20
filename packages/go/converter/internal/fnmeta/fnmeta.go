@@ -144,8 +144,8 @@ func ReturnType(fn string, fallback ast.FieldType) ast.FieldType {
 	case FnKindGeneric, FnKindArrInc:
 		return ast.FieldTypeBool
 	case FnKindArrGet:
-		if fallback.IsArray() {
-			return fallback.ElemType()
+		if elem, isArray := fallback.TryElemType(); isArray {
+			return elem
 		}
 		return fallback
 	case FnKindArrConcat:

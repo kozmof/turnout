@@ -80,8 +80,8 @@ func TestSigils(t *testing.T) {
 		val  string
 	}{
 		{"<~>", TokSigilBiDir, "<~>"},
-		{"<~", TokSigilEgress, "<~"},
-		{"~>", TokSigilIngress, "~>"},
+		{"<~", TokSigilFromState, "<~"},
+		{"~>", TokSigilToState, "~>"},
 	}
 	for _, tc := range cases {
 		toks := filterEOF(mustTokenize(t, tc.src))
@@ -96,8 +96,8 @@ func TestResultBeforeSigil(t *testing.T) {
 	if toks[0].Kind != TokResult {
 		t.Errorf("tok[0]: got %v, want TokResult", toks[0].Kind)
 	}
-	if toks[1].Kind != TokSigilEgress {
-		t.Errorf("tok[1]: got %v, want TokSigilEgress", toks[1].Kind)
+	if toks[1].Kind != TokSigilFromState {
+		t.Errorf("tok[1]: got %v, want TokSigilFromState", toks[1].Kind)
 	}
 	if toks[2].Kind != TokIdent || toks[2].Value != "phase" {
 		t.Errorf("tok[2]: got %v %q, want TokIdent(phase)", toks[2].Kind, toks[2].Value)
@@ -142,7 +142,7 @@ func TestSigilTypedKey(t *testing.T) {
 	// income:number = _
 	toks := filterEOF(mustTokenize(t, "~>income:number = _"))
 	wantKinds := []TokenKind{
-		TokSigilIngress, TokIdent, TokColon, TokIdent, TokEquals, TokUnderscore,
+		TokSigilToState, TokIdent, TokColon, TokIdent, TokEquals, TokUnderscore,
 	}
 	wantVals := []string{"~>", "income", ":", "number", "=", "_"}
 	for i, k := range wantKinds {

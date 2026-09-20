@@ -345,10 +345,10 @@ func validateCombineArgTypePair(bindingName, fn string, spec fnmeta.FnSpec, t1 a
 			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_includes arg1 must be an array type, got %s", bindingName, t1))
 		}
-		if ok1 && ok2 && t1.IsArray() && t2 != t1.ElemType() {
+		if elem, isArray := t1.TryElemType(); ok1 && ok2 && isArray && t2 != elem {
 			ds.Append(diag.Errorf(diag.CodeArgTypeMismatch,
 				"binding %q: arr_includes arg2 type %s does not match array element type %s",
-				bindingName, t2, t1.ElemType()))
+				bindingName, t2, elem))
 		}
 	case fnmeta.FnKindArrConcat:
 		if ok1 && !t1.IsArray() {
@@ -430,8 +430,11 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 	case fnmeta.FnKindGeneric, fnmeta.FnKindArrInc:
 		return ast.FieldTypeBool, true
 	case fnmeta.FnKindArrGet:
-		if len(types) >= 1 && known[0] && types[0].IsArray() {
-			return types[0].ElemType(), true
+		if len(types) == 0 || !known[0] {
+			return 0, false
+		}
+		if elem, isArray := types[0].TryElemType(); isArray {
+			return elem, true
 		}
 		return 0, false
 	case fnmeta.FnKindArrConcat:

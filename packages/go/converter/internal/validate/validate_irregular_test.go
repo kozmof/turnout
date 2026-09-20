@@ -88,7 +88,7 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 		{
 			name: "prepare_entry_invalid_path",
 			bindings: []irrBind{
-				{name: "plain", ft: ast.FieldTypeNumber, sigil: ast.SigilIngress, val: structpb.NewNumberValue(0)},
+				{name: "plain", ft: ast.FieldTypeNumber, sigil: ast.SigilToState, val: structpb.NewNumberValue(0)},
 			},
 			prepare: []*turnoutpb.PrepareEntry{
 				{Binding: "plain", FromState: proto.String("bad")},
@@ -98,7 +98,7 @@ func TestValidateIrregularActionEffects(t *testing.T) {
 		{
 			name: "state_type_mismatch",
 			bindings: []irrBind{
-				{name: "flag", ft: ast.FieldTypeBool, sigil: ast.SigilEgress, val: structpb.NewBoolValue(true)},
+				{name: "flag", ft: ast.FieldTypeBool, sigil: ast.SigilFromState, val: structpb.NewBoolValue(true)},
 			},
 			merge: []*turnoutpb.MergeEntry{
 				{Binding: "flag", ToState: "app.score"},
@@ -202,7 +202,7 @@ func TestValidateIrregularNextRules(t *testing.T) {
 			action := buildIrregularAction(nil, nil, nil, tc.next)
 			// "transition_output_sigil" needs a sigil on binding "out" in the next-rule prog.
 			if tc.name == "transition_output_sigil" {
-				action.Next[0].Compute.Prog.Sigils = map[string]int32{"out": ast.SigilEgress.ToInt32()}
+				action.Next[0].Compute.Prog.Sigils = map[string]int32{"out": ast.SigilFromState.ToInt32()}
 			}
 			model := irregularModelWithAction(action)
 			ds := validate.Validate(validate.ValidateInput{Model: model, Schema: irregularSchema()})

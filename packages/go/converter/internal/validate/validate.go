@@ -42,7 +42,14 @@ type bindingInfo struct {
 	// declaredType is the resolved structured type when the binding was annotated
 	// with a named literal/template type; nil for plain primitive bindings. Used
 	// for assignability and case coverage analysis.
-	declaredType     ast.Type
+	declaredType ast.Type
+	// declaredTypeName is the name the annotation was written with, and is empty
+	// when it was written structurally. It is not declaredType's name recorded
+	// twice: resolution replaces a named reference with what it points at, so
+	// the name is not recoverable from the resolved type, and "was this
+	// annotated by name" is the question template patterns ask — they are
+	// nominal, so a pattern has to name the same type the subject did. An empty
+	// string is that answer, not a missing value.
 	declaredTypeName string
 }
 
@@ -504,8 +511,8 @@ func resolveExpectedReturn(spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool) (ast.
 	case fnmeta.FnKindGeneric, fnmeta.FnKindArrInc:
 		return ast.FieldTypeBool, true
 	case fnmeta.FnKindArrGet:
-		if ok1 && t1.IsArray() {
-			return t1.ElemType(), true
+		if elem, isArray := t1.TryElemType(); ok1 && isArray {
+			return elem, true
 		}
 		return 0, false
 	case fnmeta.FnKindArrConcat:

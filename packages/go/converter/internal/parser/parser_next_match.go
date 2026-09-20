@@ -362,7 +362,7 @@ func (p *parser) buildMatchRule(rule *ast.NextRule, armIdx int, subjects []match
 		subject := subjects[col]
 		bindings = append(bindings, &ast.BindingDecl{
 			Pos:   arm.Pos,
-			Sigil: ast.SigilIngress,
+			Sigil: ast.SigilToState,
 			Name:  subject.Name,
 			Type:  colTypes[col],
 			RHS:   &ast.SigilInputRHS{},

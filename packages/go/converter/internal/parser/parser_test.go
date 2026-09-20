@@ -267,8 +267,8 @@ func TestParseInlineIOSigils(t *testing.T) {
 		name  string
 		sigil ast.Sigil
 	}{
-		{"a", ast.SigilIngress},
-		{"b", ast.SigilEgress},
+		{"a", ast.SigilToState},
+		{"b", ast.SigilFromState},
 		{"c", ast.SigilBiDir}, // both arrows replace the retired <~>
 		{"d", ast.SigilNone},
 	}
@@ -755,7 +755,7 @@ func TestParseInlineStateIngress(t *testing.T) {
   }`)
 	tf := mustParse(t, src)
 	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
-	if b.Name != "income" || b.Sigil != ast.SigilIngress {
+	if b.Name != "income" || b.Sigil != ast.SigilToState {
 		t.Fatalf("binding = %q sigil = %v", b.Name, b.Sigil)
 	}
 	in, ok := b.Ingress.(*ast.IngressState)
@@ -788,7 +788,7 @@ func TestParseInlineEgress(t *testing.T) {
   }`)
 	tf := mustParse(t, src)
 	b := tf.Scenes[0].Actions[0].Compute.Prog.Bindings[0]
-	if b.Sigil != ast.SigilEgress {
+	if b.Sigil != ast.SigilFromState {
 		t.Fatalf("sigil = %v, want egress", b.Sigil)
 	}
 	if b.Egress == nil || b.Egress.Path != "decision.approved" {

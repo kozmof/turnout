@@ -203,13 +203,6 @@ func (ft FieldType) TryElemType() (FieldType, bool) {
 	}
 	return d.elem, true
 }
-func (ft FieldType) ElemType() FieldType {
-	et, ok := ft.TryElemType()
-	if !ok {
-		panic(fmt.Sprintf("ElemType called on non-array type %s", ft))
-	}
-	return et
-}
 
 // ────────────────────────────────────────────────────────────
 // Sigil — binding direction
@@ -218,13 +211,19 @@ func (ft FieldType) ElemType() FieldType {
 // Sigil marks the directional intent of a binding in a compute block.
 type Sigil int
 
+// The names say which way the value moves relative to STATE, because that is
+// what the arrows say: `<~` reads "comes from state" and `~>` reads "goes to
+// state". They were Ingress and Egress, which is the same distinction named
+// from an unstated frame — ingress into STATE is egress from the compute block
+// — and read as inverted to anyone who picked the other frame.
+//
+// The order is the wire format. Sigils are stored in the proto as the int32
+// from ToInt32, so these may be renamed but not reordered.
 const (
-	SigilNone Sigil = iota // no sigil (plain compute binding)
-	// Internal historical names retained for wire compatibility. Surface input
-	// is `<~`; surface output is `~>`; bidirectional IO writes both arrows.
-	SigilIngress
-	SigilEgress
-	SigilBiDir
+	SigilNone      Sigil = iota // no sigil (plain compute binding)
+	SigilToState                // `~>` — the binding writes to STATE
+	SigilFromState              // `<~` — the binding reads from STATE
+	SigilBiDir                  // `<~>` — bidirectional IO, which writes both arrows
 )
 
 var sigilNames = [...]string{"", "~>", "<~", "<~>"}

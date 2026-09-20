@@ -562,7 +562,7 @@ func TestLowerIfRHSCall(t *testing.T) {
 
 // ─── sigil lowering ───────────────────────────────────────────────────────────
 
-func TestLowerSigilIngress(t *testing.T) {
+func TestLowerSigilToState(t *testing.T) {
 	lr := mustLowerResult(t, `state {
   app {
     score:number = 0
@@ -577,7 +577,7 @@ scene "test" {
   }
 }`)
 	tm := lr.Model
-	assertSigilAnnotation(t, lr, "test", "a", "compute", "p", "score", ast.SigilIngress)
+	assertSigilAnnotation(t, lr, "test", "a", "compute", "p", "score", ast.SigilToState)
 	b := binding(t, tm, 0)
 	if b.Value == nil {
 		t.Error("expected value binding for ingress placeholder")
@@ -591,7 +591,7 @@ scene "test" {
 	}
 }
 
-func TestLowerSigilEgress(t *testing.T) {
+func TestLowerSigilFromState(t *testing.T) {
 	lr := mustLowerResult(t, `state {
   app { approved:bool = false }
 }
@@ -604,7 +604,7 @@ scene "test" {
   }
 }`)
 	tm := lr.Model
-	assertSigilAnnotation(t, lr, "test", "a", "compute", "p", "approved", ast.SigilEgress)
+	assertSigilAnnotation(t, lr, "test", "a", "compute", "p", "approved", ast.SigilFromState)
 	mg := tm.Scenes[0].Actions[0].Merge
 	if len(mg) != 1 {
 		t.Fatalf("expected 1 merge entry, got %d", len(mg))

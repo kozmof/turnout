@@ -199,7 +199,7 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 			}
 		}
 
-		if isTransition && (sigil == ast.SigilEgress || sigil == ast.SigilBiDir) {
+		if isTransition && (sigil == ast.SigilFromState || sigil == ast.SigilBiDir) {
 			if pos.File != "" {
 				ds.Append(diag.ErrorAt(pos.File, pos.Line, pos.Col, diag.CodeTransitionOutputSigil,
 					"binding %q: output sigil %s is not allowed in transition progs", b.Name, sigil))
@@ -243,7 +243,7 @@ func validateBindingTypes(prog *turnoutpb.ProgModel, scope map[string]bindingInf
 			// prepare at runtime; their literal/template membership is validated at
 			// the boundary (§24.4), not against the compile-time placeholder.
 			if info, ok := scope[b.Name]; ok && info.declaredType != nil &&
-				info.sigil != ast.SigilIngress && info.sigil != ast.SigilBiDir {
+				info.sigil != ast.SigilToState && info.sigil != ast.SigilBiDir {
 				checkLiteralAssignable(b, info.declaredType, pos, ds)
 			}
 		}

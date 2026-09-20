@@ -143,7 +143,7 @@ func TestNextSugarConditional(t *testing.T) {
 	if len(bs) != 2 {
 		t.Fatalf("synthesized bindings = %d, want 2", len(bs))
 	}
-	if bs[0].Sigil != ast.SigilIngress || bs[0].Name != "ready" {
+	if bs[0].Sigil != ast.SigilToState || bs[0].Name != "ready" {
 		t.Errorf("binding[0] = %v %q, want an ingress `ready`", bs[0].Sigil, bs[0].Name)
 	}
 	if bs[1].Marker != ast.MarkerCond || r.Compute.Condition != bs[1].Name {

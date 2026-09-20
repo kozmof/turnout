@@ -123,19 +123,28 @@ func TestFieldTypeElemType(t *testing.T) {
 		{ast.FieldTypeArrBool, ast.FieldTypeBool},
 	}
 	for _, tc := range cases {
-		if got := tc.arr.ElemType(); got != tc.elem {
-			t.Errorf("%s.ElemType() = %s, want %s", tc.arr, got, tc.elem)
+		got, isArray := tc.arr.TryElemType()
+		if !isArray {
+			t.Errorf("%s.TryElemType() reported no element type", tc.arr)
+			continue
+		}
+		if got != tc.elem {
+			t.Errorf("%s.TryElemType() = %s, want %s", tc.arr, got, tc.elem)
 		}
 	}
 }
 
-func TestFieldTypeElemTypePanicsOnScalar(t *testing.T) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Error("ElemType on scalar type should panic")
+// A scalar has no element type, and asking for one is a caller's mistake rather
+// than a reason to stop the compiler. It used to be both: ElemType panicked,
+// and every call site already guarded with IsArray so the panic was unreachable
+// — but it was reachable from the recovered-panic path, where a real bug would
+// have surfaced as an InternalError instead of a type error.
+func TestFieldTypeTryElemTypeRefusesScalars(t *testing.T) {
+	for _, ft := range []ast.FieldType{ast.FieldTypeNumber, ast.FieldTypeStr, ast.FieldTypeBool} {
+		if elem, isArray := ft.TryElemType(); isArray {
+			t.Errorf("%s.TryElemType() reported element type %s", ft, elem)
 		}
-	}()
-	ast.FieldTypeNumber.ElemType()
+	}
 }
 
 // ── Sigil ─────────────────────────────────────────────────────────────────────
@@ -146,8 +155,8 @@ func TestSigilString(t *testing.T) {
 		want string
 	}{
 		{ast.SigilNone, ""},
-		{ast.SigilIngress, "~>"},
-		{ast.SigilEgress, "<~"},
+		{ast.SigilToState, "~>"},
+		{ast.SigilFromState, "<~"},
 		{ast.SigilBiDir, "<~>"},
 	}
 	for _, tc := range cases {
@@ -316,13 +325,13 @@ func TestActionBlockConstruction(t *testing.T) {
 				Name: "score_graph",
 				Bindings: []*ast.BindingDecl{
 					{
-						Sigil: ast.SigilIngress,
+						Sigil: ast.SigilToState,
 						Name:  "income",
 						Type:  ast.FieldTypeNumber,
 						RHS:   &ast.SigilInputRHS{},
 					},
 					{
-						Sigil: ast.SigilEgress,
+						Sigil: ast.SigilFromState,
 						Name:  "decision",
 						Type:  ast.FieldTypeBool,
 						RHS: &ast.InfixRHS{
@@ -370,7 +379,7 @@ func TestNextRuleConstruction(t *testing.T) {
 				Name: "to_approve",
 				Bindings: []*ast.BindingDecl{
 					{
-						Sigil: ast.SigilIngress,
+						Sigil: ast.SigilToState,
 						Name:  "decision",
 						Type:  ast.FieldTypeBool,
 						RHS:   &ast.SigilInputRHS{},

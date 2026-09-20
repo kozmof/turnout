@@ -17,10 +17,11 @@ const (
 	TokNumberLit           // 42 | 3.14
 	TokBoolLit             // true | false
 
-	// Sigils — longest match first in source
-	TokSigilBiDir   // <~>
-	TokSigilEgress  // <~
-	TokSigilIngress // ~>
+	// Sigils — longest match first in source. Named for which way the value
+	// moves relative to STATE, matching ast.Sigil.
+	TokSigilBiDir     // <~>
+	TokSigilFromState // <~  — reads from STATE
+	TokSigilToState   // ~>  — writes to STATE
 
 	// Punctuation
 	TokLBrace      // {
@@ -257,47 +258,47 @@ var tokenNames map[TokenKind]string
 func init() {
 	keywords = make(map[string]TokenKind, len(keywordTable))
 	tokenNames = map[TokenKind]string{
-		TokEOF:          "EOF",
-		TokIdent:        "IDENT",
-		TokType:         "TYPE",
-		TokStringLit:    "STRING",
-		TokNumberLit:    "NUMBER",
-		TokBoolLit:      "BOOL",
-		TokSigilBiDir:   "<~>",
-		TokSigilEgress:  "<~",
-		TokSigilIngress: "~>",
-		TokLBrace:       "{",
-		TokRBrace:       "}",
-		TokLBracket:     "[",
-		TokRBracket:     "]",
-		TokLParen:       "(",
-		TokRParen:       ")",
-		TokComma:        ",",
-		TokColon:        ":",
-		TokResult:       ":=",
-		TokEquals:       "=",
-		TokDot:          ".",
-		TokAt:           "@",
-		TokFlowArrow:    "|->",
-		TokArrow:        "->",
-		TokPipeForward:  "|>",
-		TokPipe:         "|",
-		TokAmpersand:    "&",
-		TokGTE:          ">=",
-		TokLTE:          "<=",
-		TokGT:           ">",
-		TokLT:           "<",
-		TokPlus:         "+",
-		TokMinus:        "-",
-		TokStar:         "*",
-		TokSlash:        "/",
-		TokPercent:      "%",
-		TokEqEq:         "==",
-		TokNeq:          "!=",
-		TokHashIt:       "#it",
-		TokUnderscore:   "_",
-		TokHeredoc:      "HEREDOC",
-		TokTripleQuote:  "TRIPLE_QUOTE",
+		TokEOF:            "EOF",
+		TokIdent:          "IDENT",
+		TokType:           "TYPE",
+		TokStringLit:      "STRING",
+		TokNumberLit:      "NUMBER",
+		TokBoolLit:        "BOOL",
+		TokSigilBiDir:     "<~>",
+		TokSigilFromState: "<~",
+		TokSigilToState:   "~>",
+		TokLBrace:         "{",
+		TokRBrace:         "}",
+		TokLBracket:       "[",
+		TokRBracket:       "]",
+		TokLParen:         "(",
+		TokRParen:         ")",
+		TokComma:          ",",
+		TokColon:          ":",
+		TokResult:         ":=",
+		TokEquals:         "=",
+		TokDot:            ".",
+		TokAt:             "@",
+		TokFlowArrow:      "|->",
+		TokArrow:          "->",
+		TokPipeForward:    "|>",
+		TokPipe:           "|",
+		TokAmpersand:      "&",
+		TokGTE:            ">=",
+		TokLTE:            "<=",
+		TokGT:             ">",
+		TokLT:             "<",
+		TokPlus:           "+",
+		TokMinus:          "-",
+		TokStar:           "*",
+		TokSlash:          "/",
+		TokPercent:        "%",
+		TokEqEq:           "==",
+		TokNeq:            "!=",
+		TokHashIt:         "#it",
+		TokUnderscore:     "_",
+		TokHeredoc:        "HEREDOC",
+		TokTripleQuote:    "TRIPLE_QUOTE",
 	}
 	for _, e := range keywordTable {
 		keywords[e.text] = e.kind
@@ -475,7 +476,7 @@ func (l *lex) scanToken() {
 		if l.peekAt(1) == '>' {
 			l.advance()
 			l.advance()
-			l.emit(TokSigilIngress, "~>", ln, co)
+			l.emit(TokSigilToState, "~>", ln, co)
 		} else {
 			l.advance()
 			l.errorf(ln, co, "unexpected '~' — expected '~>'")

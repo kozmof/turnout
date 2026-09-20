@@ -105,8 +105,8 @@ func TestNextMatchExpandsOneRulePerArm(t *testing.T) {
 	// and their types come from the literals in each column.
 	wantTypes := []ast.FieldType{ast.FieldTypeStr, ast.FieldTypeStr, ast.FieldTypeBool}
 	for i, b := range c0.Prog.Bindings[:3] {
-		if b.Sigil != ast.SigilIngress {
-			t.Errorf("binding %q: sigil = %v, want SigilIngress", b.Name, b.Sigil)
+		if b.Sigil != ast.SigilToState {
+			t.Errorf("binding %q: sigil = %v, want SigilToState", b.Name, b.Sigil)
 		}
 		if _, ok := b.RHS.(*ast.SigilInputRHS); !ok {
 			t.Errorf("binding %q: RHS = %T, want *ast.SigilInputRHS", b.Name, b.RHS)

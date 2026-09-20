@@ -20,7 +20,7 @@ func (l *lex) scanLAngle(ln, co int) {
 	case c1 == '~':
 		l.advance()
 		l.advance()
-		l.emit(TokSigilEgress, "<~", ln, co)
+		l.emit(TokSigilFromState, "<~", ln, co)
 	case c1 == '=':
 		l.advance()
 		l.advance()
