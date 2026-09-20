@@ -211,14 +211,23 @@ function syntheticModel(scenes: SceneBlock[], routes: RouteModel[]): TurnModel {
  * lives until the last of them is done.
  */
 export class PreparedModel {
-  /** @internal */ readonly model: TurnModel;
-  /** @internal */ readonly source: RuntimeModelSource;
+  /**
+   * The migrated model, the runtime source built over its handle, and the
+   * index — all private.
+   *
+   * They were `@internal readonly` fields, which is a comment rather than a
+   * boundary: `readonly` is erased at run time, so a caller could push a scene
+   * onto `prepared.model.scenes` and leave dispatch resolving against a scene
+   * the runtime's lowered copy under the handle has never seen. Everything
+   * that needs them is in this file, so nothing outside has to reach in.
+   */
+  readonly #model: TurnModel;
+  readonly #source: RuntimeModelSource;
   /**
    * The client the handle below lives in. A handle means nothing to any other
    * instance, so it is carried with the model rather than looked up again.
-   * @internal
    */
-  readonly client: ZigRuntimeClient;
+  readonly #client: ZigRuntimeClient;
   readonly #handle: number;
   #released = false;
   /**
@@ -237,10 +246,10 @@ export class PreparedModel {
     source: RuntimeModelSource,
     client: ZigRuntimeClient,
   ) {
-    this.model = model;
+    this.#model = model;
     this.#handle = handle;
-    this.source = source;
-    this.client = client;
+    this.#source = source;
+    this.#client = client;
   }
 
   /** True once {@link release} has been called. */
@@ -248,10 +257,38 @@ export class PreparedModel {
     return this.#released;
   }
 
-  /** @internal */
-  index(): ModelIndex {
-    this.#index ??= buildModelIndex(this.model);
-    return this.#index;
+  /**
+   * Which Zig runtime this model was prepared on.
+   *
+   * Readable because a caller holding several clients needs to tell them
+   * apart — `createRunner` refuses a prepared model from a different one — and
+   * because a client reference cannot be used to corrupt the prepared state
+   * the way the model itself could.
+   */
+  get client(): ZigRuntimeClient {
+    return this.#client;
+  }
+
+  /**
+   * Everything `createRunner` needs to run this model, in one call.
+   *
+   * One accessor rather than four, so the fields stay private and the set a
+   * runner depends on is visible in one place.
+   * @internal
+   */
+  runtimeInputs(): {
+    model: TurnModel;
+    source: RuntimeModelSource;
+    client: ZigRuntimeClient;
+    index: ModelIndex;
+  } {
+    this.#index ??= buildModelIndex(this.#model);
+    return {
+      model: this.#model,
+      source: this.#source,
+      client: this.#client,
+      index: this.#index,
+    };
   }
 
   /**
@@ -261,7 +298,7 @@ export class PreparedModel {
   release(): void {
     if (this.#released) return;
     this.#released = true;
-    this.client.destroyModel(this.#handle);
+    this.#client.destroyModel(this.#handle);
   }
 }
 
@@ -300,7 +337,7 @@ function createZigRunner(
   inputModel: TurnModel | PreparedModel,
   options: RunnerOptions,
 ): Runner<FullHarnessResult> {
-  const prepared = inputModel instanceof PreparedModel ? inputModel : undefined;
+  const prepared = inputModel instanceof PreparedModel ? inputModel.runtimeInputs() : undefined;
   // A prepared model's handle exists only inside the instance that prepared it,
   // so running it on another one would hand that instance a handle it never
   // issued. Say so here rather than let it surface as an invalid handle.
@@ -317,7 +354,7 @@ function createZigRunner(
   const client = prepared?.client ?? options.client ?? defaultZigRuntimeClient;
   const migratedModel = prepared?.model ?? runValidation(inputModel as TurnModel);
   validateExecutionLimits(options);
-  const target = resolveDispatchTarget(migratedModel, options.entryId, prepared?.index());
+  const target = resolveDispatchTarget(migratedModel, options.entryId, prepared?.index);
   if (!migratedModel.state) {
     const detail = "No STATE schema in model";
     assertUncheckedStateAllowed(options, detail);

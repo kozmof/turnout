@@ -1,5 +1,8 @@
+import { readFile } from "node:fs/promises";
 import { describe, it, expect } from "vitest";
+import { instantiateZigRuntime } from "runtime/zig-runtime";
 import { createRunner, prepareModel } from "../src/runner.js";
+import { defaultZigRuntimeClient } from "../src/zig-runtime/default-client.js";
 import { ModelValidationError } from "../src/errors.js";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
@@ -76,5 +79,26 @@ describe("prepareModel", () => {
       routes: [],
     } as unknown as TurnModel;
     expect(() => prepareModel(broken)).toThrow(ModelValidationError);
+  });
+
+  // The handle a prepared model holds means nothing to any other instance, so
+  // which client it belongs to is part of what the caller is holding — and it
+  // is the one thing `createRunner` compares before refusing with
+  // ClientMismatch.
+  it("names the client it was prepared on", () => {
+    const prepared = prepareModel(buildModel(1));
+    expect(prepared.client).toBe(defaultZigRuntimeClient);
+    prepared.release();
+  });
+
+  it("refuses to run a prepared model on a different client", async () => {
+    const prepared = prepareModel(buildModel(1));
+    const other = await instantiateZigRuntime(
+      await readFile(new URL("../../../zig/zig-out/bin/turnout-runtime.wasm", import.meta.url)),
+    );
+    expect(() =>
+      createRunner(prepared, { entryId: "main", initialState: {}, client: other }),
+    ).toThrow(ModelValidationError);
+    prepared.release();
   });
 });
