@@ -371,10 +371,19 @@ interface ZigRuntimeSession {
   readonly created: CreatedRuntime;
   readonly signal: AbortSignal;
   isDone(): boolean;
+  /** Whether the handle has been given back, however the run ended. */
+  isClosed(): boolean;
   /** STATE as it stands, or the state captured when the handle closed. */
   readState(): StateSnapshot;
   /** Capture the final state, close the handle, and stop listening for abort. */
   finish(): void;
+  /**
+   * Close the handle for a run that ended without completing.
+   *
+   * The caller is already throwing. This exists so the throw does not also cost
+   * a handle, and so `partialState()` still has something to answer with.
+   */
+  abandon(): void;
   /** The final state, or `IncompleteExecution` when the run has not ended. */
   requireFinalState(): StateSnapshot;
   /** The final state when there is one, otherwise a live read. */
@@ -413,7 +422,7 @@ function openZigRuntimeSession(
   assertOk(created);
   const handle = created.payload.handle;
 
-  let done = false;
+  let completed = false;
   let handleOpen = true;
   let finalState: StateSnapshot | undefined;
 
@@ -432,38 +441,80 @@ function openZigRuntimeSession(
     );
   }
 
-  function finish(): void {
-    if (done) return;
-    finalState = readState();
-    const destroyed = client.destroy(handle);
-    assertOk(destroyed);
+  /**
+   * Capture what STATE holds and give the handle back.
+   *
+   * `strict` is the completion path, where a runtime that will not answer is
+   * itself the failure and has to surface. Every other caller already carries
+   * an error — an abort, or a step that threw — and one raised from the cleanup
+   * would displace it, so those take the state they can get and report a handle
+   * they could not reclaim as a warning instead.
+   *
+   * The destroy sits in a `finally` because it is the runtime's only chance to
+   * reclaim the handle: a read that throws on the way past must not take the
+   * handle with it.
+   */
+  function closeHandle(strict: boolean): void {
+    if (!handleOpen) return;
+
+    let readError: unknown;
+    let readFailed = false;
+    try {
+      finalState = readState();
+    } catch (error) {
+      // The run is over either way. An unreadable handle costs the caller the
+      // partial state, not the outcome that got us here.
+      finalState = undefined;
+      readError = error;
+      readFailed = true;
+    }
+
+    // Destroy regardless of how the read went: this is the runtime's only
+    // chance to reclaim the handle, and a read that failed on the way past
+    // must not take the handle down with it.
+    let destroyError: unknown;
+    let destroyFailed = false;
+    try {
+      const destroyed = client.destroy(handle);
+      if (strict) assertOk(destroyed);
+    } catch (error) {
+      destroyError = error;
+      destroyFailed = true;
+    }
+
     handleOpen = false;
     signal.removeEventListener("abort", releaseOnAbort);
-    done = true;
+
+    if (strict) {
+      // The read failing is the more informative of the two, so it wins.
+      if (readFailed) throw readError;
+      if (destroyFailed) throw destroyError;
+      return;
+    }
+    if (destroyFailed) {
+      // Failing here leaks a handle. There is nothing to retry and nothing that
+      // should displace the error already in flight — but it is the caller's
+      // memory, so say so.
+      safeWarn(
+        options.onWarning,
+        `[turnout] Zig runtime handle ${handle} could not be destroyed and has ` +
+          `leaked: ${errorMessage(destroyError)}`,
+      );
+    }
+  }
+
+  function finish(): void {
+    if (completed || !handleOpen) return;
+    closeHandle(true);
+    completed = true;
+  }
+
+  function abandon(): void {
+    closeHandle(false);
   }
 
   function releaseOnAbort(): void {
-    if (!handleOpen) return;
-    try {
-      finalState = readState();
-    } catch {
-      // The run is over either way. An unreadable handle costs the caller the
-      // partial state, not the abort.
-      finalState = undefined;
-    }
-    try {
-      client.destroy(handle);
-    } catch (error) {
-      // Destroy is the runtime's only chance to reclaim the handle, so failing
-      // here leaks one. There is nothing to retry and nothing that should
-      // displace the abort — but it is the caller's memory, so say so.
-      safeWarn(
-        options.onWarning,
-        `[turnout] Zig runtime handle ${handle} could not be destroyed on abort and has ` +
-          `leaked: ${errorMessage(error)}`,
-      );
-    }
-    handleOpen = false;
+    closeHandle(false);
   }
 
   signal.addEventListener("abort", releaseOnAbort, { once: true });
@@ -474,11 +525,13 @@ function openZigRuntimeSession(
     handle,
     created: created.payload,
     signal,
-    isDone: () => done,
+    isDone: () => completed,
+    isClosed: () => !handleOpen,
     readState,
     finish,
+    abandon,
     requireFinalState: () => {
-      if (!done || finalState === undefined) {
+      if (!completed || finalState === undefined) {
         throw new RunnerError(
           "IncompleteExecution",
           "execution is not complete — call run() or step until isDone()",
@@ -492,6 +545,42 @@ function openZigRuntimeSession(
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Wrap a step function so the runtime handle goes back on every exit, not only
+ * the one where the run reaches its end.
+ *
+ * `finish()` covers completion. Nothing covered the paths where a run stops
+ * without completing — a hook that throws, a step limit that trips, a publish
+ * failure under `failOnPublishError` — and each of those left the handle open
+ * with no one holding a reference to close it. The WASM instance is
+ * process-wide, so the STATE behind an abandoned handle is never reclaimed;
+ * `executeSceneSafe`, whose whole purpose is to return from exactly those
+ * failures, leaked one per failed run.
+ *
+ * The partial state is captured before the handle goes, so `partialState()`
+ * still answers afterwards. Stepping again is refused rather than passed
+ * through to a handle that no longer exists.
+ */
+function closingOnThrow(
+  session: ZigRuntimeSession,
+  advance: () => Promise<RunnerStepResult>,
+): () => Promise<RunnerStepResult> {
+  return async () => {
+    if (session.isClosed() && !session.isDone()) {
+      throw new RunnerError(
+        "ExecutionEnded",
+        "the run ended without completing — create a new runner to run again",
+      );
+    }
+    try {
+      return await advance();
+    } catch (error) {
+      session.abandon();
+      throw error;
+    }
+  };
 }
 
 /** Build the existing scene Runner API around one Zig WASM runtime handle. */
@@ -575,7 +664,7 @@ export function createZigSceneRunner(
 
   return makeRunnerMethods(
     hooks,
-    advance,
+    closingOnThrow(session, advance),
     session.isDone,
     () => ({
       finalState: session.requireFinalState(),
@@ -749,7 +838,7 @@ export function createZigRouteRunner(
 
   return makeRunnerMethods(
     hooks,
-    advance,
+    closingOnThrow(session, advance),
     session.isDone,
     () => ({
       finalState: session.requireFinalState(),

@@ -526,7 +526,7 @@ describe("advanceZigRuntime", () => {
     });
 
     expect(warnings).toEqual([
-      expect.stringContaining("handle 41 could not be destroyed on abort and has leaked"),
+      expect.stringContaining("handle 41 could not be destroyed and has leaked"),
     ]);
     expect(warnings[0]).toContain("destroy failed");
   });
@@ -807,5 +807,82 @@ describe("advanceZigRuntime", () => {
     expect(runner.isDone()).toBe(false);
     expect(runner.partialState().snapshot()).toEqual({ score: buildNumber(1) });
     await expect(runner.next()).rejects.toMatchObject({ name: "AbortError" });
+  });
+});
+
+describe("handle release on failure", () => {
+  function failingClient(
+    destroy: () => { status: "ok"; payload: { destroyed: number } },
+  ): ZigRuntimeLifecycleTransport {
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({
+        status: "ok",
+        payload: { handle: 77, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
+      destroy,
+      step: <T>() => ({ status: "runtime_error", payload: { error: "Boom" } as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({
+        status: "ok",
+        payload: {
+          state: { score: { symbol: "number", value: 3, tags: [] } } as T,
+          done: false,
+        },
+      }),
+    };
+    return client;
+  }
+
+  // A run that throws used to leave its handle open forever: finish() was only
+  // reachable from the completion path. The WASM instance is process-wide, so
+  // nothing ever reclaimed the STATE behind an abandoned handle.
+  it("destroys the handle when a step throws, and keeps the partial state", async () => {
+    const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 77 } }));
+    const runner = createZigSceneRunner(failingClient(destroy), new Uint8Array([1]), "main", {
+      entryId: "main",
+      initialState: { score: buildNumber(1) },
+    });
+
+    await expect(runner.run()).rejects.toThrow();
+    expect(destroy).toHaveBeenCalledOnce();
+    expect(runner.partialState().snapshot()).toEqual({ score: buildNumber(3) });
+  });
+
+  // The run did not complete, so the result is still withheld even though the
+  // handle is gone.
+  it("refuses a result for a run that ended with an error", async () => {
+    const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 77 } }));
+    const runner = createZigSceneRunner(failingClient(destroy), new Uint8Array([1]), "main", {
+      entryId: "main",
+      initialState: {},
+    });
+
+    await expect(runner.run()).rejects.toThrow();
+    expect(runner.isDone()).toBe(false);
+    expect(() => runner.result()).toThrow("execution is not complete");
+  });
+
+  // Stepping again would otherwise reach a handle the runtime no longer knows.
+  it("refuses to step again after the run ended with an error", async () => {
+    const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 77 } }));
+    const runner = createZigSceneRunner(failingClient(destroy), new Uint8Array([1]), "main", {
+      entryId: "main",
+      initialState: {},
+    });
+
+    await expect(runner.next()).rejects.toThrow();
+    await expect(runner.next()).rejects.toThrow("the run ended without completing");
+    expect(destroy).toHaveBeenCalledOnce();
+  });
+
+  it("destroys the handle once when a route step throws", async () => {
+    const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 77 } }));
+    const runner = createZigRouteRunner(failingClient(destroy), new Uint8Array([1]), "r", {
+      entryId: "r",
+      initialState: {},
+    });
+
+    await expect(runner.run()).rejects.toThrow();
+    expect(destroy).toHaveBeenCalledOnce();
   });
 });

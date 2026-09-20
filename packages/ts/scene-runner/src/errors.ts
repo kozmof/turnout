@@ -112,6 +112,7 @@ export type RunnerErrorCode =
   | "InvalidExecutionLimit"
   | "IncompleteExecution"
   | "ConcurrentExecution"
+  | "ExecutionEnded"
   | "UncheckedStateNotAllowed";
 
 export class RunnerError extends Error {
