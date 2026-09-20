@@ -102,3 +102,66 @@ test("flips the conditional transition sugar to the arrow form", () => {
   assert.equal(migrate(source).out, expected);
   assert.equal(migrate(expected).out, expected);
 });
+
+// The script emitted `compute { prog "x" { … } }` long after the parser stopped
+// accepting it. Nothing caught that: these tests are textual and never compile
+// what they produce, so "still passes" and "still works" had come apart.
+test("collapses prog into the compute label", () => {
+  const source = [
+    'action "check" {',
+    "  compute {",
+    "",
+    "    # the graph",
+    '    prog "availability_graph" {',
+    "      stock:number <~ @machine.stock",
+    "      ok:bool := stock > 0",
+    "    }",
+    "  }",
+    "}",
+  ].join("\n");
+  assert.equal(
+    migrate(source).out,
+    [
+      'action "check" {',
+      '  compute "availability_graph" {',
+      "",
+      "    # the graph",
+      "    stock:number <~ @machine.stock",
+      "    ok:bool := stock > 0",
+      "  }",
+      "}",
+    ].join("\n"),
+  );
+});
+
+test("collapses a prog that fits on one line, braces in its body and all", () => {
+  assert.equal(
+    migrate('action "a" { compute { prog "p" { m:rec<str,number> = {"a": 1} } } }').out,
+    'action "a" { compute "p" { m:rec<str,number> = {"a": 1} } }',
+  );
+});
+
+test("leaves a compute block that holds more than its prog", () => {
+  // The old grammar did not allow this, so it is a hand-written oddity rather
+  // than something to rewrite blind.
+  const source = [
+    "compute {",
+    '  prog "p" {',
+    "    a:bool := true",
+    "  }",
+    "  stray = 1",
+    "}",
+  ].join("\n");
+  assert.equal(migrate(source).out, source);
+});
+
+test("is idempotent on already-migrated sources", () => {
+  const migrated = ['compute "p" {', "  a:bool := true", "}"].join("\n");
+  assert.equal(migrate(migrated).out, migrated);
+  assert.equal(migrate(migrate(migrated).out).out, migrated);
+});
+
+test("does not rewrite DSL quoted inside a string literal", () => {
+  const source = 'note:str = "compute { prog "';
+  assert.equal(migrate(source).out, source);
+});

@@ -161,7 +161,128 @@ const transforms = [
         ),
       ),
   },
+  {
+    // `compute` and `prog` were always 1:1 — a compute block held exactly one
+    // prog and nothing else, so the inner block carried one piece of
+    // information the outer one did not, its name. The name moved out to
+    // `compute` and `prog` was retired (todo/collapse-prog-into-compute.md).
+    //
+    // Without this phase the script emitted the nested form on every run, which
+    // the current parser rejects. Its own tests are textual and never compile
+    // what they produce, so nothing noticed.
+    name: "1.5 compute label",
+    apply: collapseProgIntoCompute,
+  },
 ];
+
+/**
+ * Rewrites `compute { prog "p" { … } }` to `compute "p" { … }`.
+ *
+ * Structural rather than textual: the body has to lose a nesting level, and
+ * blank and comment lines may sit between the two openers — the case that was
+ * hand-migrated last time because no rewrite matched it.
+ */
+function collapseProgIntoCompute(src) {
+  const lines = src.split("\n").map(collapseProgOnOneLine);
+  for (let i = 0; i < lines.length; i++) {
+    // Matched against the raw line rather than the brace-safe one: stripStrings
+    // blanks string literals, and the prog's name is the whole point here.
+    const open = /^(\s*)compute\s*\{\s*(#.*)?$/.exec(lines[i]);
+    if (open === null) continue;
+
+    // Skip blank lines and whole-line comments to reach the prog opener. The
+    // last migration hand-fixed a spec file for want of exactly this.
+    let progLine = i + 1;
+    while (progLine < lines.length && isBlankOrComment(lines[progLine])) progLine++;
+    if (progLine >= lines.length) continue;
+    const prog = /^(\s*)prog(\s+"[^"]*")\s*\{\s*(#.*)?$/.exec(lines[progLine]);
+    if (prog === null) continue;
+
+    const computeEnd = matchingBrace(lines, i);
+    const progEnd = matchingBrace(lines, progLine);
+    if (computeEnd < 0 || progEnd < 0 || progEnd >= computeEnd) continue;
+    // Anything but blank lines between the two closers means the compute block
+    // held more than its prog, which the old grammar did not allow. Leave it.
+    let after = progEnd + 1;
+    while (after < computeEnd && isBlankOrComment(lines[after])) after++;
+    if (after !== computeEnd) continue;
+
+    const dedent = prog[1].length - open[1].length;
+    const body = lines
+      .slice(progLine + 1, progEnd)
+      .map((line) =>
+        dedent > 0 && line.startsWith(" ".repeat(dedent)) ? line.slice(dedent) : line,
+      );
+
+    lines.splice(
+      i,
+      computeEnd - i + 1,
+      `${open[1]}compute${prog[2]} {`,
+      ...lines.slice(i + 1, progLine),
+      ...body,
+      `${open[1]}}`,
+    );
+  }
+  return lines.join("\n");
+}
+
+/**
+ * Collapses the compact `compute { prog "p" { … } }` that fits on one line.
+ *
+ * Both closing braces are on the line too, so one of them has to go. Finding
+ * which means matching braces rather than pattern-substituting: a body holding
+ * a record literal or a nested call has braces of its own.
+ */
+function collapseProgOnOneLine(line) {
+  let out = line;
+  for (;;) {
+    const match = /\bcompute\s*\{\s*prog(\s+"[^"]*")\s*\{/.exec(out);
+    if (match === null) return out;
+    const computeBrace = out.indexOf("{", match.index);
+    const progBrace = match.index + match[0].length - 1;
+    const progClose = matchingBraceInLine(out, progBrace);
+    const computeClose = matchingBraceInLine(out, computeBrace);
+    // Unbalanced on this line, or the compute block held more than its prog.
+    if (progClose < 0 || computeClose < 0) return out;
+    if (out.slice(progClose + 1, computeClose).trim() !== "") return out;
+    out =
+      out.slice(0, match.index) +
+      `compute${match[1]} {` +
+      out.slice(progBrace + 1, progClose + 1) +
+      out.slice(computeClose + 1);
+  }
+}
+
+/**
+ * Index of the brace closing the one at `open`, or -1.
+ *
+ * Scans the line itself rather than a stripped copy: `stripStrings` blanks a
+ * literal to a shorter one, and every index here has to line up with the text
+ * being spliced. A `#` outside a string swallows the rest of the line, so a
+ * block that would close after one is not closed on this line at all.
+ */
+function matchingBraceInLine(text, open) {
+  let depth = 0;
+  let quoted = false;
+  for (let i = open; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === "\\") i++;
+      else if (ch === '"') quoted = false;
+      continue;
+    }
+    if (ch === '"') quoted = true;
+    else if (ch === "#") return -1;
+    else if (ch === "{") depth++;
+    else if (ch === "}" && --depth === 0) return i;
+  }
+  return -1;
+}
+
+function isBlankOrComment(line) {
+  const trimmed = line.trim();
+  return trimmed === "" || trimmed.startsWith("#") || trimmed.startsWith("//");
+}
 
 // Replaces the retired context-specific prefix markers with the contextual
 // result operator. The RHS separator becomes :=; inline and structural inputs
