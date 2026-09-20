@@ -69,6 +69,7 @@ export interface CreatedRuntime {
   /** Limits actually in force, from the request or the runtime defaults. */
   maxSceneSteps: number;
   maxRouteTransitions: number;
+  maxModelMerges: number;
 }
 
 export interface ZigResponse<T = unknown> {

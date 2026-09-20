@@ -8,7 +8,7 @@ import type {
 } from "./types/harness-types.js";
 import type { StateManager } from "./state/state-manager.js";
 import { migrateModel, checkSceneForExtExpr } from "./migration.js";
-import { resolveDispatchTarget } from "./dispatch.js";
+import { buildModelIndex, resolveDispatchTarget, type ModelIndex } from "./dispatch.js";
 import { validateModel } from "./validate-model.js";
 import { ModelValidationError } from "./errors.js";
 import { encodeZigRuntimeModel, protoJson } from "./model-encoding.js";
@@ -221,6 +221,14 @@ export class PreparedModel {
   readonly client: ZigRuntimeClient;
   readonly #handle: number;
   #released = false;
+  /**
+   * Routes and scenes by id, built on first use.
+   *
+   * A prepared model is fixed — the runtime already holds its own lowered copy
+   * under a handle — so indexing it once and reusing that is safe in the way
+   * indexing an arbitrary caller-owned model is not.
+   */
+  #index?: ModelIndex;
 
   /** @internal */
   constructor(
@@ -238,6 +246,12 @@ export class PreparedModel {
   /** True once {@link release} has been called. */
   get released(): boolean {
     return this.#released;
+  }
+
+  /** @internal */
+  index(): ModelIndex {
+    this.#index ??= buildModelIndex(this.model);
+    return this.#index;
   }
 
   /**
@@ -268,7 +282,10 @@ export function prepareModel(
   const encoded = encodeZigRuntimeModel(migratedModel);
   const prepared = client.prepareModel(encoded);
   if (prepared.status !== "ok") {
-    throw new ModelValidationError([`runtime rejected the model: ${String(prepared.status)}`]);
+    throw new ModelValidationError(
+      [`runtime rejected the model: ${String(prepared.status)}`],
+      "RuntimeRejected",
+    );
   }
   const handle = prepared.payload.handle;
   return new PreparedModel(
@@ -292,14 +309,15 @@ function createZigRunner(
     options.client !== undefined &&
     options.client !== prepared.client
   ) {
-    throw new ModelValidationError([
-      "the prepared model belongs to a different Zig runtime client than options.client",
-    ]);
+    throw new ModelValidationError(
+      ["the prepared model belongs to a different Zig runtime client than options.client"],
+      "ClientMismatch",
+    );
   }
   const client = prepared?.client ?? options.client ?? defaultZigRuntimeClient;
   const migratedModel = prepared?.model ?? runValidation(inputModel as TurnModel);
   validateExecutionLimits(options);
-  const target = resolveDispatchTarget(migratedModel, options.entryId);
+  const target = resolveDispatchTarget(migratedModel, options.entryId, prepared?.index());
   if (!migratedModel.state) {
     const detail = "No STATE schema in model";
     assertUncheckedStateAllowed(options, detail);

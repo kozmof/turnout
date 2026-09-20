@@ -113,7 +113,8 @@ export type RunnerErrorCode =
   | "IncompleteExecution"
   | "ConcurrentExecution"
   | "ExecutionEnded"
-  | "UncheckedStateNotAllowed";
+  | "UncheckedStateNotAllowed"
+  | "EntryNotFound";
 
 export class RunnerError extends Error {
   readonly code: RunnerErrorCode;
@@ -157,16 +158,31 @@ export function isStateError(err: unknown): err is StateError {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ModelValidationErrorCode = "InvalidModel";
+/**
+ * Why a model was rejected.
+ *
+ * - `MalformedModel` — the model violates a structural invariant. The engine
+ *   reports these, one message per violation, in `errors`.
+ * - `RuntimeRejected` — the engine refused the model without itemising why,
+ *   such as a size or nesting limit.
+ * - `ClientMismatch` — the model is fine, but it was prepared by a different
+ *   Zig runtime client than the one asked to run it.
+ *
+ * Worth telling apart: the first is a model for its author to fix, the second
+ * is a limit to raise, and the third is a wiring mistake in the calling code
+ * with the model entirely innocent.
+ */
+export type ModelValidationErrorCode = "MalformedModel" | "RuntimeRejected" | "ClientMismatch";
 
 export class ModelValidationError extends Error {
-  readonly code: ModelValidationErrorCode = "InvalidModel";
+  readonly code: ModelValidationErrorCode;
   readonly errors: readonly string[];
 
-  constructor(errors: readonly string[]) {
+  constructor(errors: readonly string[], code: ModelValidationErrorCode = "MalformedModel") {
     super(`[turnout] Invalid model:\n${errors.map((e) => `  • ${e}`).join("\n")}`);
     this.name = "ModelValidationError";
     this.errors = errors;
+    this.code = code;
   }
 }
 

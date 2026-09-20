@@ -24,6 +24,7 @@ export function validateExecutionLimits(options: RunnerOptions): void {
   for (const [name, value] of [
     ["maxSceneSteps", options.maxSceneSteps],
     ["maxRouteTransitions", options.maxRouteTransitions],
+    ["maxModelMerges", options.maxModelMerges],
   ] as const) {
     if (value !== undefined && (!Number.isSafeInteger(value) || value < 0)) {
       throw new RunnerError(

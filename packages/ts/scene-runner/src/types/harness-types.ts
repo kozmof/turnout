@@ -122,6 +122,16 @@ export type ExecutionOptions = {
   /** Maximum scene transitions allowed during route execution. Must be a non-negative safe integer. Defaults to 1,000. */
   maxRouteTransitions?: number;
   /**
+   * Maximum models an `extend` hook may merge into this run. Must be a
+   * non-negative safe integer. Defaults to 100.
+   *
+   * Every merge retains the model it replaced for the rest of the run, because
+   * the engine borrows ids from it. Merges belong at configuration boundaries,
+   * so a run that passes this is far more likely to be looping than to be
+   * configuring. Raise it for a flow that legitimately extends many times.
+   */
+  maxModelMerges?: number;
+  /**
    * Optional cancellation signal. When aborted, `next()`, `run()`, and `runAsync()`
    * throw a `DOMException` with `name === 'AbortError'`. The signal is also forwarded
    * to prepare and publish hooks so long-running async hooks can respect it.

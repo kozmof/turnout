@@ -253,7 +253,12 @@ describe("advanceZigRuntime", () => {
     };
     const create = vi.fn(() => ({
       status: "ok" as const,
-      payload: { handle: 12, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      payload: {
+        handle: 12,
+        maxSceneSteps: 10_000,
+        maxRouteTransitions: 1_000,
+        maxModelMerges: 100,
+      },
     }));
     const destroy = vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 12 } }));
     const client: ZigRuntimeLifecycleTransport = {
@@ -323,7 +328,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok" as const,
-        payload: { handle: 13, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 13,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy: vi.fn(() => ({ status: "ok" as const, payload: { destroyed: 13 } })),
       step: <T>() =>
@@ -401,7 +411,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 8, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 8,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy,
       step: <T>() => ({ status: "ok", payload: events.shift() as T }),
@@ -454,7 +469,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 40, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 40,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy: () => {
         throw new Error("destroy failed");
@@ -506,7 +526,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 41, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 41,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy: () => {
         throw new Error("destroy failed");
@@ -537,7 +562,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 42, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 42,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy: () => {
         throw new Error("destroy failed");
@@ -565,7 +595,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 41, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 41,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy: () => ({ status: "ok", payload: { destroyed: 41 } }),
       step: <T>() => ({ status: "ok", payload: { event: "complete" } as T }),
@@ -585,7 +620,12 @@ describe("advanceZigRuntime", () => {
     const lifecycle = (code: string): ZigRuntimeLifecycleTransport => ({
       create: () => ({
         status: "ok",
-        payload: { handle: 50, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 50,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy: () => ({ status: "ok", payload: { destroyed: 50 } }),
       step: <T>() => ({ status: "runtime_error", payload: { error: code } as T }),
@@ -624,7 +664,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 51, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 51,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy: () => ({ status: "ok", payload: { destroyed: 51 } }),
       step: <T>() => ({ status: "ok", payload: events.shift() as T }),
@@ -665,7 +710,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 52, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 52,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy: () => ({ status: "ok", payload: { destroyed: 52 } }),
       step: <T>() => ({ status: "ok", payload: events.shift() as T }),
@@ -746,7 +796,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 70, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 70,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy: () => ({ status: "ok", payload: { destroyed: 70 } }),
       step: <T>() => ({ status: "ok", payload: events.shift() as T }),
@@ -770,7 +825,12 @@ describe("advanceZigRuntime", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 30, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 30,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy,
       step: <T>() => ({
@@ -817,7 +877,12 @@ describe("handle release on failure", () => {
     const client: ZigRuntimeLifecycleTransport = {
       create: () => ({
         status: "ok",
-        payload: { handle: 77, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+        payload: {
+          handle: 77,
+          maxSceneSteps: 10_000,
+          maxRouteTransitions: 1_000,
+          maxModelMerges: 100,
+        },
       }),
       destroy,
       step: <T>() => ({ status: "runtime_error", payload: { error: "Boom" } as T }),

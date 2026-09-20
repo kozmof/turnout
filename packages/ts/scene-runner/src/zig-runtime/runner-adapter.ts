@@ -418,6 +418,7 @@ function openZigRuntimeSession(
     initialState,
     failOnPublishError: options.failOnPublishError ?? false,
     ...(options.maxSceneSteps !== undefined && { maxSceneSteps: options.maxSceneSteps }),
+    ...(options.maxModelMerges !== undefined && { maxModelMerges: options.maxModelMerges }),
   });
   assertOk(created);
   const handle = created.payload.handle;

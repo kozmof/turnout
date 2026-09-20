@@ -51,9 +51,17 @@ describe("executor error type guards", () => {
   });
 
   it("isModelValidationError", () => {
-    expect(model.code).toBe("InvalidModel");
+    // The default covers the common case: a model that broke an invariant.
+    expect(model.code).toBe("MalformedModel");
     expect(model.errors).toEqual(["bad field"]);
     expect(model.message).toContain("bad field");
+    // The other two say the model itself is not what went wrong, so a caller
+    // can tell "fix your flow" from "raise a limit" from "you wired the
+    // runner up wrong" without reading the message.
+    expect(new ModelValidationError(["too deep"], "RuntimeRejected").code).toBe("RuntimeRejected");
+    expect(new ModelValidationError(["wrong client"], "ClientMismatch").code).toBe(
+      "ClientMismatch",
+    );
     expect(isModelValidationError(model)).toBe(true);
     for (const other of [scene, runner, state, route, foreign]) {
       expect(isModelValidationError(other)).toBe(false);
