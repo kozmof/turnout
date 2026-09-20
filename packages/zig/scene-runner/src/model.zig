@@ -22,6 +22,10 @@ pub const ValidationError = error{
     RuntimeTooNew,
     CompilerMetadata,
     InvalidCompute,
+    /// A structural check a host ran up front found something. Creating a
+    /// model never raises this — see `RuntimeModel.init` — it is for hosts
+    /// reporting what `structure.validate` found.
+    MalformedModel,
 };
 
 pub const NextRuleCondition = union(enum) {
@@ -248,6 +252,14 @@ pub const RuntimeModel = struct {
     parsed: std.json.Parsed(std.json.Value),
     index: ModelIndex,
 
+    /// Creating a model checks that it is a model — its shape, its size, its
+    /// version — and not that every id inside it resolves.
+    ///
+    /// That laziness is deliberate and tested: a route whose entry scene is
+    /// absent is only a problem for a run that enters it, a next rule naming a
+    /// missing action is skipped with a warning, and a binding with no literal
+    /// may be filled by the caller. A host that would rather know all of that
+    /// before it starts calls `structure.validate`.
     pub fn init(allocator: std.mem.Allocator, bytes: []const u8, limits: Limits) ValidationError!RuntimeModel {
         if (bytes.len > limits.max_model_bytes) return error.ModelTooLarge;
         const parsed = std.json.parseFromSlice(std.json.Value, allocator, bytes, .{

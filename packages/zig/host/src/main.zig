@@ -14,6 +14,7 @@ const run_host = @import("run.zig");
 
 const model_runtime = scene_runner.model;
 const state_runtime = scene_runner.state;
+const structure = scene_runner.structure;
 
 const usage =
     \\Usage: turnout-run run <model.json> [options]
@@ -27,6 +28,8 @@ const usage =
     \\  --fail-on-publish-error
     \\  --max-scene-steps <n>
     \\  --max-route-transitions <n>
+    \\  --max-model-merges <n>
+    \\  --no-check          Skip the structural check and run the model as given.
     \\
     \\Prints the final STATE and the actions that ran, as JSON, on stdout.
     \\
@@ -40,6 +43,15 @@ const Args = struct {
     hook_program: ?[]const u8 = null,
     hook_args: []const []const u8 = &.{},
     options: run_host.Options = .{},
+    /// Whether to check the model's structure before running it.
+    ///
+    /// On by default. The engine resolves ids lazily, so a route whose entry
+    /// scene is missing is a failure several steps into a run rather than at
+    /// the start, and a duplicate scene id is not a failure at all — the index
+    /// keeps the first and the second never runs. The TypeScript host has
+    /// always checked up front; this is the same check, from the same place,
+    /// so both hosts reject the same models for the same reasons.
+    check: bool = true,
 };
 
 pub fn main(init: std.process.Init) !u8 {
@@ -67,6 +79,25 @@ pub fn main(init: std.process.Init) !u8 {
         return 1;
     };
     defer model.deinit();
+
+    if (args.check) {
+        var issues = try structure.validate(model.parsed.value, gpa);
+        defer issues.deinit();
+        if (!issues.ok()) {
+            // Every violation at once: a model with four mistakes should take
+            // one fix cycle, not four.
+            for (issues.messages) |message| {
+                try fail(io, "{s}: {s}\n", .{ args.model_path, message });
+            }
+            var error_buffer: [4096]u8 = undefined;
+            var error_out = std.Io.File.stdout().writer(io, &error_buffer);
+            try error_out.interface.print("{{\"error\":\"MalformedModel\",\"errors\":", .{});
+            try std.json.Stringify.value(issues.messages, .{}, &error_out.interface);
+            try error_out.interface.print("}}\n", .{});
+            try error_out.interface.flush();
+            return 1;
+        }
+    }
 
     var initial_values: std.StringArrayHashMapUnmanaged(turnout_value.TaggedValue) = .empty;
     var parsed_state: ?std.json.Parsed(std.json.Value) = null;
@@ -237,6 +268,10 @@ fn parseArgs(
     var index: usize = 2;
     while (index < argv.len) : (index += 1) {
         const argument = argv[index];
+        if (std.mem.eql(u8, argument, "--no-check")) {
+            args.check = false;
+            continue;
+        }
         if (std.mem.eql(u8, argument, "--fail-on-publish-error")) {
             args.options.fail_on_publish_error = true;
             continue;
@@ -261,6 +296,9 @@ fn parseArgs(
                 return error.InvalidNumber;
         } else if (std.mem.eql(u8, argument, "--max-route-transitions")) {
             args.options.max_route_transitions = std.fmt.parseInt(usize, option, 10) catch
+                return error.InvalidNumber;
+        } else if (std.mem.eql(u8, argument, "--max-model-merges")) {
+            args.options.max_model_merges = std.fmt.parseInt(usize, option, 10) catch
                 return error.InvalidNumber;
         } else {
             return error.UnknownOption;
@@ -307,6 +345,7 @@ test "arguments carry the run's entry, files, and limits" {
         "--route",                 "main",
         "--state",                 "state.json",
         "--hooks",                 "hooks.json",
+        "--max-model-merges",      "3",
         "--max-scene-steps",       "7",
         "--fail-on-publish-error",
     });
@@ -315,6 +354,11 @@ test "arguments carry the run's entry, files, and limits" {
     try std.testing.expectEqualStrings("state.json", args.state_path.?);
     try std.testing.expectEqualStrings("hooks.json", args.hooks_path.?);
     try std.testing.expectEqual(@as(usize, 7), args.options.max_scene_steps);
+    try std.testing.expectEqual(@as(usize, 3), args.options.max_model_merges);
+    // The structural check is on unless a caller opts out of it.
+    try std.testing.expect(args.check);
+    const unchecked = try parseTestArgs(&.{ "run", "model.json", "--scene", "a", "--no-check" });
+    try std.testing.expect(!unchecked.check);
     try std.testing.expect(args.options.fail_on_publish_error);
 }
 

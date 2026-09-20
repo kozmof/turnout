@@ -82,6 +82,15 @@ const CreateRequest = struct {
     failOnPublishError: bool = false,
     maxSceneSteps: usize = 10_000,
     maxRouteTransitions: usize = 1_000,
+    /// How many times this run may merge a model in.
+    ///
+    /// Every merge retires the model it replaced and keeps it alive for the
+    /// rest of the run, because the driver borrows ids from it. That is bounded
+    /// only by how often a flow extends, and a flow that extends once per
+    /// action can retire `maxSceneSteps` whole parsed models. Merges belong at
+    /// configuration boundaries, so a run that passes this is far more likely
+    /// to be looping than to be configuring.
+    maxModelMerges: usize = 100,
 };
 
 const Driver = union(enum) {
@@ -176,6 +185,9 @@ const Instance = struct {
     driver: Driver,
     entry_id: []u8,
     fail_on_publish_error: bool,
+    /// How many merges this run may still make. Counts down from
+    /// `maxModelMerges` so the check does not have to reach into the request.
+    merges_left: usize,
     /// Models this run has merged past, kept alive rather than freed.
     ///
     /// A merge produces a fresh parsed tree, so every id the driver borrowed
@@ -898,6 +910,7 @@ fn createInstance(model_entry: *ModelEntry, request_bytes: []const u8) !u32 {
         .driver = driver,
         .entry_id = entry_id,
         .fail_on_publish_error = request.value.failOnPublishError,
+        .merges_left = request.value.maxModelMerges,
     };
 
     try instances.put(allocator, handle, instance);
@@ -922,6 +935,7 @@ fn createdResponse(handle: u32) usize {
         .handle = handle,
         .maxSceneSteps = instance.request.value.maxSceneSteps,
         .maxRouteTransitions = instance.request.value.maxRouteTransitions,
+        .maxModelMerges = instance.request.value.maxModelMerges,
     });
 }
 
@@ -1198,6 +1212,7 @@ fn stringifyToArena(arena: std.mem.Allocator, value_to_write: std.json.Value) ![
 /// returned. Returns a response address when the merge failed, null when it
 /// succeeded and stepping should carry on.
 fn applyExtend(instance: *Instance, request: anytype) ?usize {
+    if (instance.merges_left == 0) return runtimeError(error.TooManyModelMerges);
     var arena: std.heap.ArenaAllocator = .init(allocator);
     defer arena.deinit();
     const outcome = mergeModelJson(
@@ -1222,6 +1237,7 @@ fn applyExtend(instance: *Instance, request: anytype) ?usize {
                 return errorResponse(.out_of_memory, "OutOfMemory");
             };
             instance.model = entry;
+            instance.merges_left -= 1;
             instance.driver.rebind(&entry.model) catch |err| return runtimeError(err);
             return null;
         },
@@ -2000,6 +2016,72 @@ test "WASM extend hook merges a model mid-run and reaches what it brought in" {
     var changed = try expectResponse(changed_address, .ok, "sceneChanged");
     defer changed.deinit();
     try std.testing.expectEqualStrings("arrived_scene", changed.value.object.get("to").?.string);
+
+    const destroyed_address = turnout_runtime_destroy(handle);
+    defer freeResponse(destroyed_address);
+    var destroyed = try expectResponse(destroyed_address, .ok, null);
+    defer destroyed.deinit();
+}
+
+test "WASM extend hook stops at the model merge limit" {
+    // Every merge retains the model it replaced for the rest of the run, so the
+    // count is bounded rather than left to how often a flow extends. Zero is
+    // the boundary worth pinning: the first merge is refused, and the run stops
+    // with a named limit instead of growing until the allocator says no.
+    const payload =
+        \\{"version":2,"scenes":[{"id":"arrived_scene","entryAction":"arrived","actions":[
+        \\  {"id":"arrived",
+        \\   "compute":{"root":"value","prog":{"bindings":[{"name":"value","type":"number","value":7}]}}}
+        \\]}],"routes":[]}
+    ;
+    const model =
+        \\{"version":2,"scenes":[{"id":"main","entryAction":"load","actions":[
+        \\  {"id":"load","extend":["plugins"],
+        \\   "compute":{"root":"go","prog":{"bindings":[{"name":"go","type":"bool","value":true}]}}}
+        \\]}]}
+    ;
+    const config =
+        \\{"sceneId":"main","initialState":{},"maxModelMerges":0}
+    ;
+    const created_address = turnout_runtime_create(
+        @intFromPtr(model.ptr),
+        model.len,
+        @intFromPtr(config.ptr),
+        config.len,
+    );
+    defer freeResponse(created_address);
+    var created = try expectResponse(created_address, .ok, null);
+    defer created.deinit();
+    const handle: u32 = @intCast(created.value.object.get("handle").?.integer);
+
+    // The limit in force is reported back, so a host never has to restate it.
+    try std.testing.expectEqual(@as(i64, 0), created.value.object.get("maxModelMerges").?.integer);
+
+    const extend_address = turnout_runtime_step(handle);
+    defer freeResponse(extend_address);
+    var extend_request = try expectResponse(extend_address, .ok, "needEffect");
+    defer extend_request.deinit();
+
+    const result = try std.fmt.allocPrint(
+        std.testing.allocator,
+        "{{\"id\":{d},\"kind\":\"prepare\",\"status\":\"ok\",\"value\":{s}}}",
+        .{ extend_request.value.object.get("id").?.integer, payload },
+    );
+    defer std.testing.allocator.free(result);
+    const resumed_address = turnout_runtime_resume(handle, @intFromPtr(result.ptr), @intCast(result.len));
+    defer freeResponse(resumed_address);
+    var resumed = try expectResponse(resumed_address, .ok, null);
+    defer resumed.deinit();
+
+    // The merge is applied inside the step, so the refusal surfaces there.
+    const blocked_address = turnout_runtime_step(handle);
+    defer freeResponse(blocked_address);
+    var blocked = try expectResponse(blocked_address, .runtime_error, null);
+    defer blocked.deinit();
+    try std.testing.expectEqualStrings(
+        "TooManyModelMerges",
+        blocked.value.object.get("error").?.string,
+    );
 
     const destroyed_address = turnout_runtime_destroy(handle);
     defer freeResponse(destroyed_address);

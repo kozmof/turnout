@@ -6,6 +6,7 @@
 
 pub const merge = @import("merge.zig");
 pub const model = @import("model.zig");
+pub const structure = @import("structure.zig");
 pub const state = @import("state.zig");
 pub const action = @import("action.zig");
 pub const scene = @import("scene.zig");
@@ -21,6 +22,7 @@ pub const runtime_error = @import("runtime_error.zig");
 test {
     _ = merge;
     _ = model;
+    _ = structure;
     _ = state;
     _ = action;
     _ = scene;

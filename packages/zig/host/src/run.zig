@@ -72,6 +72,10 @@ pub const Options = struct {
     fail_on_publish_error: bool = false,
     max_scene_steps: usize = 10_000,
     max_route_transitions: usize = 1_000,
+    /// How many times this run may merge a model in. Every merge retains the
+    /// model it replaced for the rest of the run, so this bounds `grown`.
+    /// Matches the WASM host's `maxModelMerges`.
+    max_model_merges: usize = 100,
 };
 
 const Driver = union(enum) {
@@ -220,6 +224,7 @@ pub fn run(
             },
             .scene_changed => {},
             .extend_model => |extend| {
+                if (grown.items.len >= options.max_model_merges) return error.TooManyModelMerges;
                 var merge_arena: std.heap.ArenaAllocator = .init(allocator);
                 defer merge_arena.deinit();
                 const bytes = try mergedModelBytes(

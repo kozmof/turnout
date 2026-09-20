@@ -81,6 +81,21 @@ from a program (`--hook-program`), which it speaks to over newline-delimited
 JSON using the same request and answer envelopes as the WASM boundary. One
 effect protocol, framed two ways.
 
+Before it runs anything it checks the model's structure, through
+`scene_runner.structure` — the same rules the TypeScript host checks, from the
+same place. The engine itself resolves ids lazily, which is right for execution
+and wrong for a starting point: a duplicate scene id is not an error to the
+index, it just means the second scene never runs, and a route whose entry scene
+is missing only fails once something enters it. The check reports every
+violation at once, on stderr in prose and on stdout as
+`{"error":"MalformedModel","errors":[…]}`, and exits 1. Pass `--no-check` to
+run a model as given.
+
+`--max-model-merges <n>` bounds how many models an `extend` hook may merge into
+one run, because every merge retains the model it replaced for the rest of that
+run. It defaults to 100, and matches `maxModelMerges` on the WASM create
+request.
+
 `pnpm run test:native-conformance` runs the shared vectors in
 `spec/conformance/host` through it. The TypeScript host runs the same files
 from its own suite, and `spec/capabilities.json` records what each supports —
