@@ -8,6 +8,7 @@ import type {
   RouteTrace,
 } from "./types/harness-types.js";
 import { createRouteRunner } from "./runner.js";
+import { registerHooks } from "./register-hooks.js";
 
 export type RouteExecutionOptions = {
   maxSceneSteps?: number;
@@ -115,11 +116,6 @@ function forwardLegacyLog(onLog: ((event: LogEvent) => void) | undefined, event:
   ) {
     onLog?.(event);
   }
-}
-
-function registerHooks(runner: ReturnType<typeof createRouteRunner>, hooks: HookRegistry): void {
-  for (const [name, handler] of Object.entries(hooks.prepare)) runner.usePrepareHook(name, handler);
-  for (const [name, handler] of Object.entries(hooks.publish)) runner.usePublishHook(name, handler);
 }
 
 function sceneIdFromError(error: unknown): string | undefined {

@@ -3,6 +3,7 @@ import type { StateManager } from "./state/state-manager.js";
 import type { HookRegistry, LogEvent, SceneTrace } from "./types/harness-types.js";
 import { SceneRuntimeError } from "./errors.js";
 import { createSceneRunner } from "./runner.js";
+import { registerHooks } from "./register-hooks.js";
 
 export type SceneExecutionResult = {
   sceneId: string;
@@ -109,11 +110,6 @@ function validateScene(scene: SceneBlock): void {
 
 function forwardLegacyLog(onLog: ((event: LogEvent) => void) | undefined, event: LogEvent): void {
   if (event.kind !== "scene-start" && event.kind !== "scene-complete") onLog?.(event);
-}
-
-function registerHooks(runner: ReturnType<typeof createSceneRunner>, hooks: HookRegistry): void {
-  for (const [name, handler] of Object.entries(hooks.prepare)) runner.usePrepareHook(name, handler);
-  for (const [name, handler] of Object.entries(hooks.publish)) runner.usePublishHook(name, handler);
 }
 
 function normalizeError(
