@@ -32,6 +32,13 @@ export function callZigPreset(name: string, args: readonly AnyValue[]): AnyValue
   });
   if (response.status !== "ok") throw compatibilityError(name, args, response.payload);
   const result = fromCanonicalValue(response.payload);
+  // `pass` is the identity, and the engine implements it as one. Returning the
+  // argument rather than the value that came back is not a second
+  // implementation of it: it is the one thing a round trip through WASM
+  // cannot preserve, because decoding always builds a fresh object. Callers
+  // rely on `pass` handing back the very value they passed — see the `toBe`
+  // assertions in preset-funcs.test.ts and call-presets.test.ts — and
+  // reference identity is a property of the host language, not of the engine.
   return name.endsWith("::pass") ? (args[0] ?? result) : result;
 }
 
