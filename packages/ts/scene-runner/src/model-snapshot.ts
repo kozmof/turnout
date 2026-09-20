@@ -1,18 +1,22 @@
 /**
  * Execution-owned snapshots of protobuf model fragments.
  *
- * Generated protobuf message types are mutable. The runner keeps identity-based
- * caches for immutable execution plans, so accepting caller-owned objects
- * directly would allow later mutations to make those caches stale.
+ * Generated protobuf message types are mutable, and a run reads its model
+ * across many turns of the event loop — hooks are async, so a caller keeping a
+ * reference has every opportunity to mutate one mid-run. Snapshotting on the
+ * way in, and freezing what comes out, is what makes the model the run executes
+ * the model the caller handed over.
  *
  * Every public entry point snapshots its input, and the composed entry points
  * layer on top of each other — `createRunner` hands an already-snapshotted scene
  * to `createSceneRunner`, which would otherwise snapshot it a second time. So
- * snapshots are tracked and re-snapshotting one is a no-op. That matters for
- * more than allocation: `structuredClone` mints fresh objects, and the executor
- * caches its built contexts in a `WeakMap` keyed on `ProgModel` identity. A
- * second clone would swap out the very keys those caches were warmed with,
- * silently reducing them to permanent misses.
+ * snapshots are tracked and re-snapshotting one is a no-op, which keeps a model
+ * from being deep-cloned once per layer it passes through.
+ *
+ * `structuredClone` is what copies, and it is chosen over a hand-written walk
+ * because it carries a protobuf message across verbatim, `$typeName` included.
+ * Downstream that tag is load-bearing: `protoJson` reads it to decide whether a
+ * fragment still needs unwrapping before it crosses to the runtime.
  */
 
 /**

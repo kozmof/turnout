@@ -13,7 +13,9 @@ export type ZigGraphValidationResult = {
 
 export function validateGraphContextWithZig(context: UnvalidatedContext): ZigGraphValidationResult {
   const response = defaultZigRuntimeClient.compute<ZigGraphValidationResult & { error?: string }>({
-    // Wire name fixed by ABI version 1; the request carries a graph context.
+    // "legacy" names the graph-context request shape, not a deprecated path:
+    // this is the live validator behind the builder API. The spelling is fixed
+    // by ABI version 1 and cannot change without a version bump.
     operation: "validateLegacy",
     context,
   });

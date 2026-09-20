@@ -250,16 +250,21 @@ state {
 }
 ```
 
-Six types are available.
+Fourteen types are available: three scalars, an array of each, records keyed by
+string or by number, and two nested combinations.
 
 | Type | Holds |
 | --- | --- |
 | `number` | A number |
 | `str` | A string |
 | `bool` | A boolean |
-| `arr<number>` | A list of numbers |
-| `arr<str>` | A list of strings |
-| `arr<bool>` | A list of booleans |
+| `arr<number>`, `arr<str>`, `arr<bool>` | A list of that scalar |
+| `rec<str, number>`, `rec<str, str>`, `rec<str, bool>` | A string-keyed record of that scalar |
+| `rec<number, number>`, `rec<number, str>`, `rec<number, bool>` | A number-keyed record of that scalar |
+| `arr<rec<str, number>>` | A list of string-keyed number records |
+| `rec<str, arr<number>>` | A string-keyed record of number lists |
+
+`spec/examples/06-record-state.tu` works through the record types.
 
 Both languages assert this vocabulary against `spec/field-types.json`, so a
 rename in one cannot drift from the other. Function names are pinned the same

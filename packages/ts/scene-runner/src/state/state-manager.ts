@@ -1,5 +1,6 @@
 import { buildNull } from "runtime";
-import { defaultZigRuntimeClient, fromCanonicalValue, toCanonicalValue } from "runtime/zig-runtime";
+import { defaultZigRuntimeClient } from "../zig-runtime/default-client.js";
+import { fromCanonicalValue, toCanonicalValue } from "../zig-runtime/value-codec.js";
 import type { AnyValue } from "runtime";
 import type { StateModel } from "../types/turnout-model_pb.js";
 import { StateError } from "../errors.js";

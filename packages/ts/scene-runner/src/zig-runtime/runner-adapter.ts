@@ -18,7 +18,7 @@ import {
   SceneRuntimeError,
 } from "../errors.js";
 import { ModelMergeError } from "../merge-models.js";
-import { safeLog } from "../logging.js";
+import { safeLog, safeWarn } from "../logging.js";
 import { stateManagerFromUnchecked } from "../state/state-manager.js";
 import type { ZigResponse, CreatedRuntime } from "./client.js";
 import {
@@ -354,13 +354,46 @@ function toModelSource(
   return model instanceof Uint8Array ? modelSourceFromBytes(client, model) : model;
 }
 
-/** Build the existing scene Runner API around one Zig WASM runtime handle. */
-export function createZigSceneRunner(
+type StateSnapshot = Record<string, ReturnType<typeof fromCanonicalValue>>;
+
+/**
+ * One runtime handle and the lifecycle a runner wraps around it.
+ *
+ * Scene and route runners differ in what they ask the runtime for and in the
+ * trace they assemble. They do not differ in how the handle is opened, read,
+ * closed, or surrendered when the caller aborts, so that lives here once — and
+ * those are precisely the paths where two copies drifting apart would leak a
+ * handle without any test noticing.
+ */
+interface ZigRuntimeSession {
+  readonly hooks: HookRegistry;
+  readonly handle: number;
+  readonly created: CreatedRuntime;
+  readonly signal: AbortSignal;
+  isDone(): boolean;
+  /** STATE as it stands, or the state captured when the handle closed. */
+  readState(): StateSnapshot;
+  /** Capture the final state, close the handle, and stop listening for abort. */
+  finish(): void;
+  /** The final state, or `IncompleteExecution` when the run has not ended. */
+  requireFinalState(): StateSnapshot;
+  /** The final state when there is one, otherwise a live read. */
+  finalStateOrRead(): StateSnapshot;
+}
+
+/**
+ * Create a runtime against `model` and wrap its handle in a session.
+ *
+ * `entryRequest` carries what is specific to the kind of run — the scene or
+ * route id, and any limit only that kind accepts. Everything else in the
+ * create request is common and is filled in here.
+ */
+function openZigRuntimeSession(
   client: ZigRuntimeLifecycleTransport,
   model: Uint8Array | RuntimeModelSource,
-  sceneId: string,
   options: RunnerOptions,
-): Runner<FragmentHarnessResult> {
+  entryRequest: Record<string, unknown>,
+): ZigRuntimeSession {
   const hooks: HookRegistry = {
     prepare: Object.create(null) as HookRegistry["prepare"],
     extend: Object.create(null) as HookRegistry["extend"],
@@ -372,22 +405,19 @@ export function createZigSceneRunner(
     Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
   );
   const created = source.create({
-    sceneId,
+    ...entryRequest,
     initialState,
     failOnPublishError: options.failOnPublishError ?? false,
     ...(options.maxSceneSteps !== undefined && { maxSceneSteps: options.maxSceneSteps }),
   });
   assertOk(created);
   const handle = created.payload.handle;
-  // Zig reports the limits it applied, so the message below never restates them.
-  const maxSceneSteps = created.payload.maxSceneSteps;
-  const actions: ActionTrace[] = [];
-  const sceneWarnings: SceneWarning[] = [];
+
   let done = false;
   let handleOpen = true;
-  let finalState: Record<string, ReturnType<typeof fromCanonicalValue>> | undefined;
+  let finalState: StateSnapshot | undefined;
 
-  function readState(): Record<string, ReturnType<typeof fromCanonicalValue>> {
+  function readState(): StateSnapshot {
     if (!handleOpen) {
       if (finalState !== undefined) return finalState;
       throw new Error("Zig runtime handle is closed");
@@ -417,25 +447,75 @@ export function createZigSceneRunner(
     try {
       finalState = readState();
     } catch {
+      // The run is over either way. An unreadable handle costs the caller the
+      // partial state, not the abort.
       finalState = undefined;
     }
     try {
       client.destroy(handle);
-    } catch {}
+    } catch (error) {
+      // Destroy is the runtime's only chance to reclaim the handle, so failing
+      // here leaks one. There is nothing to retry and nothing that should
+      // displace the abort — but it is the caller's memory, so say so.
+      safeWarn(
+        options.onWarning,
+        `[turnout] Zig runtime handle ${handle} could not be destroyed on abort and has ` +
+          `leaked: ${errorMessage(error)}`,
+      );
+    }
     handleOpen = false;
   }
 
   signal.addEventListener("abort", releaseOnAbort, { once: true });
   if (signal.aborted) releaseOnAbort();
 
+  return {
+    hooks,
+    handle,
+    created: created.payload,
+    signal,
+    isDone: () => done,
+    readState,
+    finish,
+    requireFinalState: () => {
+      if (!done || finalState === undefined) {
+        throw new RunnerError(
+          "IncompleteExecution",
+          "execution is not complete — call run() or step until isDone()",
+        );
+      }
+      return finalState;
+    },
+    finalStateOrRead: () => finalState ?? readState(),
+  };
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** Build the existing scene Runner API around one Zig WASM runtime handle. */
+export function createZigSceneRunner(
+  client: ZigRuntimeLifecycleTransport,
+  model: Uint8Array | RuntimeModelSource,
+  sceneId: string,
+  options: RunnerOptions,
+): Runner<FragmentHarnessResult> {
+  const session = openZigRuntimeSession(client, model, options, { sceneId });
+  const { hooks, handle, signal } = session;
+  // Zig reports the limits it applied, so the message below never restates them.
+  const maxSceneSteps = session.created.maxSceneSteps;
+  const actions: ActionTrace[] = [];
+  const sceneWarnings: SceneWarning[] = [];
+
   async function advance(): Promise<RunnerStepResult> {
-    if (done) return { done: true };
+    if (session.isDone()) return { done: true };
     let result: RunnerStepResult;
     try {
       result = await advanceZigRuntime(client, handle, hooks, signal);
     } catch (error) {
       if (error instanceof ZigRuntimeStatusError) {
-        const publishError = mapPublishHookFailed(error, sceneId, readState);
+        const publishError = mapPublishHookFailed(error, sceneId, session.readState);
         if (publishError !== undefined) throw publishError;
       }
       if (error instanceof ZigRuntimeStatusError && error.code === "MaxStepsExceeded") {
@@ -448,7 +528,7 @@ export function createZigSceneRunner(
       throw error;
     }
     if (result.done) {
-      finish();
+      session.finish();
       return result;
     }
     if (result.kind === "action") {
@@ -487,7 +567,7 @@ export function createZigSceneRunner(
           sceneId,
           terminatedAt: [result.actionId],
         });
-        finish();
+        session.finish();
       }
     }
     return result;
@@ -496,34 +576,26 @@ export function createZigSceneRunner(
   return makeRunnerMethods(
     hooks,
     advance,
-    () => done,
-    () => {
-      if (!done || finalState === undefined) {
-        throw new RunnerError(
-          "IncompleteExecution",
-          "execution is not complete — call run() or step until isDone()",
-        );
-      }
-      return {
-        finalState,
-        trace: {
-          kind: "scene",
-          scene: {
-            sceneId,
-            actions,
-            ...(sceneWarnings.length > 0 ? { warnings: sceneWarnings } : {}),
-          },
+    session.isDone,
+    () => ({
+      finalState: session.requireFinalState(),
+      trace: {
+        kind: "scene",
+        scene: {
+          sceneId,
+          actions,
+          ...(sceneWarnings.length > 0 ? { warnings: sceneWarnings } : {}),
         },
-        ...(sceneWarnings.length > 0
-          ? {
-              warnings: sceneWarnings.map(
-                (warning): ExecutionWarning => ({ kind: "scene_warning", sceneId, warning }),
-              ),
-            }
-          : {}),
-      };
-    },
-    () => stateManagerFromUnchecked(finalState ?? readState()),
+      },
+      ...(sceneWarnings.length > 0
+        ? {
+            warnings: sceneWarnings.map(
+              (warning): ExecutionWarning => ({ kind: "scene_warning", sceneId, warning }),
+            ),
+          }
+        : {}),
+    }),
+    () => stateManagerFromUnchecked(session.finalStateOrRead()),
     signal,
   );
 }
@@ -535,77 +607,19 @@ export function createZigRouteRunner(
   routeId: string,
   options: RunnerOptions,
 ): Runner<FragmentHarnessResult> {
-  const hooks: HookRegistry = {
-    prepare: Object.create(null) as HookRegistry["prepare"],
-    extend: Object.create(null) as HookRegistry["extend"],
-    publish: Object.create(null) as HookRegistry["publish"],
-  };
-  const source = toModelSource(client, model);
-  const signal = options.signal ?? new AbortController().signal;
-  const initialState = Object.fromEntries(
-    Object.entries(options.initialState).map(([path, entry]) => [path, toCanonicalValue(entry)]),
-  );
-  const created = source.create({
+  const session = openZigRuntimeSession(client, model, options, {
     routeId,
-    initialState,
-    failOnPublishError: options.failOnPublishError ?? false,
-    ...(options.maxSceneSteps !== undefined && { maxSceneSteps: options.maxSceneSteps }),
     ...(options.maxRouteTransitions !== undefined && {
       maxRouteTransitions: options.maxRouteTransitions,
     }),
   });
-  assertOk(created);
-  const handle = created.payload.handle;
-  const maxRouteTransitions = created.payload.maxRouteTransitions;
+  const { hooks, handle, signal } = session;
+  const maxRouteTransitions = session.created.maxRouteTransitions;
   const scenes: SceneTrace[] = [];
   const pending: RunnerStepResult[] = [];
   const preprocessedActions = new WeakSet<object>();
   const finishAfterActions = new WeakSet<object>();
   let activeSceneId: string | undefined;
-  let done = false;
-  let handleOpen = true;
-  let finalState: Record<string, ReturnType<typeof fromCanonicalValue>> | undefined;
-
-  function readState(): Record<string, ReturnType<typeof fromCanonicalValue>> {
-    if (!handleOpen) {
-      if (finalState !== undefined) return finalState;
-      throw new Error("Zig runtime handle is closed");
-    }
-    const snapshot = client.snapshot<Record<string, unknown>>(handle);
-    assertOk(snapshot);
-    return Object.fromEntries(
-      Object.entries(snapshot.payload.state).map(([path, entry]) => [
-        path,
-        fromCanonicalValue(entry),
-      ]),
-    );
-  }
-
-  function finish(): void {
-    if (done) return;
-    finalState = readState();
-    const destroyed = client.destroy(handle);
-    assertOk(destroyed);
-    handleOpen = false;
-    signal.removeEventListener("abort", releaseOnAbort);
-    done = true;
-  }
-
-  function releaseOnAbort(): void {
-    if (!handleOpen) return;
-    try {
-      finalState = readState();
-    } catch {
-      finalState = undefined;
-    }
-    try {
-      client.destroy(handle);
-    } catch {}
-    handleOpen = false;
-  }
-
-  signal.addEventListener("abort", releaseOnAbort, { once: true });
-  if (signal.aborted) releaseOnAbort();
 
   function appendAction(
     sceneId: string,
@@ -667,7 +681,11 @@ export function createZigRouteRunner(
         error.sceneId = activeSceneId;
       }
       if (error instanceof ZigRuntimeStatusError) {
-        const publishError = mapPublishHookFailed(error, error.sceneId ?? routeId, readState);
+        const publishError = mapPublishHookFailed(
+          error,
+          error.sceneId ?? routeId,
+          session.readState,
+        );
         if (publishError !== undefined) throw publishError;
       }
       if (error instanceof ZigRuntimeStatusError && error.code === "MaxRouteTransitionsExceeded") {
@@ -687,10 +705,10 @@ export function createZigRouteRunner(
   }
 
   async function advance(): Promise<RunnerStepResult> {
-    if (done) return { done: true };
+    if (session.isDone()) return { done: true };
     const result = await nextEvent();
     if (result.done) {
-      finish();
+      session.finish();
       return result;
     }
     if (result.kind === "scene-transition") {
@@ -716,13 +734,13 @@ export function createZigRouteRunner(
     }
     if (result.kind === "action") {
       if (preprocessedActions.delete(result)) {
-        if (finishAfterActions.delete(result)) finish();
+        if (finishAfterActions.delete(result)) session.finish();
         return result;
       }
       appendAction(result.sceneId, result.trace, internalSceneWarnings(result));
       if (result.trace.nextActionIds.length === 0) {
         const following = await advanceRouteRuntime();
-        if (following.done) finish();
+        if (following.done) session.finish();
         else pending.push(following);
       }
     }
@@ -732,32 +750,24 @@ export function createZigRouteRunner(
   return makeRunnerMethods(
     hooks,
     advance,
-    () => done,
-    () => {
-      if (!done || finalState === undefined) {
-        throw new RunnerError(
-          "IncompleteExecution",
-          "execution is not complete — call run() or step until isDone()",
+    session.isDone,
+    () => ({
+      finalState: session.requireFinalState(),
+      trace: { kind: "route", route: { routeId, scenes } },
+      ...(() => {
+        const warnings = scenes.flatMap((scene) =>
+          (scene.warnings ?? []).map(
+            (warning): ExecutionWarning => ({
+              kind: "scene_warning",
+              sceneId: scene.sceneId,
+              warning,
+            }),
+          ),
         );
-      }
-      return {
-        finalState,
-        trace: { kind: "route", route: { routeId, scenes } },
-        ...(() => {
-          const warnings = scenes.flatMap((scene) =>
-            (scene.warnings ?? []).map(
-              (warning): ExecutionWarning => ({
-                kind: "scene_warning",
-                sceneId: scene.sceneId,
-                warning,
-              }),
-            ),
-          );
-          return warnings.length > 0 ? { warnings } : {};
-        })(),
-      };
-    },
-    () => stateManagerFromUnchecked(finalState ?? readState()),
+        return warnings.length > 0 ? { warnings } : {};
+      })(),
+    }),
+    () => stateManagerFromUnchecked(session.finalStateOrRead()),
     signal,
   );
 }

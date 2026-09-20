@@ -1,4 +1,4 @@
-import type { MergeOrigin } from "runtime/zig-runtime";
+import type { MergeOrigin } from "./zig-runtime/client.js";
 import { zigRuntimeModelJson } from "./model-encoding.js";
 import type {
   FieldModel,

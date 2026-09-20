@@ -459,3 +459,91 @@ func TestCompileDiagnosticsUnderCapAreNotTruncated(t *testing.T) {
 		}
 	}
 }
+
+// TestContainStateFileOption pins the two halves of state_file containment:
+// that the default really is unconstrained, and that the option constrains it
+// without also having to override the base directory.
+//
+// The default is the surprising half. A source naming a file outside its own
+// directory is read, which makes a compiler handed an untrusted source an
+// arbitrary read primitive — so the option exists, and so this test states what
+// it is for.
+func TestContainStateFileOption(t *testing.T) {
+	root := t.TempDir()
+	outside := filepath.Join(root, "outside")
+	inside := filepath.Join(root, "inside")
+	for _, dir := range []string{outside, inside} {
+		if err := os.Mkdir(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(outside, "schema.tu"), []byte("state { ns { value:number = 0 } }"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	sourcePath := filepath.Join(inside, "source.tu")
+	source := "state_file = \"../outside/schema.tu\"\nscene \"s\" { entry_action = a\n  action \"a\" {\n    compute \"p\" {\n      out:number := 1\n    }\n  }\n}"
+	if err := os.WriteFile(sourcePath, []byte(source), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Run("default reads outside the source directory", func(t *testing.T) {
+		result, ds := converter.Compile(sourcePath, "")
+		if ds.HasErrors() {
+			t.Fatalf("expected the escaping state_file to be read, got %v", ds)
+		}
+		if _, ok := result.Schema.Get("ns.value"); !ok {
+			t.Fatal("expected the outside schema to have been resolved")
+		}
+	})
+
+	t.Run("ContainStateFile rejects it", func(t *testing.T) {
+		result, ds := converter.CompileWithOptions(sourcePath, "", converter.Options{
+			ContainStateFile: true,
+		})
+		if result != nil || !hasDiagCode(ds, diag.CodeStateFileOutsideBase) {
+			t.Fatalf("expected StateFileOutsideBase, got result=%v diagnostics=%v", result, ds)
+		}
+	})
+
+	t.Run("ResolveSchemaWithOptions rejects it", func(t *testing.T) {
+		src, err := os.ReadFile(sourcePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _, ds := converter.ResolveSchemaWithOptions(sourcePath, string(src), "", converter.Options{
+			ContainStateFile: true,
+		})
+		if !hasDiagCode(ds, diag.CodeStateFileOutsideBase) {
+			t.Fatalf("expected StateFileOutsideBase, got %v", ds)
+		}
+	})
+
+	t.Run("CompileToModelWithOptions rejects it", func(t *testing.T) {
+		src, err := os.ReadFile(sourcePath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		result, ds := converter.CompileToModelWithOptions(sourcePath, string(src), "", converter.Options{
+			ContainStateFile: true,
+		})
+		if result != nil || !hasDiagCode(ds, diag.CodeStateFileOutsideBase) {
+			t.Fatalf("expected StateFileOutsideBase, got result=%v diagnostics=%v", result, ds)
+		}
+	})
+
+	t.Run("an explicit base still implies containment", func(t *testing.T) {
+		result, ds := converter.Compile(sourcePath, inside)
+		if result != nil || !hasDiagCode(ds, diag.CodeStateFileOutsideBase) {
+			t.Fatalf("expected StateFileOutsideBase, got result=%v diagnostics=%v", result, ds)
+		}
+	})
+}
+
+func hasDiagCode(ds converter.Diagnostics, code diag.ErrorCode) bool {
+	for _, d := range ds {
+		if d.Code == code {
+			return true
+		}
+	}
+	return false
+}

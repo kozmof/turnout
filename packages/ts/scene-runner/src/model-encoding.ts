@@ -1,6 +1,32 @@
-import { toJson } from "@bufbuild/protobuf";
+import { isMessage, toJson, type DescMessage, type JsonValue } from "@bufbuild/protobuf";
 import type { TurnModel } from "./types/turnout-model_pb.js";
 import { TurnModelSchema } from "./types/turnout-model_pb.js";
+
+/**
+ * A model or model fragment rendered as plain JSON.
+ *
+ * Two shapes reach this boundary. A decoded protobuf message is what
+ * `fromJson(TurnModelSchema, …)` produces and what the declared parameter types
+ * mean. Plain JSON is how a compiled model is written to disk, and how
+ * hand-built fragments arrive. They are not interchangeable: inside a message a
+ * `google.protobuf.Value` is a wrapper object, so rendering one directly —
+ * `JSON.stringify`, `structuredClone` — yields the wrapper rather than the
+ * value it holds, and re-parsing that turns every literal into a record.
+ * `toJson` is what unwraps them; `isMessage` is what says whether it is needed.
+ *
+ * A message of some other type is an error rather than a shape to guess at.
+ * Guessing here does not fail: it produces a model that parses, validates, and
+ * runs on the wrong values.
+ */
+export function protoJson<Desc extends DescMessage>(schema: Desc, input: unknown): JsonValue {
+  if (isMessage(input, schema)) return toJson(schema, input);
+  if (isMessage(input)) {
+    throw new TypeError(
+      `expected ${schema.typeName} or plain JSON, got a ${input.$typeName} message`,
+    );
+  }
+  return input as JsonValue;
+}
 
 /**
  * The model as the runtime reads it.
@@ -22,13 +48,7 @@ export function encodeZigRuntimeModel(model: TurnModel): Uint8Array {
 
 /** The same projection as an object, for callers that nest it in a request. */
 export function zigRuntimeModelJson(model: TurnModel): Record<string, unknown> {
-  let protobufJson: unknown;
-  try {
-    protobufJson = toJson(TurnModelSchema, model);
-  } catch {
-    protobufJson = model;
-  }
-  return runtimeProjection(protobufJson);
+  return runtimeProjection(protoJson(TurnModelSchema, model));
 }
 
 /** @internal Exported for contract tests. */

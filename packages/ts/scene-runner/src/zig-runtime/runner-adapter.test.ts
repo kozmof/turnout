@@ -500,6 +500,66 @@ describe("advanceZigRuntime", () => {
     expect(() => runner.partialState()).toThrow("handle is closed");
   });
 
+  it("reports a handle it could not destroy on abort instead of leaking it silently", () => {
+    const controller = new AbortController();
+    controller.abort();
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({
+        status: "ok",
+        payload: { handle: 41, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
+      destroy: () => {
+        throw new Error("destroy failed");
+      },
+      step: <T>() => ({ status: "ok", payload: { event: "complete" } as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: true } }),
+    };
+    const model = new TextEncoder().encode(JSON.stringify({ scenes: [] }));
+    const warnings: string[] = [];
+
+    createZigSceneRunner(client, model, "main", {
+      entryId: "main",
+      initialState: {},
+      signal: controller.signal,
+      onWarning: (message) => warnings.push(message),
+    });
+
+    expect(warnings).toEqual([
+      expect.stringContaining("handle 41 could not be destroyed on abort and has leaked"),
+    ]);
+    expect(warnings[0]).toContain("destroy failed");
+  });
+
+  it("does not let a throwing warning sink displace the abort", () => {
+    const controller = new AbortController();
+    controller.abort();
+    const client: ZigRuntimeLifecycleTransport = {
+      create: () => ({
+        status: "ok",
+        payload: { handle: 42, maxSceneSteps: 10_000, maxRouteTransitions: 1_000 },
+      }),
+      destroy: () => {
+        throw new Error("destroy failed");
+      },
+      step: <T>() => ({ status: "ok", payload: { event: "complete" } as T }),
+      resume: vi.fn(),
+      snapshot: <T>() => ({ status: "ok", payload: { state: {} as T, done: true } }),
+    };
+    const model = new TextEncoder().encode(JSON.stringify({ scenes: [] }));
+
+    expect(() =>
+      createZigSceneRunner(client, model, "main", {
+        entryId: "main",
+        initialState: {},
+        signal: controller.signal,
+        onWarning: () => {
+          throw new Error("sink failed");
+        },
+      }),
+    ).not.toThrow();
+  });
+
   it("accepts non-JSON model bytes when deriving prepare metadata", () => {
     const controller = new AbortController();
     const client: ZigRuntimeLifecycleTransport = {

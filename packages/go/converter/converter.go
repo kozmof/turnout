@@ -39,10 +39,31 @@ type PanicReport struct {
 // PanicReporter receives recovered internal panics. It must be safe for concurrent use and must not panic.
 type PanicReporter func(PanicReport)
 
-// Options configures resource limits and optional internal-panic telemetry.
+// Options configures resource limits, state_file containment, and optional
+// internal-panic telemetry.
 type Options struct {
 	Limits        Limits
 	PanicReporter PanicReporter
+	// ContainStateFile rejects any state_file directive that resolves outside
+	// the base directory, following symlinks. A compiler that reads a file the
+	// source names is an arbitrary read primitive otherwise, which matters as
+	// soon as the source is not the operator's own.
+	//
+	// Containment is also implied by passing a non-empty stateBasePath, for
+	// compatibility with callers written before this field existed. Set it
+	// explicitly when the base directory is the default one, since that is the
+	// case the implication does not cover.
+	ContainStateFile bool
+}
+
+// containStateFile reports whether state_file resolution should be constrained
+// to the base directory.
+//
+// An explicit stateBasePath has always implied containment, and callers depend
+// on that, so it still does. The option is the way to ask for containment
+// without also overriding the base directory.
+func containStateFile(stateBasePath string, opts Options) bool {
+	return opts.ContainStateFile || stateBasePath != ""
 }
 
 func normalizedLimits(l Limits) (Limits, Diagnostics) {
@@ -125,7 +146,10 @@ type CompileResult struct {
 // Compile runs parse → state-resolve → lower → validate for inputPath.
 //
 // stateBasePath overrides the directory used to resolve state_file directives.
-// Pass "" to default to the directory of inputPath.
+// Pass "" to default to the directory of inputPath — which also leaves
+// state_file resolution unconstrained, so a source may name any file the
+// process can read. Compiling sources you did not write calls for
+// CompileWithOptions and Options.ContainStateFile.
 //
 // Returns (nil, errors) when any stage produces errors. On success returns
 // (*CompileResult, nil); non-fatal diagnostics are in CompileResult.Warnings.
@@ -133,7 +157,8 @@ func Compile(inputPath, stateBasePath string) (result *CompileResult, ds Diagnos
 	return CompileWithOptions(inputPath, stateBasePath, Options{})
 }
 
-// CompileWithOptions is Compile with configurable limits and panic telemetry.
+// CompileWithOptions is Compile with configurable limits, state_file
+// containment, and panic telemetry.
 func CompileWithOptions(inputPath, stateBasePath string, opts Options) (result *CompileResult, ds Diagnostics) {
 	defer recoverInternalPanicWithReporter(&result, &ds, opts.PanicReporter)
 	limits, limitDs := normalizedLimits(opts.Limits)
@@ -147,18 +172,21 @@ func CompileWithOptions(inputPath, stateBasePath string, opts Options) (result *
 		}
 		return nil, Diagnostics{diag.Errorf(diag.CodeIOError, "cannot read %s: %v", inputPath, err)}
 	}
-	return compileBytes(inputPath, src, stateBasePath, limits.MaxStateFileBytes)
+	return compileBytes(inputPath, src, stateBasePath, limits.MaxStateFileBytes, containStateFile(stateBasePath, opts))
 }
 
 // CompileSource runs parse → state-resolve → lower → validate for an in-memory
 // source string. name is used for error messages and to derive the default
 // stateBasePath (via filepath.Dir(name)); pass a non-empty stateBasePath to
-// override it. Unlike Compile, no file I/O is performed.
+// override it. Unlike Compile, no file I/O is performed — except by a
+// state_file directive, whose resolution is unconstrained when stateBasePath is
+// empty. See Compile and Options.ContainStateFile.
 func CompileSource(name, src, stateBasePath string) (result *CompileResult, ds Diagnostics) {
 	return CompileSourceWithOptions(name, src, stateBasePath, Options{})
 }
 
-// CompileSourceWithOptions is CompileSource with configurable limits and panic telemetry.
+// CompileSourceWithOptions is CompileSource with configurable limits, state_file
+// containment, and panic telemetry.
 func CompileSourceWithOptions(name, src, stateBasePath string, opts Options) (result *CompileResult, ds Diagnostics) {
 	defer recoverInternalPanicWithReporter(&result, &ds, opts.PanicReporter)
 	limits, limitDs := normalizedLimits(opts.Limits)
@@ -168,7 +196,7 @@ func CompileSourceWithOptions(name, src, stateBasePath string, opts Options) (re
 	if int64(len(src)) > limits.MaxSourceBytes {
 		return nil, Diagnostics{diag.Errorf(diag.CodeInputTooLarge, "%s exceeds the %d-byte source limit", name, limits.MaxSourceBytes)}
 	}
-	return compileBytes(name, []byte(src), stateBasePath, limits.MaxStateFileBytes)
+	return compileBytes(name, []byte(src), stateBasePath, limits.MaxStateFileBytes, containStateFile(stateBasePath, opts))
 }
 
 // CompileToModel runs parse → state-resolve → lower for an in-memory source
@@ -181,6 +209,14 @@ func CompileSourceWithOptions(name, src, stateBasePath string, opts Options) (re
 // *LowerResult contains Model and Schema; non-fatal diagnostics (e.g. unused
 // bindings surfaced by the lowerer) are not included since validation is skipped.
 func CompileToModel(name, src, stateBasePath string) (result *LowerResult, ds Diagnostics) {
+	return CompileToModelWithOptions(name, src, stateBasePath, Options{})
+}
+
+// CompileToModelWithOptions is CompileToModel with state_file containment
+// selectable through Options.ContainStateFile. Limits and panic telemetry in
+// opts are not used: this entry point reads no source file, and its panics are
+// already recovered into diagnostics.
+func CompileToModelWithOptions(name, src, stateBasePath string, opts Options) (result *LowerResult, ds Diagnostics) {
 	defer recoverInternalPanic(&result, &ds)
 	base := stateBasePath
 	if base == "" {
@@ -192,10 +228,10 @@ func CompileToModel(name, src, stateBasePath string) (result *LowerResult, ds Di
 	}
 	var lr *LowerResult
 	var ds2 Diagnostics
-	if stateBasePath == "" {
-		lr, ds2 = lower.LowerResolvingState(turnFile, base)
-	} else {
+	if containStateFile(stateBasePath, opts) {
 		lr, ds2 = lower.LowerResolvingStateContained(turnFile, base)
+	} else {
+		lr, ds2 = lower.LowerResolvingState(turnFile, base)
 	}
 	if ds2.HasErrors() {
 		return nil, ds2
@@ -211,6 +247,14 @@ func CompileToModel(name, src, stateBasePath string) (result *LowerResult, ds Di
 //
 // name and stateBasePath follow the same conventions as CompileSource.
 func ResolveSchema(name, src, stateBasePath string) (schema Schema, order []string, ds Diagnostics) {
+	return ResolveSchemaWithOptions(name, src, stateBasePath, Options{})
+}
+
+// ResolveSchemaWithOptions is ResolveSchema with state_file containment
+// selectable through Options.ContainStateFile. This is the entry point where it
+// matters most: the cached-schema APIs trust a state_file schema and do not
+// re-read it, so this is the one place the external file is actually opened.
+func ResolveSchemaWithOptions(name, src, stateBasePath string, opts Options) (schema Schema, order []string, ds Diagnostics) {
 	defer recoverSchemaPanic(&schema, &order, &ds)
 	base := stateBasePath
 	if base == "" {
@@ -221,10 +265,10 @@ func ResolveSchema(name, src, stateBasePath string) (schema Schema, order []stri
 		return Schema{}, nil, ds1
 	}
 	var ds2 Diagnostics
-	if stateBasePath == "" {
-		schema, order, ds2 = state.ResolveWithOrder(turnFile.StateSource, base)
-	} else {
+	if containStateFile(stateBasePath, opts) {
 		schema, order, ds2 = state.ResolveWithOrderContained(turnFile.StateSource, base)
+	} else {
+		schema, order, ds2 = state.ResolveWithOrder(turnFile.StateSource, base)
 	}
 	return schema, order, ds2
 }
@@ -392,7 +436,7 @@ func runStage(acc Diagnostics, ds Diagnostics) (Diagnostics, bool) {
 	return acc.Capped(), true
 }
 
-func compileBytes(name string, src []byte, stateBasePath string, maxStateFileBytes int64) (*CompileResult, Diagnostics) {
+func compileBytes(name string, src []byte, stateBasePath string, maxStateFileBytes int64, contain bool) (*CompileResult, Diagnostics) {
 	base := stateBasePath
 	if base == "" {
 		base = filepath.Dir(name)
@@ -408,10 +452,10 @@ func compileBytes(name string, src []byte, stateBasePath string, maxStateFileByt
 
 	var lr *LowerResult
 	var ds2 Diagnostics
-	if stateBasePath == "" {
-		lr, ds2 = lower.LowerResolvingStateWithLimit(turnFile, base, maxStateFileBytes)
-	} else {
+	if contain {
 		lr, ds2 = lower.LowerResolvingStateContainedWithLimit(turnFile, base, maxStateFileBytes)
+	} else {
+		lr, ds2 = lower.LowerResolvingStateWithLimit(turnFile, base, maxStateFileBytes)
 	}
 	if accumulated, ok = runStage(accumulated, ds2); !ok {
 		return nil, accumulated

@@ -1,6 +1,6 @@
 import { fromJson, type JsonObject } from "@bufbuild/protobuf";
 import type { TurnModel, RouteModel, SceneBlock } from "./types/turnout-model_pb.js";
-import { TurnModelSchema } from "./types/turnout-model_pb.js";
+import { RouteModelSchema, SceneBlockSchema, TurnModelSchema } from "./types/turnout-model_pb.js";
 import type {
   HarnessResult,
   FullHarnessResult,
@@ -11,7 +11,7 @@ import { migrateModel, checkSceneForExtExpr } from "./migration.js";
 import { resolveDispatchTarget } from "./dispatch.js";
 import { validateModel } from "./validate-model.js";
 import { ModelValidationError } from "./errors.js";
-import { encodeZigRuntimeModel } from "./model-encoding.js";
+import { encodeZigRuntimeModel, protoJson } from "./model-encoding.js";
 import { snapshotModel, snapshotRecord } from "./model-snapshot.js";
 import type { Runner, RunnerOptions } from "./runner-types.js";
 import {
@@ -172,8 +172,21 @@ export function createRunner(
   return createZigRunner(inputModel, options);
 }
 
+/**
+ * Wrap loose scenes and routes in the one-model shape the runtime loads.
+ *
+ * Each fragment goes through `protoJson` rather than a `JSON.stringify` round
+ * trip. A decoded `SceneBlock` holds its literals as `google.protobuf.Value`
+ * wrapper objects, and stringifying one renders the wrapper; re-parsing that
+ * would turn every literal binding, STATE default, and `fromLiteral` entry into
+ * a record — silently, because the result is still a structurally valid model.
+ */
 function syntheticModel(scenes: SceneBlock[], routes: RouteModel[]): TurnModel {
-  const json = JSON.parse(JSON.stringify({ version: 2, scenes, routes })) as JsonObject;
+  const json: JsonObject = {
+    version: 2,
+    scenes: scenes.map((scene) => protoJson(SceneBlockSchema, scene)),
+    routes: routes.map((route) => protoJson(RouteModelSchema, route)),
+  };
   return fromJson(TurnModelSchema, json, { ignoreUnknownFields: true });
 }
 

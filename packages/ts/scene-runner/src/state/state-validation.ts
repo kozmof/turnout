@@ -1,5 +1,5 @@
 import type { AnyValue } from "runtime";
-import { defaultZigRuntimeClient } from "runtime/zig-runtime";
+import { defaultZigRuntimeClient } from "../zig-runtime/default-client.js";
 import { StateError } from "../errors.js";
 import { matchesSchemaType } from "./schema-types.js";
 
