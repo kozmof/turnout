@@ -53,6 +53,18 @@ case "${1:-test}" in
     }'
     # Aggregate coverage can hide a large regression in one critical package.
     # Keep conservative per-package floors alongside the repository-wide gate.
+    #
+    # The floors are a ratchet, set a point or two under what each package
+    # actually covers. They used to sit well below it — emit at 80 while
+    # covering 90, state at 90 while covering 95 — which leaves exactly the gap
+    # the floors exist to close: ten points of coverage could go without
+    # anything failing, and the aggregate would absorb it.
+    #
+    # internal/lower is the one genuinely near its floor rather than held
+    # under it. It is the largest package here and the least covered; the
+    # uncovered part is concentrated in the local-expression and template-case
+    # lowering paths (lower_local.go, lower_template_case.go, lower_tuple_case.go).
+    # Raise this one by writing tests, not by moving the number.
     while read -r package floor; do
       output=$(GOFLAGS=-buildvcs=false "$go_bin" test -cover "$package")
       actual=$(printf '%s\n' "$output" | awk 'match($0, /coverage: [0-9.]+%/) {
@@ -65,14 +77,14 @@ case "${1:-test}" in
         }
       }'
     done <<'EOF'
-./ 75.0
-./cmd/turnout 75.0
-./internal/emit 80.0
-./internal/fnmeta 80.0
-./internal/lexer 90.0
+./ 87.0
+./cmd/turnout 78.0
+./internal/emit 88.0
+./internal/fnmeta 90.0
+./internal/lexer 92.0
 ./internal/lower 75.0
 ./internal/parser 90.0
-./internal/state 90.0
+./internal/state 93.0
 ./internal/validate 90.0
 EOF
     ;;
