@@ -27,6 +27,7 @@ import {
   modelSourceFromHandle,
   type RuntimeModelSource,
 } from "./zig-runtime/runner-adapter.js";
+import { watchHandle } from "./zig-runtime/handle-registry.js";
 
 export type { Runner, RunnerOptions, RunnerStepResult } from "./runner-types.js";
 
@@ -142,6 +143,10 @@ function mapRunnerResult<A extends HarnessResult, B extends HarnessResult>(
     runAsync: () => inner.runAsync(),
     result: () => transform(inner.result()),
     partialState: () => inner.partialState(),
+    // The handle belongs to the inner runner; the outer only reshapes results.
+    // Forwarding rather than reimplementing keeps `using` on the runner a caller
+    // actually holds closing the handle that actually exists.
+    [Symbol.dispose]: () => inner[Symbol.dispose](),
   };
   return outer;
 }
@@ -210,6 +215,39 @@ function syntheticModel(scenes: SceneBlock[], routes: RouteModel[]): TurnModel {
  * when finished with it; runners already created stay valid, because the model
  * lives until the last of them is done.
  */
+/**
+ * What the finalizer backstop should do with one model handle.
+ *
+ * A whole registration rather than a bare destroy, and a free function rather
+ * than something built in the constructor, for two reasons. It must not capture
+ * the model, or the model is never collected and the finalizer never runs. And a
+ * closure written inline in the constructor would be reachable only from a
+ * finalizer, which no test can schedule — this one a test can build and call.
+ *
+ * The destroy raises when the runtime refuses, because a failed reclaim is a real
+ * leak and the backstop counts it as one. `release()` does not: it is the
+ * ordinary path, and a caller releasing a model has nothing useful to do about a
+ * refusal.
+ *
+ * @internal
+ */
+export function modelHandleRegistration(
+  client: ZigRuntimeClient,
+  handle: number,
+): { kind: "model"; handle: number; destroy: () => void; onWarning: undefined } {
+  return {
+    kind: "model",
+    handle,
+    destroy: () => {
+      const destroyed = client.destroyModel(handle);
+      if (destroyed.status !== "ok") {
+        throw new Error(`runtime refused to destroy model handle: ${String(destroyed.status)}`);
+      }
+    },
+    onWarning: undefined,
+  };
+}
+
 export class PreparedModel {
   /**
    * The migrated model, the runtime source built over its handle, and the
@@ -231,6 +269,12 @@ export class PreparedModel {
   readonly #handle: number;
   #released = false;
   /**
+   * Stops the finalizer backstop once this model has been released properly.
+   *
+   * Assigned in the constructor, after `this` exists to be watched.
+   */
+  readonly #unwatch: () => void;
+  /**
    * Routes and scenes by id, built on first use.
    *
    * A prepared model is fixed — the runtime already holds its own lowered copy
@@ -250,6 +294,8 @@ export class PreparedModel {
     this.#handle = handle;
     this.#source = source;
     this.#client = client;
+    // See modelHandleRegistration for why this is built outside the constructor.
+    this.#unwatch = watchHandle(this, modelHandleRegistration(client, handle)).unwatch;
   }
 
   /** True once {@link release} has been called. */
@@ -298,7 +344,25 @@ export class PreparedModel {
   release(): void {
     if (this.#released) return;
     this.#released = true;
+    this.#unwatch();
     this.#client.destroyModel(this.#handle);
+  }
+
+  /**
+   * Alias for {@link release}, so a prepared model can be held with `using`.
+   *
+   * ```ts
+   * using prepared = prepareModel(model);
+   * for (const request of requests) { ... }
+   * ```
+   *
+   * Releasing is manual and always was, which is the whole problem: a model
+   * handle that is never released is gone for the life of the process, and
+   * unlike a runner's there was nothing recording that it had happened. `using`
+   * makes the release the block's business rather than the caller's memory.
+   */
+  [Symbol.dispose](): void {
+    this.release();
   }
 }
 

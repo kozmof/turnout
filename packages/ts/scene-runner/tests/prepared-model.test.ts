@@ -1,7 +1,8 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, expect } from "vitest";
 import { instantiateZigRuntime } from "turnout-runtime/zig-runtime";
-import { createRunner, prepareModel } from "../src/runner.js";
+import { createRunner, modelHandleRegistration, prepareModel } from "../src/runner.js";
+import type { ZigRuntimeClient } from "../src/zig-runtime/client.js";
 import { defaultZigRuntimeClient } from "../src/zig-runtime/default-client.js";
 import { ModelValidationError } from "../src/errors.js";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
@@ -61,6 +62,57 @@ describe("prepareModel", () => {
 
     const result = await runner.run();
     expect(result.finalState.score?.value).toBe(5);
+  });
+
+  // release() is manual and always was, which is the whole problem: a model
+  // handle that is never released is gone for the life of the process, and the
+  // runtime's copy of the model with it. `using` makes it the block's business.
+  it("releases on the way out of a `using` block", async () => {
+    const model = buildModel(2);
+    let escaped: ReturnType<typeof prepareModel>;
+    {
+      using prepared = prepareModel(model);
+      expect(prepared.released).toBe(false);
+      await expect(createRunner(prepared, options).run()).resolves.toBeDefined();
+      escaped = prepared;
+    }
+    expect(escaped.released).toBe(true);
+  });
+
+  it("disposing is the same call as release, so the two never double-destroy", () => {
+    const prepared = prepareModel(buildModel(1));
+    prepared.release();
+    expect(prepared.released).toBe(true);
+    // A second destroy would name a handle the engine no longer knows.
+    expect(() => prepared[Symbol.dispose]()).not.toThrow();
+    expect(prepared.released).toBe(true);
+  });
+
+  // createRunner hands back a runner wrapped to reshape its result. The handle
+  // belongs to the inner one, so the wrapper has to forward disposal rather than
+  // quietly do nothing — which is what it did before there was a method to forward.
+  it("disposes the runner createRunner actually returns", async () => {
+    using prepared = prepareModel(buildModel(2));
+    const runner = createRunner(prepared, options);
+    runner[Symbol.dispose]();
+    // The handle is gone, so stepping is refused rather than passed to it.
+    await expect(runner.next()).rejects.toThrow("the run ended without completing");
+  });
+
+  // Only a finalizer calls this, and a finalizer cannot be scheduled on purpose,
+  // so both branches are exercised here instead of waiting for a collection.
+  it("registers a destroy that reports a runtime refusing the handle", () => {
+    const refusing = {
+      destroyModel: () => ({ status: "invalid_handle" as const, payload: null }),
+    } as unknown as ZigRuntimeClient;
+    const registration = modelHandleRegistration(refusing, 9);
+    expect(registration).toMatchObject({ kind: "model", handle: 9 });
+    expect(() => registration.destroy()).toThrow("runtime refused to destroy");
+
+    const accepting = {
+      destroyModel: () => ({ status: "ok" as const, payload: { destroyed: 9 } }),
+    } as unknown as ZigRuntimeClient;
+    expect(() => modelHandleRegistration(accepting, 9).destroy()).not.toThrow();
   });
 
   it("release is idempotent", () => {

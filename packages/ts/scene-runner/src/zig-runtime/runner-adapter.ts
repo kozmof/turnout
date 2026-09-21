@@ -21,6 +21,7 @@ import { ModelMergeError } from "../merge-models.js";
 import { safeLog, safeWarn } from "../logging.js";
 import { stateManagerFromUnchecked } from "../state/state-manager.js";
 import { recordLeakedHandle } from "./leaked-handles.js";
+import { watchHandle } from "./handle-registry.js";
 import type { ZigResponse, CreatedRuntime } from "./client.js";
 import {
   dispatchZigEffect,
@@ -391,6 +392,15 @@ interface ZigRuntimeSession {
   /** Capture the final state, close the handle, and stop listening for abort. */
   finish(): void;
   /**
+   * Hand the finalizer backstop the object whose collection means this handle
+   * has no owner left. Called once, with the runner the caller is given.
+   *
+   * The session cannot register itself: it is reachable from the runner, so
+   * watching it would keep the runner's own closures alive and the finalizer
+   * would never run.
+   */
+  watch(holder: object): void;
+  /**
    * Close the handle for a run that ended without completing.
    *
    * The caller is already throwing. This exists so the throw does not also cost
@@ -439,6 +449,7 @@ function openZigRuntimeSession(
   let completed = false;
   let handleOpen = true;
   let finalState: StateSnapshot | undefined;
+  let unwatch: () => void = () => {};
 
   function readState(): StateSnapshot {
     if (!handleOpen) {
@@ -498,6 +509,9 @@ function openZigRuntimeSession(
 
     handleOpen = false;
     signal.removeEventListener("abort", releaseOnAbort);
+    // The handle is accounted for, however that went, so the backstop has
+    // nothing left to do and must not fire on a handle already destroyed.
+    unwatch();
 
     if (strict) {
       // The read failing is the more informative of the two, so it wins.
@@ -547,6 +561,15 @@ function openZigRuntimeSession(
     isClosed: () => !handleOpen,
     readState,
     finish,
+    watch: (holder) => {
+      if (!handleOpen) return;
+      unwatch = watchHandle(holder, {
+        kind: "runtime",
+        handle,
+        destroy: () => assertOk(client.destroy(handle)),
+        onWarning: options.onWarning,
+      }).unwatch;
+    },
     abandon,
     requireFinalState: () => {
       if (!completed || finalState === undefined) {
@@ -680,7 +703,7 @@ export function createZigSceneRunner(
     return result;
   }
 
-  return makeRunnerMethods(
+  const runner = makeRunnerMethods(
     hooks,
     closingOnThrow(session, advance),
     session.isDone,
@@ -704,7 +727,10 @@ export function createZigSceneRunner(
     }),
     () => stateManagerFromUnchecked(session.finalStateOrRead()),
     signal,
+    session.abandon,
   );
+  session.watch(runner);
+  return runner;
 }
 
 /** Build the existing route Runner API around one Zig WASM runtime handle. */
@@ -854,7 +880,7 @@ export function createZigRouteRunner(
     return result;
   }
 
-  return makeRunnerMethods(
+  const runner = makeRunnerMethods(
     hooks,
     closingOnThrow(session, advance),
     session.isDone,
@@ -876,5 +902,8 @@ export function createZigRouteRunner(
     }),
     () => stateManagerFromUnchecked(session.finalStateOrRead()),
     signal,
+    session.abandon,
   );
+  session.watch(runner);
+  return runner;
 }

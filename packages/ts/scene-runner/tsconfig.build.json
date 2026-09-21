@@ -1,6 +1,19 @@
 {
   "compilerOptions": {
     "target": "ES2022",
+    // Exactly what `target: ES2022` supplies on its own (lib.es2022.full), plus
+    // ESNext.Disposable. Runner and PreparedModel declare `[Symbol.dispose]`, which
+    // lives in that lib; Node has had the symbol since 20.11, well under this
+    // package's engines floor. The rest are listed only because naming `lib` at all
+    // replaces the implicit set, and dropping DOM takes WebAssembly with it.
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable",
+      "ScriptHost",
+      "WebWorker.ImportScripts",
+      "ESNext.Disposable"
+    ],
     "module": "ESNext",
     "moduleResolution": "bundler",
     "rootDir": "./src",

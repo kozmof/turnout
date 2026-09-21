@@ -70,12 +70,11 @@ pub const Outcome = struct {
 
 pub const Options = struct {
     fail_on_publish_error: bool = false,
-    max_scene_steps: usize = 10_000,
-    max_route_transitions: usize = 1_000,
-    /// How many times this run may merge a model in. Every merge retains the
-    /// model it replaced for the rest of the run, so this bounds `grown`.
-    /// Matches the WASM host's `maxModelMerges`.
-    max_model_merges: usize = 100,
+    /// The budgets both hosts share, declared once in the scene-runner layer.
+    /// See `runner.default_limits` for what each bounds and why.
+    max_scene_steps: usize = runner.default_limits.scene_steps,
+    max_route_transitions: usize = runner.default_limits.route_transitions,
+    max_model_merges: usize = runner.default_limits.model_merges,
 };
 
 const Driver = union(enum) {

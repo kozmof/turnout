@@ -117,13 +117,25 @@ export type ExecutionOptions = {
    * type correctness are not enforced and typo'd paths read back as null.
    */
   allowUncheckedState?: boolean;
-  /** Maximum action steps allowed per scene execution. Must be a non-negative safe integer. */
+  /**
+   * Maximum action steps allowed per scene execution. Must be a non-negative
+   * safe integer.
+   *
+   * Omitted, the engine applies its own default and reports the value it used,
+   * which is what `MaxStepsExceeded` names. The defaults live in
+   * `runner.default_limits` (packages/zig/scene-runner/src/runner.zig) so that
+   * both hosts read the same ones; this comment deliberately does not restate
+   * the number, because a comment is the one copy nothing can keep in step.
+   */
   maxSceneSteps?: number;
-  /** Maximum scene transitions allowed during route execution. Must be a non-negative safe integer. Defaults to 1,000. */
+  /**
+   * Maximum scene transitions allowed during route execution. Must be a
+   * non-negative safe integer. Defaults as `maxSceneSteps` does.
+   */
   maxRouteTransitions?: number;
   /**
    * Maximum models an `extend` hook may merge into this run. Must be a
-   * non-negative safe integer. Defaults to 100.
+   * non-negative safe integer. Defaults as `maxSceneSteps` does.
    *
    * Every merge retains the model it replaced for the rest of the run, because
    * the engine borrows ids from it. Merges belong at configuration boundaries,

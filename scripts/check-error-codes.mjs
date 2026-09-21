@@ -12,6 +12,14 @@
 //     an engine error of the same name
 //   - every `renamed` pair is actually implemented at the rename site
 //   - no `hostOnly` or `vestigial` code shadows an engine error name
+//
+// A union is only half the surface, though. A host also names an engine error by
+// comparing a bare string literal against one, and that comparison lives wherever
+// it is written rather than in errors.ts. So this also scans `matchSources` for
+// string literals the engine raises as errors, and checks:
+//   - every such literal is classified, either above or in `matched`
+//   - every `matched` code is still an engine error name
+//   - every `matched` code is still compared against somewhere in `matchSources`
 import assert from "node:assert/strict";
 import { readdir, readFile } from "node:fs/promises";
 
@@ -37,14 +45,41 @@ async function engineErrorNames() {
   return names;
 }
 
-async function zigFiles(dir) {
+async function sourceFiles(dir, extension) {
   const found = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
     const child = new URL(entry.name + (entry.isDirectory() ? "/" : ""), dir);
-    if (entry.isDirectory()) found.push(...(await zigFiles(child)));
-    else if (entry.name.endsWith(".zig")) found.push(child);
+    if (entry.isDirectory()) found.push(...(await sourceFiles(child, extension)));
+    else if (entry.name.endsWith(extension)) found.push(child);
   }
   return found;
+}
+
+const zigFiles = (dir) => sourceFiles(dir, ".zig");
+
+/**
+ * Every engine error name a scanned TypeScript source compares a string literal
+ * against, mapped to the files that do it.
+ *
+ * Tests are excluded: a test naming an error is asserting on behaviour, not
+ * depending on the spelling to route one. Generated protobuf is excluded because
+ * nothing in it is a hand-written comparison.
+ */
+async function matchedEngineNames(engine) {
+  const sites = new Map();
+  for (const dir of spec.matchSources) {
+    for (const file of await sourceFiles(new URL(`${dir}/`, root), ".ts")) {
+      const path = file.pathname.slice(root.pathname.length);
+      if (path.endsWith(".test.ts") || path.endsWith("_pb.ts")) continue;
+      const source = await readFile(file, "utf8");
+      for (const match of source.matchAll(/"([A-Z][A-Za-z0-9_]*)"/g)) {
+        if (!engine.has(match[1])) continue;
+        if (!sites.has(match[1])) sites.set(match[1], new Set());
+        sites.get(match[1]).add(path);
+      }
+    }
+  }
+  return sites;
 }
 
 /**
@@ -93,6 +128,29 @@ for (const entry of spec.shared) classify(entry.code, "shared");
 for (const entry of spec.renamed) classify(entry.host, "renamed");
 for (const entry of spec.hostOnly) classify(entry.code, "hostOnly");
 for (const entry of spec.vestigial) classify(entry.code, "vestigial");
+
+// `matched` is a second surface, not a fifth kind: a literal whose spelling some
+// entry above already pins to the engine needs no second entry, so these are
+// recorded apart from the four rather than through classify().
+//
+// What pins a spelling is the assertion that the engine still raises it, and only
+// two kinds make it. `shared` names the engine error directly. `renamed` names it
+// on the engine side, which is the side a literal is compared against — the host
+// side of a rename is a host word the engine never sends. `hostOnly` and
+// `vestigial` assert the opposite, that no engine error bears the name, so a
+// literal of theirs could never reach this set in the first place.
+const pinnedToEngine = new Set([
+  ...spec.shared.map((entry) => entry.code),
+  ...spec.renamed.map((entry) => entry.engine),
+]);
+const matched = new Set(spec.matched.map((entry) => entry.code));
+for (const code of matched) {
+  assert.ok(
+    !pinnedToEngine.has(code),
+    `${code} is listed under matched but is already pinned to the engine by a shared ` +
+      `or renamed entry; that entry asserts the spelling and this one is redundant`,
+  );
+}
 
 // Every declared code is classified, and nothing classified is undeclared.
 for (const code of declared) {
@@ -158,8 +216,42 @@ for (const [kind, entries] of Object.entries({
   }
 }
 
+// The literal-comparison surface. A union declares a vocabulary; a comparison
+// consumes one, and the spelling it consumes has to stay pinned to the engine too.
+const matchSites = await matchedEngineNames(engine);
+
+for (const [code, files] of matchSites) {
+  assert.ok(
+    pinnedToEngine.has(code) || matched.has(code),
+    `${[...files].join(", ")} compares against "${code}", which the engine raises as ` +
+      `error.${code}, but nothing in spec/error-codes.json pins that spelling. Add it to ` +
+      `matched, or to shared if a gated union declares it as well.`,
+  );
+}
+
+for (const entry of spec.matched) {
+  assert.ok(
+    engine.has(entry.code),
+    `${entry.code} is listed under matched but no engine source raises error.${entry.code}`,
+  );
+  assert.ok(
+    matchSites.has(entry.code),
+    `${entry.code} is listed under matched but no source under matchSources compares ` +
+      `against it; drop the entry or restore the call site`,
+  );
+}
+
+for (const entry of spec.matched) {
+  assert.ok(
+    typeof entry.why === "string" && entry.why.length > 0,
+    `matched entry ${entry.code} has no "why"`,
+  );
+}
+
 console.log(
   `error codes: ${declared.size} declared across ${spec.gatedUnions.length} unions — ` +
     `${spec.shared.length} shared, ${spec.renamed.length} renamed, ` +
-    `${spec.hostOnly.length} host-only, ${spec.vestigial.length} vestigial`,
+    `${spec.hostOnly.length} host-only, ${spec.vestigial.length} vestigial; ` +
+    `${matchSites.size} engine names matched as literals across ` +
+    `${spec.matchSources.length} trees, ${spec.matched.length} classified there`,
 );

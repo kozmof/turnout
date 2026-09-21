@@ -28,7 +28,25 @@
     "Found on the first run: six codes in the vestigial list below. They date from when",
     "TypeScript executed scenes itself; the engine took that over and the vocabulary was",
     "never trimmed. They are exported types no code path can produce, which is what this",
-    "gate exists to stop happening again."
+    "gate exists to stop happening again.",
+    "",
+    "Found on the second: the unions were only half the surface. A host also names an",
+    "engine error by comparing a bare string literal against one, and those live wherever",
+    "the comparison is -- not in errors.ts, and not necessarily in this package.",
+    "packages/ts/runtime had ten of them and no gate had ever looked at it. executeGraph.ts",
+    "reconstructs a cycle, an empty pipe and a missing value from GraphCycle, EmptyPipe and",
+    "MissingValue; zig-preset.ts translates six more into the messages the TypeScript",
+    "executor used to produce. Rename any of them in Zig and the comparison stops matching:",
+    "executeGraph downgrades a cycle to a generic execution error, and callZigPreset",
+    "surfaces the raw code in place of its message. No compile error, no failing test --",
+    "the same silence the unions were gated to end.",
+    "",
+    "So `matchSources` names the trees to scan and `matched` classifies every literal found",
+    "there that the engine also raises. A code already classified above needs no second",
+    "entry: `shared` and `renamed` each assert the engine error still exists, which is the",
+    "pin a match site needs. `matched` carries the rest, and is checked in both directions",
+    "-- the engine must still raise it, and a scanned source must still compare against it",
+    "-- so neither a rename in Zig nor a deleted call site can leave the list stale."
   ],
   "engineSources": [
     "packages/zig/scene-runner/src",
@@ -47,6 +65,10 @@
     "RunnerErrorCode": "the host's own API misuse vocabulary; no engine error corresponds",
     "ModelValidationErrorCode": "why a model was rejected, decided by the host from the engine's status"
   },
+  "matchSources": [
+    "packages/ts/runtime/src",
+    "packages/ts/scene-runner/src"
+  ],
   "shared": [
     { "code": "MaxStepsExceeded", "why": "the scene driver's step budget" },
     { "code": "MaxRouteTransitionsExceeded", "why": "the route driver's transition budget" },
@@ -118,6 +140,40 @@
     {
       "code": "MissingStateBinding",
       "why": "from the TypeScript prepare phase; the engine resolves from_state itself"
+    }
+  ],
+  "matched": [
+    {
+      "code": "GraphCycle",
+      "why": "executeGraph.ts turns it into a FunctionExecutionError naming the node; without the match a cycle reads as an unexplained execution failure"
+    },
+    {
+      "code": "EmptyPipe",
+      "why": "executeGraph.ts turns it into an EmptySequenceError, the shape the builder API documents"
+    },
+    {
+      "code": "MissingValue",
+      "why": "executeGraph.ts re-derives which argument was absent and raises a MissingValueError naming it"
+    },
+    {
+      "code": "DivisionByZero",
+      "why": "zig-preset.ts translates it to the message the TypeScript executor produced for it"
+    },
+    {
+      "code": "ModuloByZero",
+      "why": "zig-preset.ts translates it to the message the TypeScript executor produced for it"
+    },
+    {
+      "code": "InvalidNumber",
+      "why": "zig-preset.ts names the value that would not convert"
+    },
+    {
+      "code": "IndexOutOfBounds",
+      "why": "zig-preset.ts splits it by callee into a missing record key and an out-of-range array index"
+    },
+    {
+      "code": "IncomparableValues",
+      "why": "zig-preset.ts names both operand types and whether the comparison was equality or inequality"
     }
   ]
 }

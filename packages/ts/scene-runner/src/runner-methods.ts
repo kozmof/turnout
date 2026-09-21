@@ -11,6 +11,7 @@ export function makeRunnerMethods<R extends HarnessResult>(
   resultFn: () => R,
   partialStateFn: () => StateManager,
   signal: AbortSignal,
+  disposeFn: () => void,
 ): Runner<R> {
   let started = false;
   let inFlight = false;
@@ -140,5 +141,6 @@ export function makeRunnerMethods<R extends HarnessResult>(
     },
     result: resultFn,
     partialState: partialStateFn,
+    [Symbol.dispose]: disposeFn,
   };
 }

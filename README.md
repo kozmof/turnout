@@ -177,6 +177,25 @@ Each runner still gets its own STATE; only the model is shared. `release()` free
 the runtime's copy, and runners created before it keep working until they
 finish.
 
+Both a runner and a prepared model hold an engine handle, and a handle is taken
+when the object is created rather than when it is first used. Handles are never
+recycled, so one that is never given back is gone for the life of the process.
+Declaring either with `using` closes it however the block exits.
+
+```ts
+using prepared = prepareModel(model);
+for (const request of requests) {
+  using runner = createRunner(prepared, { entryId: "vend", initialState: {} });
+  await runner.run();
+}
+```
+
+A run that completes, throws, or is aborted has already given its handle back;
+disposing after that does nothing. A finalizer reclaims a handle whose owner was
+collected without being closed, but it runs whenever the collector gets to it —
+`leakedRuntimeHandles()`, `leakedModelHandles()` and `lateReclaimedHandles()`
+report both outcomes for a host that wants to alert on either.
+
 Scenes compiled separately can be combined into one model.
 
 ```ts

@@ -25,4 +25,24 @@ export type Runner<R extends HarnessResult = HarnessResult> = {
   runAsync(): AsyncGenerator<RunnerStepResult>;
   result(): R;
   partialState(): StateManager;
+  /**
+   * Give the engine handle back without running to completion.
+   *
+   * A runner takes its handle when it is created, not when it is first stepped,
+   * so one that is built and then dropped holds a handle for the life of the
+   * process — handles are never recycled. Declaring it with `using` closes it on
+   * the way out of the block whatever happens:
+   *
+   * ```ts
+   * using runner = createRunner(model, options);
+   * const result = await runner.run();
+   * ```
+   *
+   * Idempotent, and harmless after a completed run: `run()` has already closed
+   * the handle, and `result()` and `partialState()` keep answering from the
+   * state captured when it closed. On an unfinished run this is the same close
+   * an abort performs — the partial state is captured, the handle goes back, and
+   * stepping again is refused.
+   */
+  [Symbol.dispose](): void;
 };

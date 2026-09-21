@@ -26,6 +26,34 @@ pub const RuntimeError = error{
     InvalidPreparePayload,
     ActionInProgress,
 };
+/// The execution budgets a host applies when its caller names none.
+///
+/// The drivers themselves take every budget as a parameter and default nothing:
+/// a budget is a host's policy, not the engine's. But both hosts drive the same
+/// engine over the same models, and a model that completes under one and trips a
+/// budget under the other is a parity bug rather than a policy difference. So the
+/// policy is written once, here, in the layer both of them already depend on.
+///
+/// These were duplicated -- `CreateRequest` in wasm/src/abi.zig and `Options` in
+/// host/src/run.zig each spelled the same three numbers, the second with a comment
+/// saying it matched the first. Nothing checked that it did. Raising one would have
+/// left the other behind, and the run that then failed would have failed on only
+/// one host, with the conformance vectors passing on both: they pin behaviour, and
+/// a budget is only visible once a run is long enough to reach it.
+pub const default_limits = struct {
+    pub const scene_steps: usize = 10_000;
+    pub const route_transitions: usize = 1_000;
+    /// How many times a run may merge a model in.
+    ///
+    /// Every merge retires the model it replaced and keeps it alive for the rest
+    /// of the run, because the driver borrows ids from it. That is bounded only by
+    /// how often a flow extends, and a flow that extends once per action can retire
+    /// `scene_steps` whole parsed models. Merges belong at configuration
+    /// boundaries, so a run that passes this is far more likely to be looping than
+    /// to be configuring.
+    pub const model_merges: usize = 100;
+};
+
 pub const IncrementalDuplicateWarning = struct {
     action_id: []const u8,
     from_action_id: []const u8,

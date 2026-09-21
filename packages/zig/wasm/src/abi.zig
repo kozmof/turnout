@@ -91,17 +91,11 @@ const CreateRequest = struct {
     routeId: ?[]const u8 = null,
     initialState: ?std.json.Value = null,
     failOnPublishError: bool = false,
-    maxSceneSteps: usize = 10_000,
-    maxRouteTransitions: usize = 1_000,
-    /// How many times this run may merge a model in.
-    ///
-    /// Every merge retires the model it replaced and keeps it alive for the
-    /// rest of the run, because the driver borrows ids from it. That is bounded
-    /// only by how often a flow extends, and a flow that extends once per
-    /// action can retire `maxSceneSteps` whole parsed models. Merges belong at
-    /// configuration boundaries, so a run that passes this is far more likely
-    /// to be looping than to be configuring.
-    maxModelMerges: usize = 100,
+    /// The budgets both hosts share, declared once in the scene-runner layer.
+    /// See `runner.default_limits` for what each bounds and why.
+    maxSceneSteps: usize = runtime.default_limits.scene_steps,
+    maxRouteTransitions: usize = runtime.default_limits.route_transitions,
+    maxModelMerges: usize = runtime.default_limits.model_merges,
 };
 
 const Driver = union(enum) {
