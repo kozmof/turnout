@@ -76,6 +76,34 @@ func TestFieldTypeString(t *testing.T) {
 			t.Errorf("FieldType(%q).String() = %q, want %q", string(tc.ft), got, tc.want)
 		}
 	}
+	if got := ast.FieldTypeInvalid.String(); got != "FieldType(invalid)" {
+		t.Errorf("FieldTypeInvalid.String() = %q, want the named rendering", got)
+	}
+}
+
+// TestFieldTypeProtoStringIsNotDisplayString pins the split between the two.
+// ProtoString writes into the model; String answers to a human reading a
+// diagnostic and names the invalid type rather than spelling it. Delegating one
+// to the other put that display decision in the wire format, and wrote
+// `FieldType(invalid)` into a model as if it were a type name whenever an
+// invalid type reached lowering.
+func TestFieldTypeProtoStringIsNotDisplayString(t *testing.T) {
+	if got := ast.FieldTypeInvalid.ProtoString(); got != "" {
+		t.Errorf("FieldTypeInvalid.ProtoString() = %q, want the empty string", got)
+	}
+	if ast.FieldTypeInvalid.ProtoString() == ast.FieldTypeInvalid.String() {
+		t.Error("ProtoString and String agree on the invalid type; the wire form is following the display form again")
+	}
+	// Every type that has a spelling is that spelling, in both.
+	for _, ft := range ast.BaseFieldTypes() {
+		if got := ft.ProtoString(); got != string(ft) {
+			t.Errorf("%q.ProtoString() = %q, want the type's own spelling", string(ft), got)
+		}
+		if ft.ProtoString() != ft.String() {
+			t.Errorf("%q: ProtoString %q and String %q disagree on a valid type",
+				string(ft), ft.ProtoString(), ft.String())
+		}
+	}
 }
 
 func TestFieldTypeFromString(t *testing.T) {

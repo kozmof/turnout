@@ -97,17 +97,34 @@ func (ft FieldType) Valid() bool {
 	return ok && name == string(ft)
 }
 
-// String returns the type's spelling. It does not validate: a canonical
-// FieldType is already its own name, and String is on the lowering path, where
-// re-parsing a deep type on every call would cost more than the whole of what
-// it is called for.
+// String returns the type's spelling for display. It does not validate: a
+// canonical FieldType is already its own name, and String is on the lowering
+// path, where re-parsing a deep type on every call would cost more than the
+// whole of what it is called for.
+//
+// The invalid type has no spelling, so String names it instead. That rendering
+// is for a human reading a diagnostic; ProtoString is what crosses the wire.
 func (ft FieldType) String() string {
 	if ft == FieldTypeInvalid {
 		return "FieldType(invalid)"
 	}
 	return string(ft)
 }
-func (ft FieldType) ProtoString() string { return ft.String() }
+
+// ProtoString returns the spelling to write into the model, which for every
+// type that has one is the FieldType itself.
+//
+// It is deliberately not String(). String is a fmt.Stringer and answers to a
+// human: it renders the invalid type as `FieldType(invalid)`, and it is free to
+// render it differently tomorrow. Delegating to it put a display decision in
+// the wire format, where changing how a diagnostic reads would have changed
+// what a model says — and where an invalid type reaching lowering (a compiler
+// bug) wrote that display string into the model as if it were a type name, for
+// the validator to report back as `unknown type string "FieldType(invalid)"`.
+//
+// Here the invalid type writes the empty string, which names no type in the
+// grammar and so is rejected by the same check, reported as the absence it is.
+func (ft FieldType) ProtoString() string { return string(ft) }
 
 func splitRecordParams(s string) (string, string, bool) {
 	depth := 0
@@ -294,8 +311,13 @@ type Sigil int
 // from an unstated frame — ingress into STATE is egress from the compute block
 // — and read as inverted to anyone who picked the other frame.
 //
-// The order is the wire format. Sigils are stored in the proto as the int32
-// from ToInt32, so these may be renamed but not reordered.
+// The ordinal is not a wire format. Sigils are stored in the proto as the
+// int32 from ToInt32, which reads as one — but spec/runtime-projection.json
+// lists ProgModel.sigils as compiler-only, and the emitter clears it before
+// JSON (internal/emit/json.go) while the HCL writer never writes it at all.
+// Nothing outside this compile ever sees the number: it is written by the
+// lowerer and read back by the validator, in one process, from a model neither
+// of them persists. Reorder these freely; just keep sigilNames alongside.
 const (
 	SigilNone      Sigil = iota // no sigil (plain compute binding)
 	SigilToState                // `~>` — the binding writes to STATE
