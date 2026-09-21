@@ -164,3 +164,124 @@ func TestStructpbFieldType(t *testing.T) {
 		})
 	}
 }
+
+// TestNewSchemaFromMapCopiesInput checks that the constructor does not adopt
+// the caller's map. A Schema is immutable once resolved and every reader in the
+// compiler assumes it; adopting would let a caller still holding the map edit a
+// schema from outside, at any point in a compile.
+func TestNewSchemaFromMapCopiesInput(t *testing.T) {
+	fields := map[string]state.FieldMeta{"x": {Type: ast.FieldTypeNumber}}
+	input := map[string]map[string]state.FieldMeta{"ns": fields}
+	schema := state.NewSchemaFromMap(input)
+
+	// Mutate both levels of the caller's map after construction.
+	fields["y"] = state.FieldMeta{Type: ast.FieldTypeStr}
+	input["other"] = map[string]state.FieldMeta{"z": {Type: ast.FieldTypeBool}}
+
+	if _, ok := schema.Get("ns.y"); ok {
+		t.Error("Get(ns.y) = true; a field added to the caller's inner map reached the schema")
+	}
+	if _, ok := schema.Get("other.z"); ok {
+		t.Error("Get(other.z) = true; a namespace added to the caller's outer map reached the schema")
+	}
+}
+
+// TestSchemaEqualContent covers the structural comparison that replaced the
+// hash in the cached-schema staleness check.
+func TestSchemaEqualContent(t *testing.T) {
+	resolved, order, ds := state.ResolveWithOrder(twoNamespaceSource(), "")
+	if ds.HasErrors() {
+		t.Fatalf("resolve failed: %v", ds)
+	}
+
+	t.Run("equal to a fresh resolve of the same source", func(t *testing.T) {
+		other, _, ds := state.ResolveWithOrder(twoNamespaceSource(), "")
+		if ds.HasErrors() {
+			t.Fatalf("resolve failed: %v", ds)
+		}
+		if !resolved.EqualContent(other, order) {
+			t.Error("EqualContent = false for two resolves of one source")
+		}
+	})
+
+	t.Run("differs on type", func(t *testing.T) {
+		source := twoNamespaceSource()
+		source.Namespaces[0].Fields[0].Type = ast.FieldTypeStr
+		source.Namespaces[0].Fields[0].Default = strLit("")
+		other, _, ds := state.ResolveWithOrder(source, "")
+		if ds.HasErrors() {
+			t.Fatalf("resolve failed: %v", ds)
+		}
+		if resolved.EqualContent(other, order) {
+			t.Error("EqualContent = true across a changed field type")
+		}
+	})
+
+	t.Run("differs on default", func(t *testing.T) {
+		source := twoNamespaceSource()
+		source.Namespaces[0].Fields[0].Default = numLit(42)
+		other, _, ds := state.ResolveWithOrder(source, "")
+		if ds.HasErrors() {
+			t.Fatalf("resolve failed: %v", ds)
+		}
+		if resolved.EqualContent(other, order) {
+			t.Error("EqualContent = true across a changed default value")
+		}
+	})
+
+	t.Run("differs on field count", func(t *testing.T) {
+		source := twoNamespaceSource()
+		ns := source.Namespaces[0]
+		ns.Fields = append(ns.Fields, &ast.FieldDecl{
+			Pos: pos(), Name: "extra", Type: ast.FieldTypeNumber, Default: numLit(0),
+		})
+		other, otherOrder, ds := state.ResolveWithOrder(source, "")
+		if ds.HasErrors() {
+			t.Fatalf("resolve failed: %v", ds)
+		}
+		// Neither order reaches the difference: the shorter one never names the
+		// added field, and the longer one names it in a schema that has it. The
+		// field counts are what refuse both.
+		if resolved.EqualContent(other, order) {
+			t.Error("EqualContent = true against a schema with an added field")
+		}
+		if other.EqualContent(resolved, otherOrder) {
+			t.Error("EqualContent = true against a schema missing a field")
+		}
+	})
+
+	t.Run("renamed field: same count, key in one schema only", func(t *testing.T) {
+		source := twoNamespaceSource()
+		source.Namespaces[0].Fields[0].Name = "renamed"
+		other, _, ds := state.ResolveWithOrder(source, "")
+		if ds.HasErrors() {
+			t.Fatalf("resolve failed: %v", ds)
+		}
+		// The field counts agree, so the refusal has to come from the key: the
+		// order names the old field, which only one of the two schemas has.
+		if resolved.EqualContent(other, order) {
+			t.Error("EqualContent = true across a renamed field")
+		}
+	})
+
+	t.Run("an order that misses a field is not equality", func(t *testing.T) {
+		other, _, ds := state.ResolveWithOrder(twoNamespaceSource(), "")
+		if ds.HasErrors() {
+			t.Fatalf("resolve failed: %v", ds)
+		}
+		if resolved.EqualContent(other, order[:len(order)-1]) {
+			t.Error("EqualContent = true on an order that leaves a field unvisited")
+		}
+	})
+
+	t.Run("a key in neither schema is skipped", func(t *testing.T) {
+		other, _, ds := state.ResolveWithOrder(twoNamespaceSource(), "")
+		if ds.HasErrors() {
+			t.Fatalf("resolve failed: %v", ds)
+		}
+		padded := append(append([]string(nil), order...), "gone.missing")
+		if !resolved.EqualContent(other, padded) {
+			t.Error("EqualContent = false for an order naming a field neither schema declares")
+		}
+	})
+}

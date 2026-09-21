@@ -12,6 +12,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/parser"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 )
 
@@ -51,15 +52,34 @@ func newSchema() Schema {
 }
 
 // NewSchemaFromMap constructs a Schema from a pre-built namespace map.
-// The map is adopted (not copied). Intended for test helpers and programmatic
-// schema construction when the DSL resolver is not available.
-// Note: Schema.Hash() returns 0 for schemas built via this constructor because
-// no declaration order is available to produce a deterministic content hash.
+// Intended for test helpers and programmatic schema construction when the DSL
+// resolver is not available.
+//
+// The map is copied, two levels deep. It used to be adopted, which made the
+// caller's map and the Schema's one object: a Schema is otherwise immutable
+// once resolved, and every reader here is entitled to assume that, so a caller
+// still holding the map could edit a schema mid-compile from outside. The copy
+// is two levels because the inner maps are the ones with the fields in them;
+// FieldMeta itself is a value, and its *structpb.Value default is shared, which
+// is safe because nothing in the compiler writes through one.
+//
+// Schema.Hash() returns 0 for a schema built this way: hashing walks the
+// declaration order, and a map has none. So do not compare a map-built schema
+// to anything by Hash — two of them agree on 0 while declaring different
+// fields. Compare with EqualContent, which is also what the cached-schema APIs
+// (converter.CompileWithSchema and friends) use for an inline state block, and
+// which a map-built schema passes when its content and the order handed
+// alongside it really do match the source.
 func NewSchemaFromMap(namespaces map[string]map[string]FieldMeta) Schema {
-	if namespaces == nil {
-		namespaces = make(map[string]map[string]FieldMeta)
+	copied := make(map[string]map[string]FieldMeta, len(namespaces))
+	for ns, fields := range namespaces {
+		inner := make(map[string]FieldMeta, len(fields))
+		for name, meta := range fields {
+			inner[name] = meta
+		}
+		copied[ns] = inner
 	}
-	return Schema{namespaces: namespaces}
+	return Schema{namespaces: copied}
 }
 
 // computeSchemaHash returns a deterministic FNV-64a hash over the schema
@@ -78,6 +98,55 @@ func computeSchemaHash(schema Schema, order []string) uint64 {
 		}
 	}
 	return h.Sum64()
+}
+
+// fieldCount returns how many fields the schema declares across all namespaces.
+func (s Schema) fieldCount() int {
+	n := 0
+	for _, fields := range s.namespaces {
+		n += len(fields)
+	}
+	return n
+}
+
+// EqualContent reports whether s and other declare exactly the same fields,
+// with the same types and defaults, walking order to visit them.
+//
+// This is what Hash() approximates. Hash exists for the caller that holds one
+// schema and a number remembered from another, and it is an approximation on
+// purpose: it is 64 bits, so two different schemas can agree on it. Where both
+// schemas are in hand there is nothing to approximate, and a comparison that
+// can be wrong should not be preferred to one that cannot.
+//
+// order is the declaration order of either schema; it must be the same for
+// both, which the caller checks separately. A key in order that neither schema
+// declares is skipped, the way computeSchemaHash skips it — an order can name a
+// field that an earlier error kept out of the schema. What is not skipped is a
+// field the order does not reach: the counts must agree, and the visit must
+// cover every field of s, or one of the two is carrying something unexamined.
+func (s Schema) EqualContent(other Schema, order []string) bool {
+	if s.fieldCount() != other.fieldCount() {
+		return false
+	}
+	visited := 0
+	for _, key := range order {
+		mine, mineOK := s.Get(key)
+		theirs, theirsOK := other.Get(key)
+		if mineOK != theirsOK {
+			return false
+		}
+		if !mineOK {
+			continue
+		}
+		visited++
+		if mine.Type != theirs.Type {
+			return false
+		}
+		if !proto.Equal(mine.DefaultValue, theirs.DefaultValue) {
+			return false
+		}
+	}
+	return visited == s.fieldCount()
 }
 
 // Get looks up a dotted path "ns.field" in the schema.

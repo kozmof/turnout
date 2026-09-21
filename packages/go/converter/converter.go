@@ -288,6 +288,13 @@ func sameStringSlice(a, b []string) bool {
 // verifyInlineCachedSchema rejects stale schemas for inline state blocks, which
 // can be resolved without I/O. State-file schemas are trusted: callers use
 // ResolveSchema once, and cached-schema APIs do not re-read the external file.
+//
+// The comparison is structural rather than by Schema.Hash. Hash is for the
+// caller holding one schema and a number remembered from another; here the
+// freshly resolved schema is already in hand, so there is nothing a 64-bit
+// digest saves and a collision would accept a stale schema and compile the
+// source against the wrong types — silently, which is the one outcome this
+// check exists to prevent.
 func verifyInlineCachedSchema(source ast.StateSource, cached Schema, order []string) Diagnostics {
 	if _, ok := source.(*ast.InlineStateBlock); !ok {
 		return nil
@@ -296,7 +303,7 @@ func verifyInlineCachedSchema(source ast.StateSource, cached Schema, order []str
 	if ds.HasErrors() {
 		return ds
 	}
-	if current.Hash() != cached.Hash() {
+	if !current.EqualContent(cached, currentOrder) {
 		return Diagnostics{diag.Errorf(
 			diag.CodeStaleSchema,
 			"cached schema does not match current STATE source; call ResolveSchema again before compiling with cached schema",

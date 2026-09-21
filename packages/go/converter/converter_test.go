@@ -209,6 +209,69 @@ func TestCompileWithSchemaRejectsStaleSchema(t *testing.T) {
 	}
 }
 
+// TestCompileWithSchemaStalenessIsStructural exercises the cached-schema
+// staleness check across the kinds of edit it has to catch. It compares the
+// resolved schemas field by field rather than by Schema.Hash: both schemas are
+// in hand at that point, so the 64-bit digest bought nothing, and a collision
+// on it would have accepted a stale schema and compiled the source against the
+// wrong types without saying so.
+func TestCompileWithSchemaStalenessIsStructural(t *testing.T) {
+	schema, order, schemaDiags := converter.ResolveSchema("inline.tu", simpleTurnSrc, "")
+	if schemaDiags.HasErrors() {
+		t.Fatalf("ResolveSchema failed: %v", schemaDiags)
+	}
+
+	edits := []struct {
+		name string
+		src  string
+		code string
+	}{
+		{
+			name: "changed default",
+			src:  strings.Replace(simpleTurnSrc, "count:number = 0", "count:number = 1", 1),
+			code: "StaleSchema",
+		},
+		{
+			name: "changed type",
+			src:  strings.Replace(simpleTurnSrc, "count:number = 0", "count:str = \"\"", 1),
+			code: "StaleSchema",
+		},
+		{
+			name: "renamed field",
+			src:  strings.Replace(simpleTurnSrc, "count:number = 0", "total:number = 0", 1),
+			code: "StaleSchema",
+		},
+		{
+			name: "added field",
+			src:  strings.Replace(simpleTurnSrc, "count:number = 0", "count:number = 0\n    extra:number = 0", 1),
+			// An added field changes the declaration order too, but the content
+			// check runs first and its field counts already disagree, so this
+			// reports as a stale schema rather than a stale order.
+			code: "StaleSchema",
+		},
+	}
+	for _, e := range edits {
+		t.Run(e.name, func(t *testing.T) {
+			result, errs := converter.CompileWithSchema("inline.tu", e.src, schema, order)
+			if result != nil {
+				t.Fatal("expected nil result for a stale cached schema")
+			}
+			if !errs.HasErrors() {
+				t.Fatal("expected a staleness error")
+			}
+			if string(errs[0].Code) != e.code {
+				t.Fatalf("expected %s, got %s: %s", e.code, errs[0].Code, errs[0].Format())
+			}
+		})
+	}
+
+	// The unedited source still compiles with the cached schema: the check
+	// refuses what changed, not everything.
+	if _, errs := converter.CompileWithSchema("inline.tu", simpleTurnSrc, schema, order); errs.HasErrors() {
+		t.Fatalf("unchanged source rejected against its own schema: %v", errs)
+	}
+}
+
 func TestCompileWithSchemaDoesNotRereadStateFile(t *testing.T) {
 	dir := t.TempDir()
 	statePath := filepath.Join(dir, "schema.tu")
