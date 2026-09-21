@@ -1,6 +1,24 @@
 /**
- * Targeted tests to improve branch coverage for validateContext.ts.
- * These tests exercise edge cases and error paths not covered by the main test files.
+ * Edge cases and error paths of `validateContext`, beyond the main test file.
+ *
+ * The header used to say these were "targeted tests to improve branch coverage
+ * for validateContext.ts", and that is no longer true of a single one of them.
+ * `validateContext.ts` is sixteen lines of re-export now; the validator moved to
+ * `graph_validate.zig`, and the branches this file was written to reach went
+ * with it. Deleting the file outright moves v8 branch coverage by exactly
+ * nothing — 90.36% either way — and statements, functions and lines by two
+ * each, because v8 measures the TypeScript these tests pass *through*, not the
+ * engine they actually exercise.
+ *
+ * They are kept because coverage was never the only thing they were worth. They
+ * pin what the engine reports back across the WASM boundary: the JSON round
+ * trip, the diagnostic shapes, the order errors arrive in. `graph_validate.zig`
+ * has its own Zig tests, and those do not see any of that.
+ *
+ * So: do not treat a coverage number as evidence about this file in either
+ * direction, and do not add a test here to move one. See
+ * `validate/engine-diagnostics.test.ts` for the same boundary asserted directly
+ * on message text.
  */
 
 import { describe, it, expect } from "vitest";

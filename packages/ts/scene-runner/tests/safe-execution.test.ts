@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildNumber, isPureNumber } from "turnout-runtime";
 import { executeRouteSafe, executeSceneSafe } from "../src/index.js";
-import { SceneRuntimeError } from "../src/errors.js";
+import { RouteRuntimeError, SceneRuntimeError } from "../src/errors.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
 import type { ActionModel, RouteModel, SceneBlock } from "../src/types/turnout-model_pb.js";
 
@@ -90,12 +90,11 @@ describe("executeSceneSafe", () => {
     expect(result.failedActionId).toBe("same");
   });
 
-  it("keeps legacy logs free of runner lifecycle events", async () => {
+  it("keeps its logs free of runner lifecycle events", async () => {
     const events: string[] = [];
     const result = await executeSceneSafe(
       scene("main", [action("only", 1, "result.value")]),
       stateManagerFromUnchecked({}),
-      undefined,
       undefined,
       { onLog: (event) => events.push(event.kind) },
     );
@@ -150,6 +149,11 @@ describe("executeRouteSafe", () => {
     if (result.ok) return;
     expect(String(result.error)).toContain(`unknown scene "missing"`);
     expect(result.failedSceneId).toBe("missing");
+    // Typed, not a bare Error. `UnknownScene` was in the vestigial list of
+    // spec/error-codes.json precisely because this path threw one.
+    expect(result.error).toBeInstanceOf(RouteRuntimeError);
+    expect((result.error as RouteRuntimeError).code).toBe("UnknownScene");
+    expect((result.error as RouteRuntimeError).routeId).toBe("route");
   });
 
   it("reports an initial scene with no entry action", async () => {
@@ -165,6 +169,8 @@ describe("executeRouteSafe", () => {
     if (result.ok) return;
     expect(String(result.error)).toContain(`scene "empty" has no entry action`);
     expect(result.failedSceneId).toBe("empty");
+    expect(result.error).toBeInstanceOf(RouteRuntimeError);
+    expect((result.error as RouteRuntimeError).code).toBe("NoEntryAction");
   });
 
   it("reports the missing target scene and last committed state", async () => {
@@ -178,7 +184,7 @@ describe("executeRouteSafe", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.failedSceneId).toBe("missing");
-    expect(result.partialState["route.first"]).toEqual(buildNumber(1));
+    expect(result.partialState.read("route.first")).toEqual(buildNumber(1));
   });
 
   it("preserves a strict publish failure merge", async () => {
@@ -205,7 +211,7 @@ describe("executeRouteSafe", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect(result.failedSceneId).toBe("only");
-    expect(result.partialState["route.value"]).toEqual(buildNumber(9));
+    expect(result.partialState.read("route.value")).toEqual(buildNumber(9));
   });
 
   it("captures an already-aborted run", async () => {
@@ -224,6 +230,6 @@ describe("executeRouteSafe", () => {
     expect(result.ok).toBe(false);
     if (result.ok) return;
     expect((result.error as { name?: string }).name).toBe("AbortError");
-    expect(result.partialState).toEqual({});
+    expect(result.partialState.snapshot()).toEqual({});
   });
 });

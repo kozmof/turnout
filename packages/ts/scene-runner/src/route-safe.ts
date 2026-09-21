@@ -7,12 +7,15 @@ import type {
   LogEvent,
   RouteTrace,
 } from "./types/harness-types.js";
+import { RouteRuntimeError } from "./errors.js";
 import { createRouteRunner } from "./runner.js";
 import { registerHooks } from "./register-hooks.js";
+import { defined } from "./defined.js";
+import { drainRunner, errorField, withoutLifecycleLogs } from "./safe-execution.js";
 
 export type RouteExecutionOptions = {
-  maxSceneSteps?: number;
-  maxRouteTransitions?: number;
+  maxSceneSteps?: number | undefined;
+  maxRouteTransitions?: number | undefined;
   signal?: AbortSignal | undefined;
   onLog?: ((event: LogEvent) => void) | undefined;
   failOnPublishError?: boolean | undefined;
@@ -31,8 +34,16 @@ export type RouteResult =
   | { ok: true; value: RouteExecutionResult }
   | {
       ok: false;
-      error: unknown;
-      partialState: Record<string, AnyValue>;
+      error: RouteRuntimeError | Error;
+      /**
+       * STATE as of the last committed action.
+       *
+       * A `StateManager`, matching `SceneResult.partialState`. It used to be a
+       * plain `Record<string, AnyValue>` here and a `StateManager` there — the
+       * same field name, on the failure branch of two sibling functions,
+       * holding two different types. Call `.snapshot()` for the record.
+       */
+      partialState: StateManager;
       failedSceneId: string;
     };
 
@@ -49,9 +60,15 @@ export async function executeRouteSafe(
   let activeSceneId = entrySceneId;
   try {
     const entryScene = scenes[entrySceneId];
-    if (entryScene === undefined) throw new Error('unknown scene "' + entrySceneId + '"');
+    if (entryScene === undefined) {
+      throw new RouteRuntimeError("UnknownScene", route.id, 'unknown scene "' + entrySceneId + '"');
+    }
     if (!entryScene.entryAction) {
-      throw new Error('scene "' + entrySceneId + '" has no entry action');
+      throw new RouteRuntimeError(
+        "NoEntryAction",
+        route.id,
+        'scene "' + entrySceneId + '" has no entry action',
+      );
     }
     runner = createRouteRunner(
       route,
@@ -61,27 +78,25 @@ export async function executeRouteSafe(
         entryId: route.id,
         initialState: state.snapshot(),
         allowUncheckedState: true,
-        ...(options.maxSceneSteps === undefined ? {} : { maxSceneSteps: options.maxSceneSteps }),
-        ...(options.maxRouteTransitions === undefined
-          ? {}
-          : { maxRouteTransitions: options.maxRouteTransitions }),
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-        ...(options.onLog === undefined
-          ? {}
-          : { onLog: (event: LogEvent) => forwardLegacyLog(options.onLog, event) }),
-        ...(options.failOnPublishError === undefined
-          ? {}
-          : { failOnPublishError: options.failOnPublishError }),
+        ...defined({
+          maxSceneSteps: options.maxSceneSteps,
+          maxRouteTransitions: options.maxRouteTransitions,
+          signal: options.signal,
+          onLog: withoutLifecycleLogs(options.onLog, [
+            "scene-start",
+            "scene-complete",
+            "route-transition",
+          ]),
+          failOnPublishError: options.failOnPublishError,
+        }),
       },
       state,
     );
     registerHooks(runner, hooks);
-    while (!runner.isDone()) {
-      for (const event of await runner.next()) {
-        if (event.kind === "scene-transition") activeSceneId = event.toSceneId;
-        if (event.kind === "action") activeSceneId = event.sceneId;
-      }
-    }
+    await drainRunner(runner, (step) => {
+      if (step.kind === "scene-transition") activeSceneId = step.toSceneId;
+      if (step.kind === "action") activeSceneId = step.sceneId;
+    });
     const result = runner.result();
     const trace = result.trace.kind === "route" ? result.trace.route : undefined;
     if (trace === undefined) throw new Error("Route runner returned a scene trace");
@@ -95,34 +110,15 @@ export async function executeRouteSafe(
         ),
         trace,
         status: "completed",
-        ...(result.warnings === undefined ? {} : { warnings: result.warnings }),
+        ...defined({ warnings: result.warnings }),
       },
     };
-  } catch (error) {
+  } catch (caught) {
     return {
       ok: false,
-      error,
-      partialState: runner?.partialState().snapshot() ?? state.snapshot(),
-      failedSceneId: sceneIdFromError(error) ?? activeSceneId,
+      error: caught instanceof Error ? caught : new Error(String(caught)),
+      partialState: runner?.partialState() ?? state,
+      failedSceneId: errorField(caught, "sceneId") ?? activeSceneId,
     };
   }
-}
-
-function forwardLegacyLog(onLog: ((event: LogEvent) => void) | undefined, event: LogEvent): void {
-  if (
-    event.kind !== "scene-start" &&
-    event.kind !== "scene-complete" &&
-    event.kind !== "route-transition"
-  ) {
-    onLog?.(event);
-  }
-}
-
-function sceneIdFromError(error: unknown): string | undefined {
-  return typeof error === "object" &&
-    error !== null &&
-    "sceneId" in error &&
-    typeof error.sceneId === "string"
-    ? error.sceneId
-    : undefined;
 }

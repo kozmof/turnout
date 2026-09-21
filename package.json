@@ -2,7 +2,7 @@
   "type": "module",
   "scripts": {
     "check": "env TMPDIR=/tmp pnpm run check:all",
-    "check:all": "pnpm run check:proto && pnpm run check:projection && pnpm run check:capabilities && pnpm run check:structural-rules && pnpm run check:runtime-events && pnpm run check:error-codes && pnpm run check:limits && pnpm run check:fn-map && pnpm run check:preset-names && pnpm run check:unicode-case && pnpm run check:runtime-versions && pnpm run check:zig && pnpm run check:format && pnpm run typecheck && pnpm run lint && pnpm run test:go:quality && pnpm test && pnpm run test:coverage",
+    "check:all": "pnpm run check:proto && pnpm run check:projection && pnpm run check:capabilities && pnpm run check:abi-surface && pnpm run check:structural-rules && pnpm run check:runtime-events && pnpm run check:error-codes && pnpm run check:limits && pnpm run check:fn-map && pnpm run check:preset-names && pnpm run check:unicode-case && pnpm run check:runtime-versions && pnpm run check:zig && pnpm run check:format && pnpm run typecheck && pnpm run lint && pnpm run test:go:quality && pnpm test && pnpm run test:coverage",
     "generate": "sh scripts/generate-proto.sh",
     "generate:fn-map": "node --experimental-strip-types scripts/gen-fn-map.ts",
     "generate:unicode-case": "node --experimental-strip-types scripts/gen-unicode-case.ts",
@@ -10,6 +10,7 @@
     "check:proto": "sh scripts/check-proto.sh",
     "check:projection": "node scripts/check-projection.mjs",
     "check:capabilities": "node scripts/check-capabilities.mjs",
+    "check:abi-surface": "node scripts/check-abi-surface.mjs",
     "check:structural-rules": "node scripts/check-structural-rules.mjs",
     "check:runtime-events": "node scripts/check-runtime-events.mjs",
     "check:error-codes": "node scripts/check-error-codes.mjs",

@@ -4,6 +4,13 @@ import type { HookRegistry, LogEvent, SceneTrace } from "./types/harness-types.j
 import { SceneRuntimeError, isSceneErrorCode } from "./errors.js";
 import { createSceneRunner } from "./runner.js";
 import { registerHooks } from "./register-hooks.js";
+import { defined } from "./defined.js";
+import {
+  drainRunner,
+  errorField,
+  errorFieldOrContext,
+  withoutLifecycleLogs,
+} from "./safe-execution.js";
 
 export type SceneExecutionResult = {
   sceneId: string;
@@ -14,6 +21,8 @@ export type SceneExecutionResult = {
 };
 
 export type SceneExecutionOptions = {
+  /** Maximum action steps allowed for this scene. */
+  maxSceneSteps?: number | undefined;
   signal?: AbortSignal | undefined;
   onLog?: ((event: LogEvent) => void) | undefined;
   failOnPublishError?: boolean | undefined;
@@ -28,12 +37,18 @@ export type SceneResult =
       failedActionId: string;
     };
 
-/** Run one scene through the Zig runtime and capture failures with their partial state. */
+/**
+ * Run one scene through the Zig runtime and capture failures with their partial state.
+ *
+ * The step limit is `options.maxSceneSteps` rather than a positional argument:
+ * it used to be the fourth parameter here and an option in `executeRouteSafe`,
+ * so calling this with only a log handler read `executeSceneSafe(scene, state,
+ * undefined, undefined, { onLog })`.
+ */
 export async function executeSceneSafe(
   scene: SceneBlock,
   state: StateManager,
   hooks: HookRegistry = { prepare: {}, extend: {}, publish: {} },
-  maxSteps?: number,
   options: SceneExecutionOptions = {},
 ): Promise<SceneResult> {
   let runner: ReturnType<typeof createSceneRunner> | undefined;
@@ -46,23 +61,19 @@ export async function executeSceneSafe(
         entryId: scene.id,
         initialState: state.snapshot(),
         allowUncheckedState: true,
-        ...(maxSteps === undefined ? {} : { maxSceneSteps: maxSteps }),
-        ...(options.signal === undefined ? {} : { signal: options.signal }),
-        ...(options.onLog === undefined
-          ? {}
-          : { onLog: (event: LogEvent) => forwardLegacyLog(options.onLog, event) }),
-        ...(options.failOnPublishError === undefined
-          ? {}
-          : { failOnPublishError: options.failOnPublishError }),
+        ...defined({
+          maxSceneSteps: options.maxSceneSteps,
+          signal: options.signal,
+          onLog: withoutLifecycleLogs(options.onLog, ["scene-start", "scene-complete"]),
+          failOnPublishError: options.failOnPublishError,
+        }),
       },
       state,
     );
     registerHooks(runner, hooks);
-    while (!runner.isDone()) {
-      for (const event of await runner.next()) {
-        if (event.kind === "action") pendingActionId = event.trace.nextActionIds[0];
-      }
-    }
+    await drainRunner(runner, (step) => {
+      if (step.kind === "action") pendingActionId = step.trace.nextActionIds[0];
+    });
     const result = runner.result();
     const trace = result.trace.kind === "scene" ? result.trace.scene : undefined;
     if (trace === undefined) throw new Error("Scene runner returned a route trace");
@@ -78,12 +89,11 @@ export async function executeSceneSafe(
       },
     };
   } catch (caught) {
-    const error = normalizeError(caught, scene.id, pendingActionId);
     return {
       ok: false,
-      error,
+      error: normalizeError(caught, scene.id, pendingActionId),
       partialState: runner?.partialState() ?? state,
-      failedActionId: actionIdFromError(caught) ?? pendingActionId ?? "<none>",
+      failedActionId: errorFieldOrContext(caught, "actionId") ?? pendingActionId ?? "<none>",
     };
   }
 }
@@ -108,16 +118,12 @@ function validateScene(scene: SceneBlock): void {
   }
 }
 
-function forwardLegacyLog(onLog: ((event: LogEvent) => void) | undefined, event: LogEvent): void {
-  if (event.kind !== "scene-start" && event.kind !== "scene-complete") onLog?.(event);
-}
-
 function normalizeError(
   caught: unknown,
   sceneId: string,
   actionId: string | undefined,
 ): SceneRuntimeError | Error {
-  const code = legacySceneErrorCode(errorCode(caught));
+  const code = hostSceneErrorCode(errorField(caught, "code"));
   if (isSceneErrorCode(code)) {
     const detail = code === "NoEntryAction" ? "scene declares no entry action" : code;
     return new SceneRuntimeError(
@@ -130,28 +136,21 @@ function normalizeError(
   return caught instanceof Error ? caught : new Error(String(caught));
 }
 
-function errorCode(caught: unknown): string | undefined {
-  return typeof caught === "object" &&
-    caught !== null &&
-    "code" in caught &&
-    typeof caught.code === "string"
-    ? caught.code
-    : undefined;
-}
-
-function legacySceneErrorCode(code: string | undefined): string | undefined {
+/**
+ * Maps an engine error name onto the host code that names the same condition.
+ *
+ * This is the rename site `spec/error-codes.json` points at, and its `renamed`
+ * section is where each pair is recorded with the reason for the re-wording.
+ * `scripts/check-error-codes.mjs` asserts that every pair listed there is
+ * actually implemented here, so a mapping cannot be dropped from this function
+ * without the gate noticing.
+ *
+ * It was called `legacySceneErrorCode`, which read as a compatibility shim left
+ * over from an older vocabulary. It is the opposite: a deliberate, gated
+ * translation, and deleting it would break the gate and lose the rename.
+ */
+function hostSceneErrorCode(code: string | undefined): string | undefined {
   if (code === "ActionNotFound") return "UnknownAction";
   if (code === "SceneNotFound") return "UnknownAction";
   return code;
-}
-
-function actionIdFromError(caught: unknown): string | undefined {
-  if (typeof caught !== "object" || caught === null) return undefined;
-  if ("actionId" in caught && typeof caught.actionId === "string") return caught.actionId;
-  if (!("context" in caught) || typeof caught.context !== "object" || caught.context === null) {
-    return undefined;
-  }
-  return "actionId" in caught.context && typeof caught.context.actionId === "string"
-    ? caught.context.actionId
-    : undefined;
 }

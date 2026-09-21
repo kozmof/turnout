@@ -88,6 +88,10 @@
     {
       "code": "ValueTooDeep",
       "why": "state-manager.ts bounds nesting before encoding for the boundary"
+    },
+    {
+      "code": "UnknownScene",
+      "why": "route-safe.ts raises it when the entry scene is absent from the map the caller passed, before the engine is reached. It was vestigial while that path threw a bare Error; the engine's own lookup failure is SceneNotFound, classified under renamed"
     }
   ],
   "vestigial": [
@@ -110,10 +114,6 @@
     {
       "code": "UnsupportedConstruct",
       "why": "from the TypeScript executor. turnout-runtime's builder has its own code of this name, which is a separate vocabulary and not gated here"
-    },
-    {
-      "code": "UnknownScene",
-      "why": "the engine raises SceneNotFound; only tests/error-guards.test.ts constructs this"
     },
     {
       "code": "MissingStateBinding",

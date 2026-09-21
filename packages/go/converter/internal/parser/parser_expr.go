@@ -117,7 +117,14 @@ func (p *parser) parseBlockArg() ast.SyntaxArg {
 					}
 					p.expect(lexer.TokRBracket)
 				} else {
-					// Legacy single-string form: fn = "fn1"
+					// Single-string shorthand: `fn = "fn1"` for `fn = ["fn1"]`.
+					//
+					// Not legacy, which is what this comment used to call it. A
+					// transform chain of one is the common case, and the emitter
+					// only ever writes the bracketed form, so nothing round-trips
+					// through here — but sources written by hand use it and
+					// parser_extra_test.go and lower_extra_test.go both exercise
+					// it. Removing it would reject valid input.
 					strTok, _ := p.expect(lexer.TokStringLit)
 					fns = []string{strTok.Value}
 				}
