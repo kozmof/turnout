@@ -1,7 +1,7 @@
 import type { SceneBlock } from "./types/turnout-model_pb.js";
 import type { StateManager } from "./state/state-manager.js";
 import type { HookRegistry, LogEvent, SceneTrace } from "./types/harness-types.js";
-import { SceneRuntimeError } from "./errors.js";
+import { SceneRuntimeError, isSceneErrorCode } from "./errors.js";
 import { createSceneRunner } from "./runner.js";
 import { registerHooks } from "./register-hooks.js";
 
@@ -143,25 +143,6 @@ function legacySceneErrorCode(code: string | undefined): string | undefined {
   if (code === "ActionNotFound") return "UnknownAction";
   if (code === "SceneNotFound") return "UnknownAction";
   return code;
-}
-
-function isSceneErrorCode(code: string | undefined): code is SceneRuntimeError["code"] {
-  return (
-    code !== undefined &&
-    [
-      "UnknownAction",
-      "MaxStepsExceeded",
-      "UnknownFunction",
-      "DuplicateActionId",
-      "UnknownArgModel",
-      "PublishHookFailed",
-      "OutOfOrderBinding",
-      "CompilerBug",
-      "UnsupportedConstruct",
-      "IncompleteScene",
-      "NoEntryAction",
-    ].includes(code)
-  );
 }
 
 function actionIdFromError(caught: unknown): string | undefined {

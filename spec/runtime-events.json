@@ -36,8 +36,14 @@
       "kind": "sceneChanged",
       "why": "A route transition moved the run from one scene to another."
     },
-    { "kind": "complete", "why": "The run finished on its own." },
-    { "kind": "cancelled", "why": "The run stopped because the host cancelled it." },
+    {
+      "kind": "complete",
+      "why": "The run finished on its own."
+    },
+    {
+      "kind": "cancelled",
+      "why": "The run stopped because the host cancelled it."
+    },
     {
       "kind": "mergeConflict",
       "why": "An extend hook returned a model that collides with the running one. The host raises it as ModelMergeError rather than a runtime fault, so it is read before the ok/error status is."
@@ -68,5 +74,83 @@
       "kind": "duplicate_enqueue",
       "why": "A next rule pointed at an action that already ran in this scene."
     }
-  ]
+  ],
+  "effectEnvelope": {
+    "why": [
+      "The needEffect envelope is hand-written on three sides, and until now two of them",
+      "were gated and the third was not. `events` above pins the kind, which is what",
+      "catches an event appearing on one side alone. It does not pin the fields, and the",
+      "fields are where this envelope actually moves: `bindings` was added to it because a",
+      "host had no way to know which bindings a multi-binding hook owed, and each side had",
+      "to be edited by hand.",
+      "",
+      "The third side is the native host. It builds RequestJson field by field from",
+      "effect.Request, so a field added to the request reaches the WASM encoder and the",
+      "TypeScript host -- both under the `events` gate -- and is silently dropped by the",
+      "native host, with no compile error, because nothing requires the struct to be",
+      "complete. Two hosts would then hand a hook different envelopes for the same effect.",
+      "",
+      "So the wire field names are listed here and every side must name all of them."
+    ],
+    "sides": [
+      {
+        "file": "packages/zig/wasm/src/abi.zig",
+        "declaration": ".{ .event = \"needEffect\""
+      },
+      {
+        "file": "packages/ts/scene-runner/src/zig-runtime/effect-dispatcher.ts",
+        "declaration": "export type ZigEffectRequest = {"
+      },
+      {
+        "file": "packages/zig/host/src/hooks.zig",
+        "declaration": "pub const RequestJson = struct {"
+      }
+    ],
+    "fields": [
+      {
+        "name": "event",
+        "why": "the kind discriminator; always \"needEffect\""
+      },
+      {
+        "name": "id",
+        "why": "the effect the resume payload must answer"
+      },
+      {
+        "name": "kind",
+        "why": "prepare or publish"
+      },
+      {
+        "name": "role",
+        "why": "binding or extend; what the payload is for"
+      },
+      {
+        "name": "hook",
+        "why": "the hook name the host resolves"
+      },
+      {
+        "name": "sceneId",
+        "why": "the scene the effect fired in"
+      },
+      {
+        "name": "actionId",
+        "why": "the action the effect fired in"
+      },
+      {
+        "name": "callbackIndex",
+        "why": "which declared hook of the action this is"
+      },
+      {
+        "name": "binding",
+        "why": "the single binding, or null when the hook supplies several"
+      },
+      {
+        "name": "bindings",
+        "why": "every binding the hook is declared to supply"
+      },
+      {
+        "name": "contextJson",
+        "why": "the bindings already resolved, for the hook to read"
+      }
+    ]
+  }
 }

@@ -328,8 +328,8 @@ model. The rest cover the type system, hooks, routes, and state shape.
 Several files in `spec/` are data rather than prose, each read by more than one
 language and gated against drift: `fn-aliases.json`, `field-types.json`,
 `runtime-projection.json`, `runtime-versions.json`, `limits.json`,
-`structural-rules.json`, and `runtime-events.json`. The first three pin shared
-names, the fourth pins
+`structural-rules.json`, `runtime-events.json`, and `error-codes.json`. The
+first three pin shared names, the fourth pins
 shared versions, and the fifth pins shared bounds — a limit the compiler and
 the engine each chose alone is how a model the compiler accepted became one the
 engine refused to load. `structural-rules.json` pins the structural checks the engine and the
@@ -339,7 +339,18 @@ rule appearing in one of the three alone has to be classified before it passes.
 `runtime-events.json` does the same for the event stream coming back out of the
 engine, which the model schema does not cover: the engine hand-encodes each
 event and the host hand-declares a union mirroring it, so an event or warning
-kind added on one side alone would otherwise be dropped in silence.
+kind added on one side alone would otherwise be dropped in silence. It also
+pins the fields of the `needEffect` envelope across all three sides that spell
+it out by hand, the native host included — a field added to the request reached
+two of them and was dropped by the third in silence.
+
+`error-codes.json` covers the last vocabulary with nothing behind it. The
+boundary carries `@errorName(err)`, so a host code naming an engine error is
+coupled to the spelling of a Zig error: rename the error and the host goes on
+matching a string that no longer arrives, with no compile error and no failing
+test. Every code in the gated host unions is now classified as shared with the
+engine, deliberately renamed, raised by the host alone, or vestigial — and a
+code in none of the four fails the gate.
 
 Two of them are stronger than pinned: `fn-aliases.json` and `limits.json` are
 *generated* into each language rather than compared against it, so the sides

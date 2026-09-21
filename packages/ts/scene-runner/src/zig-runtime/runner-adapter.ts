@@ -124,7 +124,19 @@ export async function advanceZigRuntime(
           );
         }
         if (result.kind === "prepare" && result.status === "failed") {
-          throw result.hostError;
+          // A hook can throw a value rather than an Error, and `throw undefined`
+          // or a bare `Promise.reject()` leaves nothing to rethrow. Rethrowing
+          // it anyway surfaced as an unhandled `undefined` naming neither the
+          // hook nor the action it failed in, and discarded the message already
+          // computed for the engine. A thrown value that is actually there is
+          // still rethrown as-is, because it is what the hook chose to raise.
+          throw (
+            result.hostError ??
+            new Error(
+              `${event.role === "extend" ? "extend" : "prepare"} hook "${event.hook}" ` +
+                `threw a non-error value in action "${event.actionId}" (${result.message})`,
+            )
+          );
         }
         const resumed = client.resume(handle, result);
         assertOk(resumed);

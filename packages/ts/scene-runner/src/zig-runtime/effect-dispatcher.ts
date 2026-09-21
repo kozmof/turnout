@@ -60,6 +60,32 @@ export type ZigEffectResult =
       message: string;
     };
 
+/**
+ * A prepare/extend failure that carries the host error itself alongside the
+ * message.
+ *
+ * `hostError` is non-enumerable on purpose. The result is serialised into the
+ * engine's `resume` payload, where a host `Error` has no meaningful encoding
+ * — the engine gets `message`. The host keeps the original so it can rethrow
+ * the hook's own error class and stack rather than a reconstruction.
+ *
+ * Both failure paths go through here so neither can build the result and forget
+ * to attach it.
+ */
+function failedPrepare(
+  id: number,
+  error: unknown,
+): Extract<ZigEffectResult, { kind: "prepare"; status: "failed" }> {
+  const failed: Extract<ZigEffectResult, { kind: "prepare"; status: "failed" }> = {
+    id,
+    kind: "prepare",
+    status: "failed",
+    message: String(error),
+  };
+  Object.defineProperty(failed, "hostError", { value: error });
+  return failed;
+}
+
 export async function dispatchZigEffect(
   request: ZigEffectRequest,
   hooks: HookRegistry,
@@ -98,14 +124,7 @@ async function dispatchExtend(
     result = await hook(context, signal);
   } catch (error) {
     if (isAbortError(error) || signal.aborted) throwAbort();
-    const failed: Extract<ZigEffectResult, { kind: "prepare"; status: "failed" }> = {
-      id: request.id,
-      kind: "prepare",
-      status: "failed",
-      message: String(error),
-    };
-    Object.defineProperty(failed, "hostError", { value: error });
-    return failed;
+    return failedPrepare(request.id, error);
   }
   const models = Array.isArray(result) ? (result as TurnModel[]) : [result as TurnModel];
   for (const model of models) {
@@ -161,14 +180,7 @@ async function dispatchPrepare(
     result = await hook(context, signal);
   } catch (error) {
     if (isAbortError(error) || signal.aborted) throwAbort();
-    const failed: Extract<ZigEffectResult, { kind: "prepare"; status: "failed" }> = {
-      id: request.id,
-      kind: "prepare",
-      status: "failed",
-      message: String(error),
-    };
-    Object.defineProperty(failed, "hostError", { value: error });
-    return failed;
+    return failedPrepare(request.id, error);
   }
   if (!isRecord(result)) {
     throw new PrepareError(

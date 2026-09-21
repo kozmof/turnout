@@ -67,6 +67,16 @@ fn trackAllocation(bytes: []u8) bool {
 
 /// Returns the length `address` was allocated with and forgets it, or null if
 /// this module never handed that address out.
+///
+/// The map is released the moment it empties, which looks like churn worth
+/// removing — a workload that allocates and frees one block at a time
+/// reallocates the backing store every cycle. It is not. This map is the only
+/// allocation the module keeps between calls, so while it is alive the native
+/// build has an outstanding allocation, and "native WASM ABI lifecycle has no
+/// outstanding allocations" is a real assertion rather than a vacuous one only
+/// because the map goes away with the last block it was tracking. Keep it
+/// allocated for the module's lifetime and that test fails, correctly: the
+/// module would be holding memory after the host had given everything back.
 fn takeAllocation(address: usize) ?usize {
     const removed = host_allocations.fetchRemove(address) orelse return null;
     if (host_allocations.count() == 0) {

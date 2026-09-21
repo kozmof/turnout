@@ -241,6 +241,72 @@ describe("advanceZigRuntime", () => {
     ).rejects.toThrow("different effect ID");
   });
 
+  // A hook is host code and can throw anything, `undefined` included. The host
+  // used to rethrow whatever it caught, so `throw undefined` surfaced as an
+  // unhandled `undefined` — no hook name, no action, and none of the message
+  // already computed for the engine.
+  it("names the hook when a prepare hook throws a nullish value", async () => {
+    const effect = {
+      event: "needEffect",
+      id: 12,
+      kind: "prepare",
+      hook: "load",
+      sceneId: "main",
+      actionId: "start",
+      callbackIndex: 0,
+      binding: "value",
+      contextJson: "{}",
+    };
+    const nullishHooks = hooks();
+    nullishHooks.prepare.load = () => {
+      throw undefined;
+    };
+    const client: ZigRuntimeTransport = {
+      step: <T>() => ({ status: "ok", payload: effect as T }),
+      resume: vi.fn(),
+    };
+    const caught = await advanceZigRuntime(
+      client,
+      1,
+      nullishHooks,
+      new AbortController().signal,
+    ).then(
+      () => undefined,
+      (error: unknown) => error,
+    );
+    expect(caught).toBeInstanceOf(Error);
+    expect((caught as Error).message).toContain(
+      'prepare hook "load" threw a non-error value in action "start"',
+    );
+  });
+
+  // A falsy value that is actually there is still the hook's own, and is rethrown
+  // as-is rather than replaced.
+  it("rethrows a falsy non-nullish value a prepare hook threw", async () => {
+    const effect = {
+      event: "needEffect",
+      id: 13,
+      kind: "prepare",
+      hook: "load",
+      sceneId: "main",
+      actionId: "start",
+      callbackIndex: 0,
+      binding: "value",
+      contextJson: "{}",
+    };
+    const falsyHooks = hooks();
+    falsyHooks.prepare.load = () => {
+      throw "";
+    };
+    const client: ZigRuntimeTransport = {
+      step: <T>() => ({ status: "ok", payload: effect as T }),
+      resume: vi.fn(),
+    };
+    await expect(
+      advanceZigRuntime(client, 1, falsyHooks, new AbortController().signal),
+    ).rejects.toBe("");
+  });
+
   it("wraps a Zig handle with Runner lifecycle and snapshots", async () => {
     const actionEvent = {
       event: "actionComplete",

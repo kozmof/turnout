@@ -225,7 +225,76 @@ assert.deepEqual(
     `  Either the engine gained them and the spec is stale, or they are dead branches.`,
 );
 
+// ── The needEffect envelope ──────────────────────────────────────────────────
+//
+// Three sides hand-write this envelope and the `events` check above pins only its
+// kind. The fields are where it moves, and the native host builds its struct field
+// by field from `effect.Request` — so a field added to the request reaches the WASM
+// encoder and the TypeScript host and is dropped there in silence. See the
+// `effectEnvelope.why` block in the spec file.
+//
+// Every side must name every field, and the search is scoped to the declaration
+// itself rather than the whole file. Scoping is the point: `bindings` also appears
+// in comments and in neighbouring declarations in two of these files, so a
+// file-wide search for the identifier passes while the field is gone from the
+// struct — which is exactly the drift this is here to catch.
+const envelope = spec.effectEnvelope;
+
+/**
+ * The brace-balanced region that `declaration` opens.
+ *
+ * Strings are skipped so a brace inside one does not open a level. The three
+ * declarations are a Zig struct literal, a TypeScript object type, and a Zig struct,
+ * and all three are delimited the same way.
+ */
+function declarationBody(source, declaration, file) {
+  const at = source.indexOf(declaration);
+  assert.notEqual(
+    at,
+    -1,
+    `${file} no longer contains \`${declaration}\`. If it was renamed, rename it in ` +
+      `spec/runtime-events.json too — this check is worthless if it matches nothing.`,
+  );
+  let index = source.indexOf("{", at);
+  assert.notEqual(index, -1, `${file}: \`${declaration}\` opens no block`);
+  let depth = 0;
+  const from = index;
+  for (; index < source.length; index++) {
+    const character = source[index];
+    if (character === '"' || character === "'") {
+      const quote = character;
+      for (index++; index < source.length; index++) {
+        if (source[index] === "\\") index++;
+        else if (source[index] === quote) break;
+      }
+      continue;
+    }
+    if (character === "{") depth++;
+    else if (character === "}" && --depth === 0) break;
+  }
+  return source.slice(from, index + 1);
+}
+
+for (const side of envelope.sides) {
+  const source = await readFile(new URL(side.file, root), "utf8");
+  const body = declarationBody(source, side.declaration, side.file);
+  const missing = envelope.fields
+    .map((field) => field.name)
+    // A field key, in any of the three spellings the sides use: `name:` for a Zig
+    // or TypeScript declaration, `.name =` for a struct literal.
+    // The `?` allows an optional TypeScript property (`role?: ...`).
+    .filter((name) => !new RegExp(`(?:^|[.\\s{,])${name}\\s*\\??\\s*[:=]`, "m").test(body));
+  assert.deepEqual(
+    missing,
+    [],
+    `${side.file}: \`${side.declaration}\` does not carry these needEffect fields: ` +
+      `${JSON.stringify(missing)}\n` +
+      `  A side that omits a field hands hooks a different envelope than the others do.`,
+  );
+}
+
 console.log(
   `runtime events OK — ${spec.events.length} events, ` +
-    `${spec.actionWarnings.length} action warnings, ${spec.sceneWarnings.length} scene warnings`,
+    `${spec.actionWarnings.length} action warnings, ${spec.sceneWarnings.length} scene warnings, ` +
+    `${envelope.fields.length} needEffect fields across ${envelope.sides.length} sides`,
 );

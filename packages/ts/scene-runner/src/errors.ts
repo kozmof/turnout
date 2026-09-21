@@ -30,14 +30,28 @@ export class PrepareError extends Error {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Error codes callers are expected to handle — recoverable or routing-relevant conditions. */
-export type SceneErrorCode =
-  | "UnknownAction"
-  | "MaxStepsExceeded"
-  | "UnknownFunction"
-  | "DuplicateActionId"
-  | "UnknownArgModel"
-  | "PublishHookFailed";
+/**
+ * Error codes callers are expected to handle — recoverable or routing-relevant
+ * conditions.
+ *
+ * Declared as a value rather than a bare union because the vocabulary is needed
+ * at run time too: `isSceneErrorCode` has to decide whether a code arriving
+ * from the engine is one of these. It used to answer from a second list of the
+ * same strings written out in `scene-safe.ts`, with nothing tying the two
+ * together — a code added to the union and forgotten in the array type-checked
+ * clean and silently downgraded that error to a plain `Error`. One declaration,
+ * both uses.
+ */
+export const sceneErrorCodes = [
+  "UnknownAction",
+  "MaxStepsExceeded",
+  "UnknownFunction",
+  "DuplicateActionId",
+  "UnknownArgModel",
+  "PublishHookFailed",
+] as const;
+
+export type SceneErrorCode = (typeof sceneErrorCodes)[number];
 
 /**
  * Error codes that indicate a malformed model or internal invariant violation.
@@ -47,12 +61,31 @@ export type SceneErrorCode =
  * and as a `RouteRuntimeError` when a route enters it, so each carries the
  * identifier its caller can act on (scene id vs route id).
  */
-export type SceneInternalErrorCode =
-  | "OutOfOrderBinding"
-  | "CompilerBug"
-  | "UnsupportedConstruct"
-  | "IncompleteScene"
-  | "NoEntryAction";
+export const sceneInternalErrorCodes = [
+  "OutOfOrderBinding",
+  "CompilerBug",
+  "UnsupportedConstruct",
+  "IncompleteScene",
+  "NoEntryAction",
+] as const;
+
+export type SceneInternalErrorCode = (typeof sceneInternalErrorCodes)[number];
+
+/**
+ * Whether `code` is one a `SceneRuntimeError` can carry.
+ *
+ * Both lists, because a caller catching the error sees one `code` field and
+ * does not care which half of the vocabulary a value came from.
+ */
+export function isSceneErrorCode(
+  code: string | undefined,
+): code is SceneErrorCode | SceneInternalErrorCode {
+  if (code === undefined) return false;
+  return (
+    (sceneErrorCodes as readonly string[]).includes(code) ||
+    (sceneInternalErrorCodes as readonly string[]).includes(code)
+  );
+}
 
 export class SceneRuntimeError extends Error {
   readonly code: SceneErrorCode | SceneInternalErrorCode;

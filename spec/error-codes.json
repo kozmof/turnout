@@ -1,0 +1,123 @@
+{
+  "why": [
+    "The error codes a host exposes are the last vocabulary crossing the engine boundary",
+    "with nothing behind it. Every other shared name in this repository is generated or",
+    "gated: field types, function aliases, the runtime projection, the runtime versions,",
+    "the shared bounds, the structural rules, the event kinds, even the preset facade's",
+    "method list. Error codes were not.",
+    "",
+    "What the boundary actually carries is `@errorName(err)` -- see `runtimeError` in",
+    "packages/zig/wasm/src/abi.zig -- so a host code that names an engine error is",
+    "coupled to the spelling of a Zig error, and nothing said so. Rename the error and",
+    "the host keeps matching a string the engine no longer produces: no compile error, no",
+    "test failure, just a code that stops arriving. `scene-safe.ts` then falls through to",
+    "a plain Error and the caller loses the code it was switching on.",
+    "",
+    "So every code in the gated host unions is classified here.",
+    "",
+    "  shared    -- the host code is an engine error name, spelled identically.",
+    "  renamed   -- the host deliberately re-words an engine error. The mapping has to",
+    "               exist in scene-safe.ts, and this file is where the pair is recorded.",
+    "  hostOnly  -- the host raises it itself; the engine has no such error.",
+    "  vestigial -- nothing can currently raise it. Kept in the exported union, recorded",
+    "               here so it is a decision rather than a leftover.",
+    "",
+    "A code in none of the four fails the gate, and so does a `shared` or `renamed` code",
+    "whose engine error no longer exists.",
+    "",
+    "Found on the first run: six codes in the vestigial list below. They date from when",
+    "TypeScript executed scenes itself; the engine took that over and the vocabulary was",
+    "never trimmed. They are exported types no code path can produce, which is what this",
+    "gate exists to stop happening again."
+  ],
+  "engineSources": [
+    "packages/zig/scene-runner/src",
+    "packages/zig/runtime/src"
+  ],
+  "host": "packages/ts/scene-runner/src/errors.ts",
+  "renameSite": "packages/ts/scene-runner/src/scene-safe.ts",
+  "gatedUnions": [
+    "SceneErrorCode",
+    "SceneInternalErrorCode",
+    "RouteErrorCode",
+    "PrepareErrorCode",
+    "StateErrorCode"
+  ],
+  "ungatedUnions": {
+    "RunnerErrorCode": "the host's own API misuse vocabulary; no engine error corresponds",
+    "ModelValidationErrorCode": "why a model was rejected, decided by the host from the engine's status"
+  },
+  "shared": [
+    { "code": "MaxStepsExceeded", "why": "the scene driver's step budget" },
+    { "code": "MaxRouteTransitionsExceeded", "why": "the route driver's transition budget" },
+    { "code": "UnknownFunction", "why": "a prog named a preset the engine does not have" },
+    { "code": "DuplicateActionId", "why": "two actions in one scene share an id" },
+    { "code": "PublishHookFailed", "why": "a publish hook failed under failOnPublishError" },
+    { "code": "NoEntryAction", "why": "the scene declares no entry action" },
+    { "code": "UnregisteredHook", "why": "a prepare hook the action names is not registered" },
+    { "code": "MissingExtendHook", "why": "an extend hook the action names is not registered" },
+    { "code": "MissingHookField", "why": "a prepare hook omitted a binding it owes" },
+    { "code": "MissingActionBinding", "why": "an action referenced a binding it never produced" },
+    { "code": "ReservedPath", "why": "a write targeted a reserved STATE path" },
+    { "code": "UnknownPath", "why": "a read or write targeted an undeclared STATE path" },
+    { "code": "TypeMismatch", "why": "a value did not match the type the schema declares" },
+    { "code": "UnknownSchemaType", "why": "a STATE field declares a type the engine cannot parse" },
+    { "code": "InvalidLiteral", "why": "a literal in the model is not a value the engine accepts" }
+  ],
+  "renamed": [
+    {
+      "engine": "ActionNotFound",
+      "host": "UnknownAction",
+      "why": "the host reports the action a caller named, not the engine's lookup failure"
+    },
+    {
+      "engine": "SceneNotFound",
+      "host": "UnknownAction",
+      "why": "a scene reached through an action reference reads to the caller as a bad action"
+    }
+  ],
+  "hostOnly": [
+    {
+      "code": "IncompleteExecution",
+      "why": "result() was called before the run finished; the engine was never asked"
+    },
+    {
+      "code": "InvalidHookValue",
+      "why": "the host validates what a hook returned before the engine ever sees it"
+    },
+    {
+      "code": "ValueTooDeep",
+      "why": "state-manager.ts bounds nesting before encoding for the boundary"
+    }
+  ],
+  "vestigial": [
+    {
+      "code": "UnknownArgModel",
+      "why": "from the TypeScript executor; the engine rejects a malformed ArgModel at load"
+    },
+    {
+      "code": "OutOfOrderBinding",
+      "why": "from the TypeScript executor; the engine lowers bindings in dependency order"
+    },
+    {
+      "code": "CompilerBug",
+      "why": "from the TypeScript executor; no current path raises it"
+    },
+    {
+      "code": "IncompleteScene",
+      "why": "from the TypeScript executor; structure.zig itemises this at model load"
+    },
+    {
+      "code": "UnsupportedConstruct",
+      "why": "from the TypeScript executor. turnout-runtime's builder has its own code of this name, which is a separate vocabulary and not gated here"
+    },
+    {
+      "code": "UnknownScene",
+      "why": "the engine raises SceneNotFound; only tests/error-guards.test.ts constructs this"
+    },
+    {
+      "code": "MissingStateBinding",
+      "why": "from the TypeScript prepare phase; the engine resolves from_state itself"
+    }
+  ]
+}

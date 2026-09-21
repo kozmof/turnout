@@ -114,28 +114,6 @@ export function createRouteRunner(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Create a Runner for the given model and options.
- *
- * The Runner is the primary execution interface:
- *   - `.usePrepareHook(name, handler)` — register a prepare hook
- *   - `.useExtendHook(name, handler)` — register an extend hook
- *   - `.usePublishHook(name, handler)` — register a publish hook
- *   - `.next(steps?)` — advance by N actions (default 1)
- *   - `.run()` — run to completion
- *   - `.isDone()` — check if finished
- *   - `.result()` — get the final HarnessResult
- *
- * `next()` and `run()` may throw `SceneRuntimeError` or `RouteRuntimeError`.
- * Use `executeSceneSafe` if you need partial-state recovery on failure.
- *
- * @throws {Error} When the model's version constraints are incompatible with the
- *   current runtime (version too old, too new, or out of min/max bounds).
- *   Thrown synchronously before any execution begins.
- *
- * For testing individual modes without a full model, use `createSceneRunner` or
- * `createRouteRunner` directly.
- */
-/**
  * Adapts a `Runner<A>` into a `Runner<B>` by applying `transform` to every
  * result produced by `run()` and `result()`. The hook-registration methods
  * delegate to the inner runner and return the outer runner for chaining.
@@ -168,6 +146,28 @@ function mapRunnerResult<A extends HarnessResult, B extends HarnessResult>(
   return outer;
 }
 
+/**
+ * Create a Runner for the given model and options.
+ *
+ * The Runner is the primary execution interface:
+ *   - `.usePrepareHook(name, handler)` — register a prepare hook
+ *   - `.useExtendHook(name, handler)` — register an extend hook
+ *   - `.usePublishHook(name, handler)` — register a publish hook
+ *   - `.next(steps?)` — advance by N actions (default 1)
+ *   - `.run()` — run to completion
+ *   - `.isDone()` — check if finished
+ *   - `.result()` — get the final HarnessResult
+ *
+ * `next()` and `run()` may throw `SceneRuntimeError` or `RouteRuntimeError`.
+ * Use `executeSceneSafe` if you need partial-state recovery on failure.
+ *
+ * @throws {Error} When the model's version constraints are incompatible with the
+ *   current runtime (version too old, too new, or out of min/max bounds).
+ *   Thrown synchronously before any execution begins.
+ *
+ * For testing individual modes without a full model, use `createSceneRunner` or
+ * `createRouteRunner` directly.
+ */
 export function createRunner(
   inputModel: TurnModel | PreparedModel,
   options: RunnerOptions,

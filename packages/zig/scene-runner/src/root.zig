@@ -18,6 +18,7 @@ pub const effect = @import("effect.zig");
 pub const effect_vectors = @import("effect_vectors.zig");
 pub const runner = @import("runner.zig");
 pub const runtime_error = @import("runtime_error.zig");
+pub const runtime_error_vectors = @import("runtime_error_vectors.zig");
 
 test {
     _ = merge;
@@ -34,4 +35,5 @@ test {
     _ = effect_vectors;
     _ = runner;
     _ = runtime_error;
+    _ = runtime_error_vectors;
 }
