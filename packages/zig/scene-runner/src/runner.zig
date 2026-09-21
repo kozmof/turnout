@@ -148,7 +148,7 @@ pub const Runtime = struct {
 
     pub fn initAction(
         allocator: std.mem.Allocator,
-        model: anytype,
+        model: *const model_runtime.RuntimeModel,
         scene_id: []const u8,
         action_id: []const u8,
     ) !Runtime {
@@ -162,7 +162,7 @@ pub const Runtime = struct {
 
     pub fn beginAction(
         self: *Runtime,
-        model: anytype,
+        model: *const model_runtime.RuntimeModel,
         scene_id: []const u8,
         action_id: []const u8,
     ) !void {
@@ -535,7 +535,7 @@ pub const Runtime = struct {
 
     pub fn executePreparedAction(
         self: *Runtime,
-        model: anytype,
+        model: *const model_runtime.RuntimeModel,
         scene_id: []const u8,
         action_id: []const u8,
         state: *const state_runtime.State,
@@ -647,7 +647,7 @@ pub const ActionDriver = struct {
 
     pub fn init(
         allocator: std.mem.Allocator,
-        model: anytype,
+        model: *const model_runtime.RuntimeModel,
         scene_id: []const u8,
         action_id: []const u8,
         initial_state: *const state_runtime.State,
@@ -704,9 +704,9 @@ pub const ActionDriver = struct {
 
     pub fn step(
         self: *ActionDriver,
-        model: anytype,
+        model: *const model_runtime.RuntimeModel,
         fail_on_publish_error: bool,
-    ) anyerror!Event {
+    ) !Event {
         while (true) {
             if (try self.takeExtendModels()) |event| return event;
             switch (self.runtime.actionPhase()) {
@@ -782,7 +782,7 @@ pub const ActionDriver = struct {
         return self.runtime.@"resume"(id, result);
     }
 
-    pub fn beginAction(self: *ActionDriver, model: anytype, action_id: []const u8) !void {
+    pub fn beginAction(self: *ActionDriver, model: *const model_runtime.RuntimeModel, action_id: []const u8) !void {
         if (!self.completion_emitted) return error.ActionInProgress;
         try self.runtime.beginAction(model, self.scene_id, action_id);
         if (self.next_selection) |*selection| selection.deinit(self.allocator);
@@ -797,7 +797,7 @@ pub const ActionDriver = struct {
         self.extend_applied = false;
     }
 
-    pub fn beginNextAction(self: *ActionDriver, model: anytype) !bool {
+    pub fn beginNextAction(self: *ActionDriver, model: *const model_runtime.RuntimeModel) !bool {
         if (!self.completion_emitted) return error.ActionInProgress;
         const target = if (self.next_selection) |selection| selection.target orelse return false else return error.ActionInProgress;
         try self.beginAction(model, target);
@@ -826,7 +826,7 @@ pub const SceneDriver = struct {
 
     pub fn init(
         allocator: std.mem.Allocator,
-        model: anytype,
+        model: *const model_runtime.RuntimeModel,
         scene_id: []const u8,
         initial_state: *const state_runtime.State,
     ) !SceneDriver {
@@ -841,7 +841,7 @@ pub const SceneDriver = struct {
 
     pub fn initWithLimit(
         allocator: std.mem.Allocator,
-        model: anytype,
+        model: *const model_runtime.RuntimeModel,
         scene_id: []const u8,
         initial_state: *const state_runtime.State,
         max_action_steps: usize,
@@ -869,9 +869,9 @@ pub const SceneDriver = struct {
 
     pub fn step(
         self: *SceneDriver,
-        model: anytype,
+        model: *const model_runtime.RuntimeModel,
         fail_on_publish_error: bool,
-    ) anyerror!Event {
+    ) !Event {
         if (self.finished) return if (self.cancelled) .cancelled else .complete;
         if (self.advance_pending) {
             if (!try self.action.beginNextAction(model)) {

@@ -57,12 +57,18 @@ export type ReturnMetaCombineFnArray = {
   [K in keyof CombineFnArray]: ReturnType<CombineFnArray[K]>["symbol"];
 };
 
+// `get` is the untyped accessor, and the five `getX` methods are the same
+// engine preset under names that say what the caller expects back — the
+// compiler emits only the typed spellings, while the authoring API reaches for
+// the plain one. `cfArray` exposes both for the same reason; this namespace was
+// missing `get` alone, which is what scripts/check-preset-names.mjs now pins.
 type CombineFnRecord = Record<
-  "getNumber" | "getString" | "getBoolean" | "getArray" | "getRecord" | "set",
+  "get" | "getNumber" | "getString" | "getBoolean" | "getArray" | "getRecord" | "set",
   (...args: AnyValue[]) => AnyValue
 >;
 
 export const cfRecord = createZigPresetNamespace<CombineFnRecord>("combineFnRecord", [
+  "get",
   "getNumber",
   "getString",
   "getBoolean",
@@ -71,6 +77,7 @@ export const cfRecord = createZigPresetNamespace<CombineFnRecord>("combineFnReco
   "set",
 ]);
 export type CombineFnRecordNames =
+  | "combineFnRecord::get"
   | "combineFnRecord::getNumber"
   | "combineFnRecord::getString"
   | "combineFnRecord::getBoolean"

@@ -418,181 +418,249 @@ export fn turnout_compute_execute(address: usize, len: u32) usize {
     return @intFromPtr(response.bytes.ptr);
 }
 
+/// The stateless value operations, in one enum so dispatch is a switch.
+///
+/// This used to be a chain of ten `std.mem.eql` comparisons in one 130-line
+/// function, with `preset` — far and away the most frequent operation, since
+/// every preset call and every value the builder API constructs is one — tested
+/// last. `preset/table.zig` had already replaced exactly this pattern for the
+/// presets themselves; the ABI in front of it had not caught up.
+const Operation = enum {
+    predicate,
+    statePathValid,
+    schemaMatches,
+    literalToValue,
+    metadata,
+    passTransform,
+    infer,
+    normalize,
+    derive,
+    preset,
+
+    /// Comptime perfect hash over the field names, so adding an operation to the
+    /// enum is the whole change. `@tagName` round trips, so the wire spelling and
+    /// the enum are the same list rather than two that agree.
+    const by_name = blk: {
+        const fields = @typeInfo(Operation).@"enum".fields;
+        var pairs: [fields.len]struct { []const u8, Operation } = undefined;
+        for (fields, 0..) |field, index| pairs[index] = .{ field.name, @field(Operation, field.name) };
+        break :blk std.StaticStringMap(Operation).initComptime(pairs);
+    };
+
+    fn parse(name: []const u8) ?Operation {
+        return by_name.get(name);
+    }
+};
+
 fn valueResponse(bytes: []const u8) !Response {
     var parsed = try std.json.parseFromSlice(std.json.Value, allocator, bytes, .{});
     defer parsed.deinit();
     try validateInputNesting(parsed.value, 0);
     if (parsed.value != .object) return error.InvalidValueRequest;
-    const operation = parsed.value.object.get("operation") orelse return error.InvalidValueRequest;
+    const request = parsed.value.object;
+    const operation = request.get("operation") orelse return error.InvalidValueRequest;
     if (operation != .string) return error.InvalidValueRequest;
 
-    if (std.mem.eql(u8, operation.string, "predicate")) {
-        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
-        const predicate = parsed.value.object.get("predicate") orelse return error.InvalidValueRequest;
-        if (predicate != .string) return error.InvalidValueRequest;
-        var decoded = try value.fromCanonicalValue(raw, allocator);
-        defer decoded.deinit(allocator);
-        const matches = try valuePredicate(
-            decoded.borrowed(),
-            predicate.string,
-            parsed.value.object.get("argument"),
-        );
-        var output: std.Io.Writer.Allocating = .init(allocator);
-        defer output.deinit();
-        try std.json.Stringify.value(.{ .matches = matches }, .{}, &output.writer);
-        return makeResponse(.ok, output.written());
-    }
+    return switch (Operation.parse(operation.string) orelse return error.InvalidValueRequest) {
+        .predicate => predicateResponse(request),
+        .statePathValid => statePathValidResponse(request),
+        .schemaMatches => schemaMatchesResponse(request),
+        .literalToValue => literalToValueResponse(request),
+        .metadata => metadataResponse(request),
+        .passTransform => passTransformResponse(request),
+        .infer => inferResponse(request),
+        // The three that answer with a value share one epilogue: encode the
+        // result canonically and free it. Each handler produces the value and
+        // nothing else, so the ownership is in one place rather than three.
+        .normalize, .derive, .preset => |which| {
+            var result = try switch (which) {
+                .normalize => normalizeValue(request),
+                .derive => deriveValue(request),
+                .preset => presetValue(request),
+                else => unreachable,
+            };
+            defer result.deinit(allocator);
+            const payload = try value.canonicalJson(result.borrowed(), allocator);
+            defer allocator.free(payload);
+            return makeResponse(.ok, payload);
+        },
+    };
+}
 
-    if (std.mem.eql(u8, operation.string, "statePathValid")) {
-        const path = parsed.value.object.get("path") orelse return error.InvalidValueRequest;
-        if (path != .string) return error.InvalidValueRequest;
-        try state_runtime.validatePath(path.string);
-        return jsonResponseValue(.{ .valid = true });
-    }
+fn predicateResponse(request: std.json.ObjectMap) !Response {
+    const raw = request.get("value") orelse return error.InvalidValueRequest;
+    const predicate = request.get("predicate") orelse return error.InvalidValueRequest;
+    if (predicate != .string) return error.InvalidValueRequest;
+    var decoded = try value.fromCanonicalValue(raw, allocator);
+    defer decoded.deinit(allocator);
+    const matches = try valuePredicate(
+        decoded.borrowed(),
+        predicate.string,
+        request.get("argument"),
+    );
+    var output: std.Io.Writer.Allocating = .init(allocator);
+    defer output.deinit();
+    try std.json.Stringify.value(.{ .matches = matches }, .{}, &output.writer);
+    return makeResponse(.ok, output.written());
+}
 
-    if (std.mem.eql(u8, operation.string, "schemaMatches")) {
-        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
-        const schema_type = parsed.value.object.get("schemaType") orelse return error.InvalidValueRequest;
-        if (schema_type != .string) return error.InvalidValueRequest;
-        var decoded = try value.fromCanonicalValue(raw, allocator);
-        defer decoded.deinit(allocator);
-        const matches = try state_runtime.matchesSchemaType(decoded.value, schema_type.string);
-        return jsonResponseValue(.{ .matches = matches });
-    }
+/// Whether a STATE path is one the engine refuses.
+///
+/// No host calls this per read any more: the rule is a nine-name list of
+/// JavaScript prototype members, so the TypeScript host answers it locally —
+/// see `state/state-validation.ts`, which explains why a crossing per read was
+/// the wrong price for it. The operation stays because it is ABI version 1
+/// surface and a second host may not have the list, and because the engine
+/// enforces the same rule on its own writes either way.
+fn statePathValidResponse(request: std.json.ObjectMap) !Response {
+    const path = request.get("path") orelse return error.InvalidValueRequest;
+    if (path != .string) return error.InvalidValueRequest;
+    try state_runtime.validatePath(path.string);
+    return jsonResponseValue(.{ .valid = true });
+}
 
-    if (std.mem.eql(u8, operation.string, "literalToValue")) {
-        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
-        const schema_type = parsed.value.object.get("schemaType") orelse return error.InvalidValueRequest;
-        if (schema_type != .string) return error.InvalidValueRequest;
-        var result = try state_runtime.literalToValue(raw, schema_type.string, allocator);
-        defer result.deinit(allocator);
-        const payload = try value.canonicalJson(result.borrowed(), allocator);
-        defer allocator.free(payload);
-        return makeResponse(.ok, payload);
-    }
+fn schemaMatchesResponse(request: std.json.ObjectMap) !Response {
+    const raw = request.get("value") orelse return error.InvalidValueRequest;
+    const schema_type = request.get("schemaType") orelse return error.InvalidValueRequest;
+    if (schema_type != .string) return error.InvalidValueRequest;
+    var decoded = try value.fromCanonicalValue(raw, allocator);
+    defer decoded.deinit(allocator);
+    const matches = try state_runtime.matchesSchemaType(decoded.value, schema_type.string);
+    return jsonResponseValue(.{ .matches = matches });
+}
 
-    if (std.mem.eql(u8, operation.string, "metadata")) {
-        const name = parsed.value.object.get("name") orelse return error.InvalidValueRequest;
-        if (name != .string) return error.InvalidValueRequest;
-        const known = blk: {
-            var probe = preset.call(name.string, &.{}, allocator) catch |err|
-                break :blk err != error.UnknownFunction;
-            probe.deinit(allocator);
-            break :blk true;
-        };
-        if (!known) return jsonResponseValue(.{
-            .inputType = @as(?[]const u8, null),
-            .parameterType = @as(?[]const u8, null),
-            .returnType = @as(?[]const u8, null),
-            .arity = @as(?usize, null),
-        });
-        const element = if (parsed.value.object.get("elementType")) |raw| blk: {
-            if (raw != .string) return error.InvalidValueRequest;
-            break :blk raw.string;
-        } else null;
-        const output_type = preset.returnType(name.string, element);
-        const input_type = preset.inputType(name.string);
-        const parameter_type = preset.parameterType(name.string);
-        return jsonResponseValue(.{
-            .inputType = input_type,
-            .parameterType = parameter_type,
-            .returnType = output_type,
-            .arity = preset.arity(name.string),
-        });
-    }
-
-    if (std.mem.eql(u8, operation.string, "passTransform")) {
-        const type_symbol = parsed.value.object.get("type") orelse return error.InvalidValueRequest;
-        if (type_symbol != .string) return error.InvalidValueRequest;
-        return jsonResponseValue(.{ .name = preset.passTransform(type_symbol.string) });
-    }
-
-    if (std.mem.eql(u8, operation.string, "infer")) {
-        const query = parsed.value.object.get("query") orelse return error.InvalidValueRequest;
-        const context = parsed.value.object.get("context") orelse return error.InvalidValueRequest;
-        if (query != .string or context != .object) return error.InvalidValueRequest;
-
-        // Batched form: infer every listed function against one context. Returns
-        // types positionally so the host zips them back onto the ids it sent.
-        // One `Inference` covers the whole batch, so ids that share a subgraph
-        // — which is the common case, since that is why they arrive together —
-        // resolve it once between them.
-        if (std.mem.eql(u8, query.string, "functions")) {
-            const ids = parsed.value.object.get("ids") orelse return error.InvalidValueRequest;
-            if (ids != .array) return error.InvalidValueRequest;
-            const types = try allocator.alloc(?[]const u8, ids.array.items.len);
-            defer allocator.free(types);
-            var inference: Inference = .{};
-            defer inference.deinit();
-            for (ids.array.items, types) |item, *slot| {
-                if (item != .string) return error.InvalidValueRequest;
-                slot.* = try inference.functionType(context, item.string);
-            }
-            return jsonResponseValue(.{ .types = types });
-        }
-
-        const id = parsed.value.object.get("id") orelse return error.InvalidValueRequest;
-        if (id != .string) return error.InvalidValueRequest;
-        const inferred = if (std.mem.eql(u8, query.string, "value"))
-            inferValueType(context, id.string)
-        else if (std.mem.eql(u8, query.string, "element"))
-            inferValueElementType(context, id.string)
-        else if (std.mem.eql(u8, query.string, "combine"))
-            try inferCombineType(context, id.string)
-        else if (std.mem.eql(u8, query.string, "function")) blk: {
-            var inference: Inference = .{};
-            defer inference.deinit();
-            break :blk try inference.functionType(context, id.string);
-        } else return error.InvalidValueRequest;
-        return jsonResponseValue(.{ .type = inferred });
-    }
-
-    var result = if (std.mem.eql(u8, operation.string, "normalize")) blk: {
-        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
-        var decoded = try value.fromCanonicalValue(raw, allocator);
-        defer decoded.deinit(allocator);
-        break :blk try value.build(decoded.value, decoded.tags, allocator);
-    } else if (std.mem.eql(u8, operation.string, "derive")) blk: {
-        const raw = parsed.value.object.get("value") orelse return error.InvalidValueRequest;
-        const raw_sources = parsed.value.object.get("sources") orelse return error.InvalidValueRequest;
-        if (raw_sources != .array) return error.InvalidValueRequest;
-        var decoded = try value.fromCanonicalValue(raw, allocator);
-        defer decoded.deinit(allocator);
-        // The accumulator owns its tags. Each source is released at the end of
-        // its own iteration, so a merged view borrowing from one would be
-        // dangling by the time the next iteration read it.
-        var tags = try value.cloneTags(decoded.tags, &.{}, allocator);
-        defer value.deinitTags(tags, allocator);
-        for (raw_sources.array.items) |source| {
-            var parsed_source = try value.fromCanonicalValue(source, allocator);
-            defer parsed_source.deinit(allocator);
-            const merged = try value.cloneTags(tags, parsed_source.tags, allocator);
-            value.deinitTags(tags, allocator);
-            tags = merged;
-        }
-        break :blk try value.build(decoded.value, tags, allocator);
-    } else if (std.mem.eql(u8, operation.string, "preset")) blk: {
-        const name = parsed.value.object.get("name") orelse return error.InvalidValueRequest;
-        const raw_args = parsed.value.object.get("args") orelse return error.InvalidValueRequest;
-        if (name != .string or raw_args != .array) return error.InvalidValueRequest;
-        var owned = std.ArrayList(value.OwnedTaggedValue).empty;
-        defer {
-            for (owned.items) |*item| item.deinit(allocator);
-            owned.deinit(allocator);
-        }
-        var args = std.ArrayList(value.TaggedValue).empty;
-        defer args.deinit(allocator);
-        for (raw_args.array.items) |raw| {
-            try owned.ensureUnusedCapacity(allocator, 1);
-            owned.appendAssumeCapacity(try value.fromCanonicalValue(raw, allocator));
-            try args.append(allocator, owned.items[owned.items.len - 1].borrowed());
-        }
-        break :blk try preset.call(name.string, args.items, allocator);
-    } else return error.InvalidValueRequest;
+fn literalToValueResponse(request: std.json.ObjectMap) !Response {
+    const raw = request.get("value") orelse return error.InvalidValueRequest;
+    const schema_type = request.get("schemaType") orelse return error.InvalidValueRequest;
+    if (schema_type != .string) return error.InvalidValueRequest;
+    var result = try state_runtime.literalToValue(raw, schema_type.string, allocator);
     defer result.deinit(allocator);
     const payload = try value.canonicalJson(result.borrowed(), allocator);
     defer allocator.free(payload);
     return makeResponse(.ok, payload);
+}
+
+fn metadataResponse(request: std.json.ObjectMap) !Response {
+    const name = request.get("name") orelse return error.InvalidValueRequest;
+    if (name != .string) return error.InvalidValueRequest;
+    const known = blk: {
+        var probe = preset.call(name.string, &.{}, allocator) catch |err|
+            break :blk err != error.UnknownFunction;
+        probe.deinit(allocator);
+        break :blk true;
+    };
+    if (!known) return jsonResponseValue(.{
+        .inputType = @as(?[]const u8, null),
+        .parameterType = @as(?[]const u8, null),
+        .returnType = @as(?[]const u8, null),
+        .arity = @as(?usize, null),
+    });
+    const element = if (request.get("elementType")) |raw| blk: {
+        if (raw != .string) return error.InvalidValueRequest;
+        break :blk raw.string;
+    } else null;
+    const output_type = preset.returnType(name.string, element);
+    const input_type = preset.inputType(name.string);
+    const parameter_type = preset.parameterType(name.string);
+    return jsonResponseValue(.{
+        .inputType = input_type,
+        .parameterType = parameter_type,
+        .returnType = output_type,
+        .arity = preset.arity(name.string),
+    });
+}
+
+fn passTransformResponse(request: std.json.ObjectMap) !Response {
+    const type_symbol = request.get("type") orelse return error.InvalidValueRequest;
+    if (type_symbol != .string) return error.InvalidValueRequest;
+    return jsonResponseValue(.{ .name = preset.passTransform(type_symbol.string) });
+}
+
+fn inferResponse(request: std.json.ObjectMap) !Response {
+    const query = request.get("query") orelse return error.InvalidValueRequest;
+    const context = request.get("context") orelse return error.InvalidValueRequest;
+    if (query != .string or context != .object) return error.InvalidValueRequest;
+
+    // Batched form: infer every listed function against one context. Returns
+    // types positionally so the host zips them back onto the ids it sent.
+    // One `Inference` covers the whole batch, so ids that share a subgraph
+    // — which is the common case, since that is why they arrive together —
+    // resolve it once between them.
+    if (std.mem.eql(u8, query.string, "functions")) {
+        const ids = request.get("ids") orelse return error.InvalidValueRequest;
+        if (ids != .array) return error.InvalidValueRequest;
+        const types = try allocator.alloc(?[]const u8, ids.array.items.len);
+        defer allocator.free(types);
+        var inference: Inference = .{};
+        defer inference.deinit();
+        for (ids.array.items, types) |item, *slot| {
+            if (item != .string) return error.InvalidValueRequest;
+            slot.* = try inference.functionType(context, item.string);
+        }
+        return jsonResponseValue(.{ .types = types });
+    }
+
+    const id = request.get("id") orelse return error.InvalidValueRequest;
+    if (id != .string) return error.InvalidValueRequest;
+    const inferred = if (std.mem.eql(u8, query.string, "value"))
+        inferValueType(context, id.string)
+    else if (std.mem.eql(u8, query.string, "element"))
+        inferValueElementType(context, id.string)
+    else if (std.mem.eql(u8, query.string, "combine"))
+        try inferCombineType(context, id.string)
+    else if (std.mem.eql(u8, query.string, "function")) blk: {
+        var inference: Inference = .{};
+        defer inference.deinit();
+        break :blk try inference.functionType(context, id.string);
+    } else return error.InvalidValueRequest;
+    return jsonResponseValue(.{ .type = inferred });
+}
+
+fn normalizeValue(request: std.json.ObjectMap) !value.OwnedTaggedValue {
+    const raw = request.get("value") orelse return error.InvalidValueRequest;
+    var decoded = try value.fromCanonicalValue(raw, allocator);
+    defer decoded.deinit(allocator);
+    return value.build(decoded.value, decoded.tags, allocator);
+}
+
+fn deriveValue(request: std.json.ObjectMap) !value.OwnedTaggedValue {
+    const raw = request.get("value") orelse return error.InvalidValueRequest;
+    const raw_sources = request.get("sources") orelse return error.InvalidValueRequest;
+    if (raw_sources != .array) return error.InvalidValueRequest;
+    var decoded = try value.fromCanonicalValue(raw, allocator);
+    defer decoded.deinit(allocator);
+    // The accumulator owns its tags. Each source is released at the end of
+    // its own iteration, so a merged view borrowing from one would be
+    // dangling by the time the next iteration read it.
+    var tags = try value.cloneTags(decoded.tags, &.{}, allocator);
+    defer value.deinitTags(tags, allocator);
+    for (raw_sources.array.items) |source| {
+        var parsed_source = try value.fromCanonicalValue(source, allocator);
+        defer parsed_source.deinit(allocator);
+        const merged = try value.cloneTags(tags, parsed_source.tags, allocator);
+        value.deinitTags(tags, allocator);
+        tags = merged;
+    }
+    return value.build(decoded.value, tags, allocator);
+}
+
+fn presetValue(request: std.json.ObjectMap) !value.OwnedTaggedValue {
+    const name = request.get("name") orelse return error.InvalidValueRequest;
+    const raw_args = request.get("args") orelse return error.InvalidValueRequest;
+    if (name != .string or raw_args != .array) return error.InvalidValueRequest;
+    var owned = std.ArrayList(value.OwnedTaggedValue).empty;
+    defer {
+        for (owned.items) |*item| item.deinit(allocator);
+        owned.deinit(allocator);
+    }
+    var args = std.ArrayList(value.TaggedValue).empty;
+    defer args.deinit(allocator);
+    for (raw_args.array.items) |raw| {
+        try owned.ensureUnusedCapacity(allocator, 1);
+        owned.appendAssumeCapacity(try value.fromCanonicalValue(raw, allocator));
+        try args.append(allocator, owned.items[owned.items.len - 1].borrowed());
+    }
+    return preset.call(name.string, args.items, allocator);
 }
 
 fn contextTable(context: std.json.Value, name: []const u8) ?std.json.ObjectMap {
@@ -1656,6 +1724,33 @@ test "WASM stateless Value operation rejects a malformed batched inference reque
         var response = try expectResponse(address, .runtime_error, null);
         defer response.deinit();
     }
+}
+
+test "value operation names are the enum field names" {
+    // The wire spelling and the enum are one list, so this asserts the mapping
+    // exists rather than re-spelling it: every field resolves from its own name,
+    // and a name nothing declares resolves to nothing. A renamed field is an ABI
+    // break, which is what `abi_version` is for.
+    inline for (@typeInfo(Operation).@"enum".fields) |field| {
+        try std.testing.expectEqual(
+            @field(Operation, field.name),
+            Operation.parse(field.name).?,
+        );
+    }
+    try std.testing.expect(Operation.parse("normalise") == null);
+    try std.testing.expect(Operation.parse("") == null);
+}
+
+test "an unknown value operation is rejected rather than falling through" {
+    const request = "{\"operation\":\"nope\"}";
+    const address = turnout_value_operate(@intFromPtr(request.ptr), request.len);
+    defer freeResponse(address);
+    var response = try expectResponse(address, .runtime_error, null);
+    defer response.deinit();
+    try std.testing.expectEqualStrings(
+        "InvalidValueRequest",
+        response.value.object.get("error").?.string,
+    );
 }
 
 test "WASM stateless Value operation rejects malformed and oversized requests" {
