@@ -1,10 +1,10 @@
 # Closing the host parity gaps
 
-> Status: proposal
-> Origin: the recheck at the end of `aligned-runtime-hosts.md` found a whole
-> ability — model extension — that no gate was looking at, because no capability
-> declared it. Twelve vectors passed on both hosts while one of them could not
-> run a documented language feature at all.
+> Status: step 1 landed; step 2 partly landed; steps 3 and 4 open
+> Origin: a recheck of the two runtime hosts found a whole ability — model
+> extension — that no gate was looking at, because no capability declared it.
+> Twelve vectors passed on both hosts while one of them could not run a
+> documented language feature at all.
 > This plan is about making that class of gap impossible first, and closing the
 > ones currently open second. In that order, because the first is what names the
 > second.
@@ -20,55 +20,48 @@ host either implements it or declares that it does not.** Silence is the failure
 mode. The extend gap was not a host that declared it lacked something — it was a
 host, a manifest, and four gates that between them never raised the question.
 
-## Step 1: check coverage against the engine's own surface
+## Step 1: coverage against the engine's own surface — landed
 
-`spec/capabilities.json` rows are hand-written, and nothing ties them to what
-the engine actually exposes. That is the whole defect: a capability nobody
-writes down is a capability nobody checks, and no amount of passing vectors
-tells you what is missing from the list.
+`spec/capabilities.json` rows now carry an `engineSurface`, and
+`scripts/check-capabilities.mjs` asserts both directions: every `export fn` in
+`packages/zig/wasm/src/abi.zig` and every `runner.Event` kind is claimed by
+exactly one capability, and every claim names something that exists. An
+unclaimed export fails the build, which is what would have caught
+`turnout_model_merge` and `event:extend_model` before a vector had to.
 
-The engine already enumerates itself twice, in two machine-readable places:
-
-- `export fn` in `packages/zig/wasm/src/abi.zig` — 14 operations, including
-  `turnout_model_merge`, which nothing declared;
-- the `runner.Event` union in `runner.zig` — including `extend_model`, which
-  nothing declared either.
-
-Give each capability an `engineSurface` naming what it covers, and have
-`check-capabilities.mjs` assert both directions: every exported operation and
-every event kind is claimed by exactly one capability, and every claim names
-something that exists. An unclaimed export fails the build.
-
-That check, written before the recheck, would have failed on
-`turnout_model_merge` and `event:extend_model` and pointed straight at the gap.
-
-Two nuances worth building in rather than discovering later:
+Two nuances that were built in rather than discovered later:
 
 - **Some abilities already have evidence elsewhere.** Values, presets and
   compute are pinned by `value_vectors.zig`, `preset_vectors.zig`,
   `compute_vectors.zig` and their TypeScript counterparts, run natively and
-  under WASM. The manifest should point at that evidence, not duplicate it as
+  under WASM. The manifest points at that evidence rather than duplicating it as
   host vectors.
-- **Some abilities are legitimately not a host's business.** See step 2.
+- **Some abilities are legitimately not a host's business**, which is what the
+  `not-applicable` status in step 2 is for.
 
 ## Step 2: close or declare what step 1 names
 
-Three are known today. The point of step 1 is that this list stops being one I
-assembled by reading code.
+**Prepared models — landed as `not-applicable`.** `turnout_model_create` and
+`turnout_runtime_create_with_model` back `prepareModel`, which exists to amortise
+creation across many runs; a process that runs one model once has nothing to
+amortise. `spec/capabilities.json` carries a `not-applicable` host status the
+checker accepts without vectors — distinct from `planned`, which promises the
+work, and from `unsupported`, which admits a gap.
 
-**Merge ahead of a run.** `turnout_model_merge` backs TypeScript's
-`mergeModels`; the native host has no way to reach it. Add `--merge <model>`,
-repeatable, composing before the run starts — the same `merge.zig` the mid-run
-path already uses in both hosts. Two vectors: models that compose, and models
-that collide, the second asserting the conflict is reported rather than
-resolved.
+**Merge ahead of a run — open.** `turnout_model_merge` backs TypeScript's
+`mergeModels`; the native host can only merge mid-run, through an `extend` hook,
+and has no CLI for composing before a run starts (`--max-model-merges` caps the
+mid-run path, it does not open the pre-run one). Add `--merge <model>`,
+repeatable, composing before the run starts — the same `merge.zig` both hosts
+already use. Two vectors: models that compose, and models that collide, the
+second asserting the conflict is reported rather than resolved.
 
-**Cancellation, which neither host can actually do.** The engine has
+**Cancellation, which neither host can actually do — open.** The engine has
 `Runtime.cancel`, `SceneDriver.cancel`, `RouteDriver.cancel` and a `cancelled`
 event. The ABI exports no cancel operation, and the native host never calls one:
-`grep` finds only internal delegation and tests. TypeScript's `AbortSignal` path
-does something else entirely — it snapshots partial STATE and destroys the
-handle.
+`grep` finds only internal delegation, the `cancelled` event arm, and tests.
+TypeScript's `AbortSignal` path does something else entirely — it snapshots
+partial STATE and destroys the handle.
 
 So `spec/runtime-hosts.md`'s "A host can cancel a run; cancellation is terminal"
 is not true of either host today. Two honest options:
@@ -81,39 +74,31 @@ The first is better. A CLI that hands back partial STATE on Ctrl-C is worth
 having, and it makes an engine path that currently cannot be reached reachable —
 which is the only way it stays honest.
 
-**Prepared models, which are not the CLI's business.** `turnout_model_create`
-and `turnout_runtime_create_with_model` back `prepareModel`, which exists to
-amortise creation across many runs. A process that runs one model once has
-nothing to amortise. This needs a `not-applicable` host status that the checker
-accepts without vectors — distinct from `planned`, which promises the work, and
-from `unsupported`, which admits a gap.
+## Step 3: one error vocabulary — the artifact landed, the deletion did not
 
-## Step 3: one error vocabulary, written down
+`spec/error-codes.json` exists and classifies every code in the gated host
+unions as `shared` or `renamed`, with a drift gate, the same way
+`fn-aliases.json`, `field-types.json` and `runtime-projection.json` gate their
+own shared names.
 
-Both hosts now report the same names for a failed hook answer, and they agree
-because I renamed things until they did. Nothing checks it. The repository
-already has the right mechanism for exactly this — `fn-aliases.json`,
-`field-types.json`, `runtime-projection.json`, each with a drift gate.
+What it was meant to make safe is still undone. TypeScript keeps its own copies
+of the two prepare-answer checks — `MissingHookField` and `InvalidHookValue` in
+`packages/ts/scene-runner/src/zig-runtime/effect-dispatcher.ts:187,197,204`, beside
+the engine's own `error.MissingHookField` in
+`packages/zig/scene-runner/src/runner.zig:615` — and the reason they have not
+been deleted is message quality: the engine returns a bare code, while the host
+names the field that was missing. Fix that first — let the ABI error response
+carry the detail (`{"error":"MissingHookField","binding":"height"}`) — and the
+duplicate checks can go, leaving one implementation and one vocabulary.
 
-`spec/error-codes.json`: every code, which side raises it, and what it means. The
-check asserts the engine's error set and TypeScript's code unions agree with it,
-the same way the projection artifact gates three implementations of one rule.
+## Step 4: delete the surface no host can reach — open
 
-That artifact is what makes the last piece of phase 1a safe to finish.
-TypeScript still keeps its own copies of the two prepare-answer checks, and the
-reason they have not been deleted is message quality: the engine returns a bare
-code, while the host names the field that was missing. Fix that first — let the
-ABI error response carry the detail (`{"error":"MissingHookField","binding":"height"}`)
-— and the duplicate checks can go, leaving one implementation and one
-vocabulary.
-
-## Step 4: delete the surface no host can reach
-
-`scene.execute` and `scene.executeSafe` have no callers outside their own file.
-`route.execute` and `route.executeSafe` are called only by `route_vectors.zig`
-and `route_error_vectors.zig`, which exist to test them. `runtime_error.Code` —
-a second, snake_case vocabulary alongside the `@errorName` strings the ABI
-actually sends — is used only on those paths.
+`scene.execute` and `scene.executeSafe`
+(`packages/zig/scene-runner/src/scene.zig:121,136`) have no callers outside their
+own file. `route.execute` and `route.executeSafe` (`route.zig:128,153`) are
+called only by `route_vectors.zig` and `route_error_vectors.zig`, which exist to
+test them. `runtime_error.Code` — a second, snake_case vocabulary alongside the
+`@errorName` strings the ABI actually sends — is used only on those paths.
 
 Both hosts drive `SceneDriver` and `RouteDriver` step by step instead, and
 TypeScript's `executeSceneSafe` is a wrapper over the driver path rather than a
@@ -127,18 +112,12 @@ driver.
 
 ## Sequencing
 
-1. **Coverage check.** It names the rest of the work and would have caught the
-   bug that prompted this plan.
-2. **Merge CLI, cancellation, `not-applicable` status.** The gaps step 1 names.
-3. **`spec/error-codes.json`, then delete TypeScript's duplicate checks.** The
-   artifact has to exist before the deletion is safe.
-4. **Delete the unreachable one-shot surface.** Independent of the rest; last
+1. **Merge CLI and cancellation.** The two gaps step 1 named and nothing has
+   closed.
+2. **ABI error detail, then delete TypeScript's duplicate checks.** The detail
+   has to arrive before the deletion is safe.
+3. **Delete the unreachable one-shot surface.** Independent of the rest; last
    because deletions are easiest to justify once nothing new needs them.
-
-Step 1 before 2 is the load-bearing order, and for the same reason phase 2 came
-before phase 3 in the parent plan: build the thing that says what is missing
-before building what is missing, or you will find out by writing a vector and
-watching it fail — which is how this plan came to exist.
 
 ## Risks
 

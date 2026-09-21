@@ -7,14 +7,14 @@
 ## What it is
 
 `createZigSceneRunner` and `createZigRouteRunner`
-(`packages/ts/scene-runner/src/zig-runtime/runner-adapter.ts:588,694`) take
+(`packages/ts/scene-runner/src/zig-runtime/runner-adapter.ts:605,711`) take
 their model as a union:
 
 ```ts
 model: Uint8Array | RuntimeModelSource
 ```
 
-and `toModelSource` (`:350`) resolves it with a type test:
+and `toModelSource` (`:363`) resolves it with a type test:
 
 ```ts
 function toModelSource(
@@ -25,7 +25,7 @@ function toModelSource(
 }
 ```
 
-`RuntimeModelSource` (`:331`) is the real abstraction — "where a runner gets its
+`RuntimeModelSource` (`:344`) is the real abstraction — "where a runner gets its
 Zig runtime from" — with two constructors already exported,
 `modelSourceFromBytes` and `modelSourceFromHandle`. The union is a convenience
 for the common case: an unprepared model is bytes, and a prepared one is a

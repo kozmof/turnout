@@ -11,7 +11,7 @@ Selection is first-match, so which transition wins is decided entirely by the te
 - reordering two `next` clauses changes behaviour without changing any value a reviewer can point at, and the diff shows only moved lines
 - neither ordering is wrong, so no diagnostic can flag a mistake
 
-The chain is: source order → `repeated NextRuleModel next` order in the model → evaluation order at runtime. `next-rules.ts:190` breaks out of its loop on the first match in array order, and `NextRuleModel` (`schema/turnout-model.proto:229`) has no field that records intent.
+The chain is: source order → `repeated NextRuleModel next` order in the model → evaluation order at runtime. `RuntimeModel.selectNextAfterAction` (`packages/zig/scene-runner/src/model.zig:453`) returns on the first rule whose condition holds, in array order, and `NextRuleModel` (`schema/turnout-model.proto:262`) has no field that records intent.
 
 The transition sugar added in 1.4 (`next scene_hotspot_found -> collect`) makes the clauses shorter and therefore easier to reorder casually, which raises the stakes slightly.
 

@@ -14,7 +14,7 @@ JSON.stringify → turnout_alloc → memcpy into WASM memory → JSON parse in Z
 → normalize → allocate response → memcpy out → JSON.parse → turnout_free
 ```
 
-`value-builders.ts:204-212` is the whole of it:
+`value-builders.ts:204-211` is the whole of it:
 
 ```ts
 function normalize(value: unknown): AnyValue {
@@ -60,7 +60,7 @@ A `turnout_value_operate_batch` export taking an array of the requests
 `turnout_value_operate` already accepts, returning an array of responses in the
 same order, with one status for the batch and a per-entry status inside it.
 The encode/decode machinery on both sides is already array-shaped — the value
-codec maps over collections and `makeResponse` (`abi.zig:290`) writes one
+codec maps over collections and `makeResponse` (`abi.zig:301`) writes one
 header over an arbitrary payload — so the work is dispatch and error
 attribution, not new serialization.
 

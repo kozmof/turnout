@@ -15,8 +15,8 @@ packages are private at version `0.0.0`, and nothing is published to a registry.
 
 Expect breaking changes. The language syntax, the model format in
 `schema/turnout-model.proto`, and the runtime API all still move. Most documents
-in `spec/` are marked draft or proposed rather than settled. `todo/` mixes
-finished work with open design questions and proposals.
+in `spec/` are marked draft or proposed rather than settled. `todo/` holds the
+open design questions and proposals; finished work is not kept there.
 
 Reading the code, running the examples, and filing what looks wrong are all
 useful right now. Building anything durable on it is not. Pin a commit before

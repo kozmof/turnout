@@ -165,7 +165,7 @@ const transforms = [
     // `compute` and `prog` were always 1:1 — a compute block held exactly one
     // prog and nothing else, so the inner block carried one piece of
     // information the outer one did not, its name. The name moved out to
-    // `compute` and `prog` was retired (todo/collapse-prog-into-compute.md).
+    // `compute` and `prog` was retired.
     //
     // Without this phase the script emitted the nested form on every run, which
     // the current parser rejects. Its own tests are textual and never compile

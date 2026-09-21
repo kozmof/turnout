@@ -1,7 +1,7 @@
 // Where creating a runner spends its time.
 //
 // Not a gate. It exists because this repository has twice optimised the wrong
-// thing — see todo/zig-architecture-redesign.md step 8 — and the defence is a
+// thing — see packages/zig/docs/performance-redesign.md — and the defence is a
 // benchmark anyone can re-run before proposing the next fix.
 //
 // Run it against the built package:

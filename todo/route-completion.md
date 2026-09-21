@@ -1,90 +1,62 @@
-# Explicit route completion
+# Diagnose a `_` arm that cannot terminate a route
 
-> Status: implemented 2026-09-08 with `.` as the explicit terminal target
+> Status: proposal (option B below). Options A and C landed 2026-09-08.
 > Origin: writing `spec/examples/03-warehouse-route.tu`
-The implementation uses `_ -> .`. The remaining discussion records the decision history.
 
+## What already landed
 
-## Progress
+A route completes when no match arm matches, and `.` is now the explicit
+terminal target, so `_ -> .` says "this is where the route ends" at the point
+where a reader looks for it. `spec/scene-to-scene.md` states the implication in
+§3.2, in the summary-table interpretation, and in §5, and
+`packages/ts/scene-runner/tests/route-completion.test.ts` pins both sides: a
+route with its final scene unmatched completes, and the same route with a `_` arm
+targeting a real scene exhausts its transition budget instead.
 
-Option A landed. `spec/scene-to-scene.md` now states the implication in §3.2, in
-the summary-table interpretation, and in §5, and `tests/route-completion.test.ts`
-pins both sides of it: a route with its final scene unmatched completes, and the
-same route with a `_` arm exhausts its transition budget instead. That test is
-the one option C flips.
-
-The trap was re-confirmed against the current implementation before documenting
-it. The code references below are stale — `route-executor.ts` and
-`route-pattern.ts` went with the TypeScript executor in Phase 12, and the logic
-is now `selectNextScene` and `matchPattern` in
+The runtime logic is `selectNextScene` and `matchPattern` in
 `packages/zig/scene-runner/src/route.zig`, with patterns lowered ahead of time in
-`route_ir.zig`. The behaviour is unchanged: `Pattern.any` returns the
-lowest-priority score rather than declining to match, so `selectNextScene` never
-returns null when a `_` arm is present.
+`route_ir.zig`. `Pattern.any` returns the lowest-priority score rather than
+declining to match, so `selectNextScene` never returns null while a `_` arm names
+a scene.
 
-Option B is still worth doing after C, not before, for the reason given below.
+## What is still open
 
-## The problem
+**Option B: warn when a `_` arm targets a real scene.** Such a route can only
+exit by exceeding the transition cap, and nothing says so at conversion time.
+Nothing in the converter diagnoses it today — `arm.Target` accepts
+`ast.RouteTerminalTarget` (`packages/go/converter/internal/parser/parser_route.go:100`)
+or a scene id, with no check on the combination.
 
-A route completes when no match arm matches. That is stated plainly in `scene-to-scene.md` §136 ("If no pattern matches and no `_` fallback is present, the route enters a terminal `completed` state") and again at §188, and the runtime does exactly that in `route-executor.ts:150`:
+The risk that held this back is that a `_` arm is legitimate for a route intended
+to run until the host stops it, so it likely wants to be a warning rather than an
+error, and warnings that fire on intentional code age badly.
 
-```ts
-const nextSceneId = selectNextScene(sceneHistory, parsedArms, progress.currentSceneId);
-if (nextSceneId === null) break; // No arm matched — route completes.
-```
-
-Before the explicit terminal landed, a `match` block containing `_` could not complete. A catchall was always eligible, so `selectNextScene` never returned null. The loop ran until `maxRouteTransitions` and threw `MaxRouteTransitionsExceeded`.
-
-So route termination is expressed by absence. There is no way to write "this is where the route ends". You say it by leaving a scene unmatched, which is invisible at the point where a reader is looking for it.
-
-§3.2 presents `_` as an ordinary fallback:
-
-> The `_` pattern matches any route history unconditionally. It MUST appear at most once per `match` block and SHOULD be the last arm.
-
-Nothing there suggests that adding one forecloses completion. `_` reads exactly like a `default:` case, and a `default:` does not normally mean "loop forever".
+What changed is that the terminal spelling now exists. With `_ -> .` available, a
+`_` arm that targets a real scene is clearly suspicious rather than merely
+unusual, which is what makes the diagnostic easy to justify — that was recorded
+at the time as the reason to do B after C, not before.
 
 ## Evidence this is a real trap
 
-The deleted `kitchen-sink-support-pipeline.tu` ended its route with `_ -> closed`, where scene `closed` had a single terminal action. Once `closed` finished, nothing matched `closed.*`, so `_` matched again and re-entered `closed`, indefinitely. The example was checked in, exercised by the schema-drift converter test, and never run through the route executor, so the loop was never observed.
+The deleted `kitchen-sink-support-pipeline.tu` ended its route with
+`_ -> closed`, where scene `closed` had a single terminal action. Once `closed`
+finished, nothing matched `closed.*`, so `_` matched again and re-entered
+`closed`, indefinitely. The example was checked in, exercised by the
+schema-drift converter test, and never run through the route executor, so the
+loop was never observed.
 
-`spec/examples/03-warehouse-route.tu` therefore omits `_` on purpose and explains why in a comment. That is the right shape for the example, but it means the file demonstrates four of the five route path forms and has to editorialise about the fifth.
-
-## Options
-
-A. Document only. State the implication in §3.2 and in the `_` row of the summary tables. Cheapest, changes no code, and the trap stays available. An author still has to know that `_` and completion are mutually exclusive.
-
-B. Diagnose `_` when it cannot terminate. Warn when a match block has a `_` arm, since such a route can only exit by exceeding the transition cap. Cheap and catches the kitchen-sink mistake at conversion time. Risk: a `_` arm is legitimate for a route intended to run until the host stops it, so this may need to be a warning rather than an error, and warnings that fire on intentional code age badly.
-
-C. Give completion a spelling. Add an explicit terminal target so a route can name its own end:
-
-```hcl
-route "fulfilment" {
-  entry = picking
-
-  to {
-    picking.*.pick_complete -> packing,
-    packing.*.seal_carton   -> shipping,
-    _ -> done
-  }
-}
-```
-
-`done` (or `end`, or `_ -> .`) would be a reserved target meaning "complete the route", making `_` safe and termination visible at the point of decision. This is the only option that lets a reader see where a route ends without reasoning about which paths are unmatched.
-
-C is the recommended direction, with A done immediately regardless, because the documentation is wrong-by-omission today and that is true under every option.
-
-Whoever picks up C must settle the first question below; the rest have answers
-already, recorded here so they are not re-litigated:
-
-- **Open: where the terminal lives.** A reserved scene id is the smallest change and needs no proto field, but it collides with any real scene of that name. A distinct token (`_ -> end`, with `end` a keyword) avoids collisions at the cost of a lexer entry. This is a language-surface decision and the only thing blocking C. Written up with candidates, a recommendation, and the pipeline sites it touches in [route-terminal-spelling.md](./route-terminal-spelling.md).
-- Wire model. `MatchArm.target` is a string today. A reserved value keeps the proto unchanged, while a separate `terminal` flag does not. Prefer the former, consistent with the "no proto churn for surface features" line the recent syntax work held.
-- Runtime. `selectNextScene` returns `string | null` and null already means complete, so the executor needs no new state. The arm resolution just maps the terminal target to null. That is a small, well-isolated change.
-- Interaction with B. With C available, a `_` arm that targets a real scene becomes clearly suspicious, and the diagnostic in B gets much easier to justify.
+Before the explicit terminal landed, `_` and completion were mutually exclusive
+and nothing in §3.2 said so — it presents `_` as an ordinary fallback, and a
+`default:` does not normally mean "loop forever". The spelling fixed the
+expressiveness half of that. The diagnostic is the half that catches the author
+who writes the old shape anyway.
 
 ## Verification
 
-- a route whose `_` arm targets the terminal completes with a `completed` trace rather than throwing `MaxRouteTransitionsExceeded`
-- a route with no `_` arm behaves exactly as it does today — this is the check that proves the change is additive
-- the emitted model for every existing route is unchanged
-- `spec/examples/03-warehouse-route.tu` can carry a `_` arm and drop the paragraph explaining its absence, which is the readability outcome this is for
-- the executor's transition-cap path still fires for a genuine cycle between two scenes, since that is a different failure and must stay reachable
+- a route whose `_` arm targets a real scene reports the warning, naming the arm
+- a route whose `_` arm targets `.` reports nothing
+- a route with no `_` arm reports nothing — the shape every existing example uses
+- the emitted model is unchanged in all three cases: this is a diagnostic, not a
+  lowering change
+- the executor's transition-cap path still fires for a genuine cycle between two
+  scenes, since that is a different failure and must stay reachable

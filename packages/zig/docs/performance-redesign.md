@@ -5,7 +5,8 @@ measurements showed about where the time in a Turnout run actually goes. It is a
 local reference, not a release gate. The engine comparison that preceded it is in
 [performance-baseline.md](./performance-baseline.md).
 
-The design it measures is in `todo/zig-architecture-redesign.md`.
+The design it measures, and the two items still deferred from it, are in
+`todo/zig-architecture-redesign.md`.
 
 ## Environment
 
