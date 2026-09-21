@@ -12,7 +12,7 @@
 // over one 20-action scene, three bindings per action, creation and decoding
 // included.
 import { fromJson } from "@bufbuild/protobuf";
-import { buildNumber } from "runtime";
+import { buildNumber } from "turnout-runtime";
 import { defaultZigRuntimeClient } from "../dist/zig-runtime/default-client.js";
 import { createRunner, prepareModel } from "../dist/index.js";
 import { encodeZigRuntimeModel } from "../dist/model-encoding.js";

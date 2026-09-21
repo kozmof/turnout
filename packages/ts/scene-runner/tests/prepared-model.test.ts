@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { describe, it, expect } from "vitest";
-import { instantiateZigRuntime } from "runtime/zig-runtime";
+import { instantiateZigRuntime } from "turnout-runtime/zig-runtime";
 import { createRunner, prepareModel } from "../src/runner.js";
 import { defaultZigRuntimeClient } from "../src/zig-runtime/default-client.js";
 import { ModelValidationError } from "../src/errors.js";
@@ -100,5 +100,75 @@ describe("prepareModel", () => {
       createRunner(prepared, { entryId: "main", initialState: {}, client: other }),
     ).toThrow(ModelValidationError);
     prepared.release();
+  });
+});
+
+// What `prepareModel` is for is not that it produces the same answer — the test
+// at the top of this file already pins that — but that it does the setup once.
+// README quotes the gap as about 850 µs of a 930 µs run against 13 µs from a
+// prepared model, and that number is the whole reason the API exists.
+//
+// Nothing enforced it. A change that made `createRunner` re-encode and re-load a
+// prepared model on every call would keep every test here green and quietly cost
+// two orders of magnitude.
+//
+// This counts engine calls rather than microseconds. The work `prepareModel`
+// hoists is one `prepareModel` call into the engine; the per-run call is
+// `createWithModel` against the handle it returned. A prepared model used N
+// times must show one of the first and N of the second, and must never reach
+// `create`, which is the unprepared path that carries the model bytes with it.
+// That is the same guarantee a timing assertion would make, without a threshold
+// to tune or a loaded CI machine to flake on.
+describe("prepareModel hoists the per-run work", () => {
+  // A Proxy rather than a subclass or a prototype-delegating copy: the client
+  // holds its exports in a private field, so every method has to run with the
+  // real instance as its receiver or the field lookup throws.
+  function countingClient() {
+    const calls: Record<string, number> = { prepareModel: 0, createWithModel: 0, create: 0 };
+    const real = defaultZigRuntimeClient;
+    const client = new Proxy(real, {
+      get(target, property) {
+        const value = Reflect.get(target, property, target) as unknown;
+        if (typeof value !== "function") return value;
+        return (...args: unknown[]) => {
+          // Only the three methods seeded into `calls` are counted; everything
+          // else the runner reaches for passes straight through.
+          const counted = typeof property === "string" ? calls[property] : undefined;
+          if (counted !== undefined) calls[property as string] = counted + 1;
+          return (value as (...rest: unknown[]) => unknown).apply(target, args);
+        };
+      },
+    });
+    return { client, calls };
+  }
+
+  it("loads the model once across many runners", async () => {
+    const { client, calls } = countingClient();
+    const prepared = prepareModel(buildModel(3), { client });
+    try {
+      for (let run = 0; run < 5; run += 1) {
+        await createRunner(prepared, options).run();
+      }
+    } finally {
+      prepared.release();
+    }
+
+    expect(calls.prepareModel).toBe(1);
+    expect(calls.createWithModel).toBe(5);
+    expect(calls.create).toBe(0);
+  });
+
+  // The counterpart, so the assertion above is known to be measuring something:
+  // an unprepared model really does pay the load on every single run.
+  it("an unprepared model pays it on every run", async () => {
+    const { client, calls } = countingClient();
+    const model = buildModel(3);
+    for (let run = 0; run < 5; run += 1) {
+      await createRunner(model, { ...options, client }).run();
+    }
+
+    expect(calls.prepareModel).toBe(0);
+    expect(calls.createWithModel).toBe(0);
+    expect(calls.create).toBe(5);
   });
 });

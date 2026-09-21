@@ -11,4 +11,4 @@ export {
   defaultZigRuntimeClient,
   setDefaultZigRuntimeClient,
   reloadDefaultZigRuntimeClient,
-} from "runtime/zig-runtime";
+} from "turnout-runtime/zig-runtime";

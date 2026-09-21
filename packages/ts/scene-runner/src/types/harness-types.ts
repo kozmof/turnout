@@ -1,4 +1,4 @@
-import type { AnyValue } from "runtime";
+import type { AnyValue } from "turnout-runtime";
 import type { ZigRuntimeClient } from "../zig-runtime/client.js";
 import type { TurnModel } from "./turnout-model_pb.js";
 

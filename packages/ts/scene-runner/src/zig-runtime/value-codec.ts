@@ -7,4 +7,4 @@
  * files and nowhere else. Swapping the client, or renaming the package it
  * comes from, is a change to this directory rather than to every call site.
  */
-export { fromCanonicalValue, toCanonicalValue } from "runtime/zig-runtime";
+export { fromCanonicalValue, toCanonicalValue } from "turnout-runtime/zig-runtime";

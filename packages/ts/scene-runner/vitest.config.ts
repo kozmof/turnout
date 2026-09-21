@@ -4,14 +4,14 @@ import { fileURLToPath } from "node:url";
 export default defineConfig({
   resolve: {
     alias: [
-      // Always resolve the `runtime` monorepo package to its TypeScript source
+      // Always resolve the `turnout-runtime` monorepo package to its TypeScript source
       // during testing so tests work without a prior `pnpm build`.
       {
-        find: /^runtime\/zig-runtime$/,
+        find: /^turnout-runtime\/zig-runtime$/,
         replacement: fileURLToPath(new URL("../runtime/src/zig-runtime/index.ts", import.meta.url)),
       },
       {
-        find: /^runtime$/,
+        find: /^turnout-runtime$/,
         replacement: fileURLToPath(new URL("../runtime/src/index.ts", import.meta.url)),
       },
     ],

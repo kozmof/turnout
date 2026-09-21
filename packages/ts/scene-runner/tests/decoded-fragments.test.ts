@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { fromJson } from "@bufbuild/protobuf";
-import { buildNumber } from "runtime";
+import { buildNumber } from "turnout-runtime";
 import { TurnModelSchema, SceneBlockSchema } from "../src/types/turnout-model_pb.js";
 import { createRunner, createSceneRunner, createRouteRunner } from "../src/runner.js";
 import { protoJson } from "../src/model-encoding.js";

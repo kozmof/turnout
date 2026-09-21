@@ -136,9 +136,16 @@ browsers. `ReleaseSafe` keeps the runtime's bounds and overflow checks for about
 
 The build now produces both release artifacts, since the trade lands differently
 for a server and for a browser. `wasm-dist` builds `turnout-runtime.wasm`
-(`ReleaseFast`) and `turnout-runtime.compact.wasm` (`ReleaseSmall`), and the
+(`ReleaseSafe`) and `turnout-runtime.compact.wasm` (`ReleaseSmall`), and the
 package ships both. The development build stays `Debug` so the test suites keep
 fast rebuilds and safety checks. See the package README for which to load.
+
+The server artifact is `ReleaseSafe` rather than the `ReleaseFast` this document
+first specified. It parses whatever a caller hands it, so it is the one
+deployment where an indexing or overflow bug becomes someone else's input rather
+than a local mistake, and it is also the one least bothered by the cost: 6%
+against `ReleaseFast`, against no download at all. `build.zig` carries the same
+reasoning next to the decision.
 
 This also reframes the finding in [performance-baseline.md](./performance-baseline.md)
 that prompted the whole redesign. That baseline recorded Zig/WASM at 533-553

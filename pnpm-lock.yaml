@@ -50,7 +50,7 @@ importers:
       '@bufbuild/protobuf':
         specifier: ^2.11.0
         version: 2.11.0
-      runtime:
+      turnout-runtime:
         specifier: file:../runtime
         version: link:../runtime
     devDependencies:

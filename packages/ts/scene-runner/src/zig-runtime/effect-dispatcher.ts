@@ -1,4 +1,4 @@
-import type { AnyValue } from "runtime";
+import type { AnyValue } from "turnout-runtime";
 import { PrepareError } from "../errors.js";
 import { mergeModels } from "../merge-models.js";
 import { zigRuntimeModelJson } from "../model-encoding.js";

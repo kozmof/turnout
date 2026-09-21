@@ -66,3 +66,4 @@ export { executeRouteSafe } from "./route-safe.js";
 export type { RouteResult, RouteExecutionResult } from "./route-safe.js";
 export { collectPublishFailures } from "./trace-utils.js";
 export type { PublishFailure } from "./trace-utils.js";
+export { leakedRuntimeHandles, resetLeakedRuntimeHandles } from "./zig-runtime/leaked-handles.js";

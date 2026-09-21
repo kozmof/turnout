@@ -12,7 +12,7 @@
 import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { runZigServerHarness as runHarness } from "./zig-harness.js";
-import { buildBoolean, buildNumber, buildString, isPureString } from "runtime";
+import { buildBoolean, buildNumber, buildString, isPureString } from "turnout-runtime";
 
 const fixture = resolve(__dirname, "../fixtures/workflow.json");
 

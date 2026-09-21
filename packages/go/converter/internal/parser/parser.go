@@ -7,6 +7,7 @@ import (
 	"github.com/kozmof/turnout/packages/go/converter/internal/ast"
 	"github.com/kozmof/turnout/packages/go/converter/internal/diag"
 	"github.com/kozmof/turnout/packages/go/converter/internal/lexer"
+	"github.com/kozmof/turnout/packages/go/converter/internal/limits"
 )
 
 // ParseFile parses Turn DSL source src into a TurnFile AST.
@@ -86,7 +87,7 @@ type parser struct {
 // enough that the frames below it cannot add up to a stack. 256 is the same
 // number the engine uses for its own graph and inference depths, and is far
 // past any expression anyone writes.
-const maxExpressionDepth = 256
+const maxExpressionDepth = limits.SourceExpressionDepth
 
 // enterExpression opens one expression frame, and returns whether there was
 // room for it along with the function that closes it. A caller that is refused

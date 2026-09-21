@@ -20,6 +20,7 @@ import {
 import { ModelMergeError } from "../merge-models.js";
 import { safeLog, safeWarn } from "../logging.js";
 import { stateManagerFromUnchecked } from "../state/state-manager.js";
+import { recordLeakedHandle } from "./leaked-handles.js";
 import type { ZigResponse, CreatedRuntime } from "./client.js";
 import {
   dispatchZigEffect,
@@ -495,11 +496,15 @@ function openZigRuntimeSession(
     if (destroyFailed) {
       // Failing here leaks a handle. There is nothing to retry and nothing that
       // should displace the error already in flight — but it is the caller's
-      // memory, so say so.
+      // memory, so say so, and say how many times it has happened. Handles are
+      // never recycled, so leaks accumulate toward an instance that can issue
+      // no more; one warning at a time never showed that.
+      const leaked = recordLeakedHandle(handle);
       safeWarn(
         options.onWarning,
         `[turnout] Zig runtime handle ${handle} could not be destroyed and has ` +
-          `leaked: ${errorMessage(destroyError)}`,
+          `leaked: ${errorMessage(destroyError)} (${leaked} leaked so far this ` +
+          `process; handles are not recycled, so this is cumulative)`,
       );
     }
   }

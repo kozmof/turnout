@@ -1,4 +1,4 @@
-import { buildNull, buildNumber } from "runtime";
+import { buildNull, buildNumber } from "turnout-runtime";
 import { describe, expect, it, vi } from "vitest";
 import type { HookRegistry } from "../types/harness-types.js";
 import {

@@ -239,7 +239,18 @@ pub const Rendered = struct {
     }
 };
 
-pub fn numToStr(number: f64) Rendered {
+/// Renders a number the way `Number.prototype.toString` does.
+///
+/// `Rendered.bytes` is sized for the longest decimal rendering of an `f64`, and
+/// scientific is shorter, so neither `render` call can run out of room and no
+/// well-formed scientific rendering can be missing its `e`. Each is still
+/// checked rather than asserted: this runs inside the `ReleaseSafe` WASM
+/// artifact, where the input is a caller's and a wrong assumption becomes a
+/// trap that takes the whole instance with it — unrecoverable from outside, and
+/// costing every other handle the host is holding. `error.InvalidNumber` is a
+/// status the host can act on, and the branches are unreachable in practice, so
+/// nothing is paid for them but the check.
+pub fn numToStr(number: f64) Error!Rendered {
     if (std.math.isNan(number)) return Rendered.from("NaN");
     if (std.math.isPositiveInf(number)) return Rendered.from("Infinity");
     if (std.math.isNegativeInf(number)) return Rendered.from("-Infinity");
@@ -248,17 +259,22 @@ pub fn numToStr(number: f64) Rendered {
     var rendered: Rendered = .{};
     const magnitude = @abs(number);
     if (magnitude >= 1e-6 and magnitude < 1e21) {
-        const decimal = std.fmt.float.render(&rendered.bytes, number, .{ .mode = .decimal }) catch unreachable;
+        const decimal = std.fmt.float.render(&rendered.bytes, number, .{ .mode = .decimal }) catch
+            return error.InvalidNumber;
         rendered.len = decimal.len;
         return rendered;
     }
-    const scientific = std.fmt.float.render(&rendered.bytes, number, .{ .mode = .scientific }) catch unreachable;
-    const exponent = std.mem.indexOfScalar(u8, scientific, 'e').?;
+    const scientific = std.fmt.float.render(&rendered.bytes, number, .{ .mode = .scientific }) catch
+        return error.InvalidNumber;
+    const exponent = std.mem.indexOfScalar(u8, scientific, 'e') orelse return error.InvalidNumber;
+    if (exponent + 1 >= scientific.len) return error.InvalidNumber;
     if (scientific[exponent + 1] == '-') {
         rendered.len = scientific.len;
         return rendered;
     }
-    // JavaScript writes a positive exponent as `e+21`; Zig omits the sign.
+    // JavaScript writes a positive exponent as `e+21`; Zig omits the sign, so
+    // the tail shifts one byte right to make room for it.
+    if (scientific.len + 1 > rendered.bytes.len) return error.InvalidNumber;
     std.mem.copyBackwards(
         u8,
         rendered.bytes[exponent + 2 .. scientific.len + 1],

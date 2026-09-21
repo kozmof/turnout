@@ -17,6 +17,8 @@ pub const compute_vectors = @import("compute_vectors.zig");
 pub const graph_compute = @import("authoring/graph_compute.zig");
 pub const graph_validate = @import("authoring/graph_validate.zig");
 pub const fn_aliases = @import("generated/fn_aliases.zig");
+/// The bounds shared with the compiler, generated from spec/limits.json.
+pub const limits = @import("generated/limits.zig");
 
 test {
     _ = value;
@@ -31,4 +33,5 @@ test {
     _ = graph_compute;
     _ = graph_validate;
     _ = fn_aliases;
+    _ = limits;
 }

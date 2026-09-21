@@ -1,4 +1,4 @@
-import { buildNull, buildNumber, buildRecord, buildString } from "runtime";
+import { buildNull, buildNumber, buildRecord, buildString } from "turnout-runtime";
 import { describe, expect, it, vi } from "vitest";
 import type { HookRegistry } from "../types/harness-types.js";
 import { dispatchZigEffect, type ZigEffectRequest } from "./effect-dispatcher.js";

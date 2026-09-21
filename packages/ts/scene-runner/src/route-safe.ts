@@ -1,4 +1,4 @@
-import type { AnyValue } from "runtime";
+import type { AnyValue } from "turnout-runtime";
 import type { RouteModel, SceneBlock } from "./types/turnout-model_pb.js";
 import type { StateManager } from "./state/state-manager.js";
 import type {

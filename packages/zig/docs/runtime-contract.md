@@ -199,4 +199,4 @@ The `infer` operation owns compute-graph type inference. A combine function's ty
 
 The `metadata` operation reports a preset's `inputType`, `parameterType`, `returnType`, and `arity`. Arity is the number of arguments a combine function consumes, bound to the names `a`, `b`, and `c` in order. Every combine takes two except `combineFnRecord::set`, which takes three. It is `null` for an unknown name. Zig owns this fact so neither the graph executor nor the TypeScript builder hardcodes an argument count.
 
-The `runtime` build writes the validated module to `dist/zig-runtime/turnout-runtime.wasm` and exports it as `runtime/zig-runtime/turnout-runtime.wasm`. The scene runner imports the shared runtime client and default instance. Distribution smoke tests check that the single copied file has the WebAssembly magic bytes.
+The `turnout-runtime` build writes the validated module to `dist/zig-runtime/turnout-runtime.wasm` and exports it as `turnout-runtime/zig-runtime/turnout-runtime.wasm`. The scene runner imports the shared runtime client and default instance. Distribution smoke tests check that the single copied file has the WebAssembly magic bytes.

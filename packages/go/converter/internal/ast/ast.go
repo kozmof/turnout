@@ -7,6 +7,8 @@ package ast
 import (
 	"fmt"
 	"strings"
+
+	"github.com/kozmof/turnout/packages/go/converter/internal/limits"
 )
 
 // ────────────────────────────────────────────────────────────
@@ -42,8 +44,8 @@ func (p Pos) String() string {
 // Build one with FieldTypeFromString, which canonicalises the spelling.
 // Converting a string directly — FieldType("rec<str,number>") — produces a
 // value that may not be canonical and so may not compare equal to the same type
-// written properly; `pnpm run check:fieldtype` rejects that conversion outside
-// this package.
+// written properly. TestNoFieldTypeConversionOutsideASTPackage, in the module
+// root, rejects that conversion everywhere but this package.
 //
 // The zero value is FieldTypeInvalid, which names no type.
 type FieldType string
@@ -146,13 +148,14 @@ func splitRecordParams(s string) (string, string, bool) {
 // MaxTypeNodes bounds how many nodes a field type may be built from: one per
 // `arr<`, one per `rec<`, and one for the primitive at the bottom. It is the
 // size of the runtime's schema node pool (packages/zig/scene-runner/src/
-// state.zig), pinned to it through spec/limits.json.
+// state.zig), and both are generated from spec/limits.json, so the two cannot
+// be separately edited into disagreement.
 //
 // The compiler needs the same bound the engine has. Without it the compiler
 // accepted a type the engine could not represent and emitted a model that
 // failed to load — a type error surfacing at run time, with no source position,
 // which spec/runtime-hosts.md puts squarely on the compiler's side of the line.
-const MaxTypeNodes = 128
+const MaxTypeNodes = limits.StateTypeNodes
 
 // typeNodeCount returns the number of nodes a well-formed field type spelling
 // needs. A record's key is a flag rather than a node, matching how the engine

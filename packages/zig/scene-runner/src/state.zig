@@ -1,5 +1,6 @@
 const std = @import("std");
 const value = @import("turnout_runtime").value;
+const limits = @import("turnout_runtime").limits;
 
 pub const StateError = error{
     OutOfMemory,
@@ -377,7 +378,7 @@ const SchemaNode = union(enum) {
 const SchemaParser = struct {
     source: []const u8,
     index: usize = 0,
-    nodes: [128]SchemaNode = undefined,
+    nodes: [limits.state_type_nodes]SchemaNode = undefined,
     node_count: usize = 0,
     root_index: usize = 0,
     /// Bounds `parse`'s recursion. The node pool already rejects a type with

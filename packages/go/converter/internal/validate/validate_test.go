@@ -885,3 +885,71 @@ route "r1" {
 		t.Error("want UnresolvedEntryScene")
 	}
 }
+
+// Both rules below are in spec/structural-rules.json's `shared` list, so the
+// engine already refused these models — but only at load, with no file and no
+// line, because the compiler did not check either one. That is precisely the
+// drift the spec file was written to catch, and it survived because the file
+// gated the engine against the TypeScript host and left the compiler out.
+func TestDuplicateRouteID(t *testing.T) {
+	src := basicState + `
+scene "scene_1" {
+  entry_action = a
+  action "a" { compute "p" { v:bool := true } }
+}
+route "r1" {
+  entry = scene_1
+  to {
+    _ -> scene_1
+  }
+}
+route "r1" {
+  entry = scene_1
+  to {
+    _ -> scene_1
+  }
+}
+`
+	if !hasCode(pipeline(src), diag.CodeDuplicateRouteID) {
+		t.Error("want DuplicateRouteID")
+	}
+}
+
+func TestRouteIDConflictsWithSceneID(t *testing.T) {
+	src := basicState + `
+scene "scene_1" {
+  entry_action = a
+  action "a" { compute "p" { v:bool := true } }
+}
+route "scene_1" {
+  entry = scene_1
+  to {
+    _ -> scene_1
+  }
+}
+`
+	if !hasCode(pipeline(src), diag.CodeRouteIDConflictsWithSceneID) {
+		t.Error("want RouteIDConflictsWithSceneID")
+	}
+}
+
+// A route named unlike every scene, declared once, must stay clean — the two
+// checks above must not fire on the ordinary case.
+func TestDistinctRouteIDIsAccepted(t *testing.T) {
+	src := basicState + `
+scene "scene_1" {
+  entry_action = a
+  action "a" { compute "p" { v:bool := true } }
+}
+route "r1" {
+  entry = scene_1
+  to {
+    _ -> scene_1
+  }
+}
+`
+	ds := pipeline(src)
+	if hasCode(ds, diag.CodeDuplicateRouteID) || hasCode(ds, diag.CodeRouteIDConflictsWithSceneID) {
+		t.Errorf("a distinct route ID must raise neither identity diagnostic: %v", ds)
+	}
+}

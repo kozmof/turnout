@@ -139,6 +139,8 @@ The referenced file MUST contain exactly one top-level `state { ... }` block and
 Rules:
 - `state_file` and `state { ... }` are mutually exclusive. Providing both is an error (`ConflictingStateSource`).
 - The path in `state_file` is resolved relative to the Turn DSL file that declares it.
+- The resolved path MUST lie inside that base directory. A path that escapes it, including one that escapes by following a symlink, aborts conversion (`StateFileOutsideBase`). A source names the file its STATE comes from, so resolving that name anywhere would make the converter an arbitrary read primitive for whoever wrote the source.
+- A host MAY offer an opt-out for deployments where the sources are as trusted as the machine compiling them; the reference converter spells it `-allow-unconfined-state-file` and `Options.AllowUnconfinedStateFile`. It MUST be off by default.
 - A state file MUST be a valid Turn DSL `state` block source. Parse errors in the state file abort conversion (`StateFileParseError`).
 - If the referenced file does not exist, the converter aborts with `StateFileMissing`.
 

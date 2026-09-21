@@ -1,6 +1,6 @@
 import { defaultZigRuntimeClient } from "../zig-runtime/default-client.js";
 import { fromCanonicalValue, toCanonicalValue } from "../zig-runtime/value-codec.js";
-import type { AnyValue } from "runtime";
+import type { AnyValue } from "turnout-runtime";
 import { StateError, type StateErrorCode } from "../errors.js";
 
 type SchemaTypeEntry = {

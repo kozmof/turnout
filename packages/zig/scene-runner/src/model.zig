@@ -5,11 +5,12 @@ const effect = @import("effect.zig");
 const route_ir = @import("route_ir.zig");
 const state_runtime = @import("state.zig");
 const turnout_value = @import("turnout_runtime").value;
+const shared_limits = @import("turnout_runtime").limits;
 
 pub const current_version: u32 = 2;
 pub const Limits = struct {
     max_model_bytes: usize = 16 * 1024 * 1024,
-    max_nesting: usize = 128,
+    max_nesting: usize = shared_limits.model_nesting,
 };
 pub const ValidationError = error{
     OutOfMemory,

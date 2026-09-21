@@ -1,6 +1,13 @@
 /node_modules
+# Not committed, but `go mod vendor` leaves it here and Go then prefers it
+# automatically. So a local build resolves through vendor/ while CI, which
+# never has it, resolves through the module cache. Go refuses a vendor tree
+# inconsistent with go.mod, so the two cannot silently disagree about versions
+# — but they are different code paths, and a vendor/ left behind from an older
+# go.mod is worth deleting rather than debugging.
 /packages/go/converter/vendor
 /packages/ts/*/dist
+/packages/ts/*/coverage
 
 /tmp
 

@@ -268,9 +268,12 @@ export async function convertToHCL(turnFilePath: string, options?: BridgeOptions
  * When `safeBaseDir` is set, the `.tu` source is read here (with TOCTOU
  * hardening via `readContainedFile`) and streamed to the converter over stdin
  * with `-state-file <realBase>` — the child process never re-resolves the
- * caller-supplied path, closing the symlink-swap window. (A `state_file`
- * directive inside the source is still read by the converter relative to the
- * base; that is the remaining, lower-severity surface.)
+ * caller-supplied path, closing the symlink-swap window.
+ *
+ * A `state_file` directive inside the source used to be the remaining surface:
+ * the converter read it relative to the base, but would follow it anywhere. The
+ * converter now confines it to the base directory unless asked otherwise, and
+ * this bridge never asks, so that surface is closed on both paths.
  *
  * Without `safeBaseDir`, the path is passed directly to the converter as
  * before — the trusted-deploy fast path.

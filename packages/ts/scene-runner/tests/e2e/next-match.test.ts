@@ -22,7 +22,7 @@ import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { runConverter, resetBinCache } from "../../src/server/bridge.js";
 import { runZigHarness as runHarness } from "./zig-harness.js";
-import { buildNumber, buildBoolean, buildString, isPureString } from "runtime";
+import { buildNumber, buildBoolean, buildString, isPureString } from "turnout-runtime";
 import type { HookRegistry } from "../../src/types/harness-types.js";
 import type { TurnModel } from "../../src/types/turnout-model_pb.js";
 

@@ -1,4 +1,4 @@
-import type { AnyValue } from "runtime";
+import type { AnyValue } from "turnout-runtime";
 import { toJson } from "@bufbuild/protobuf";
 import { ValueSchema } from "@bufbuild/protobuf/wkt";
 import type { Value } from "@bufbuild/protobuf/wkt";

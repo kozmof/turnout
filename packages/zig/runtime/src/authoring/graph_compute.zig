@@ -5,6 +5,7 @@
 //! directly, the way the runtime used to interpret a model.
 
 const std = @import("std");
+const limits = @import("../generated/limits.zig");
 const preset = @import("../preset.zig");
 const value = @import("../value.zig");
 
@@ -17,7 +18,7 @@ pub const max_graph_nodes: usize = 50_000;
 /// runs out an order of magnitude before the node cap does, so without this the
 /// cap could never fire on a chain and the module trapped instead. Real
 /// authoring graphs are nowhere near this deep.
-pub const max_graph_depth: usize = 256;
+pub const max_graph_depth: usize = limits.graph_depth;
 
 pub const Result = struct {
     values: std.StringArrayHashMapUnmanaged(value.OwnedTaggedValue),

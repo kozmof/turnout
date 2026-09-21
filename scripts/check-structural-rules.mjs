@@ -1,27 +1,42 @@
-// Pins spec/structural-rules.json to the two implementations that enforce it.
+// Pins spec/structural-rules.json to the three implementations that enforce it.
 //
-// The structural invariants of a loaded model are checked in two places: the
-// engine's structure.zig and the TypeScript host's validate-model.ts. Every
-// other shared name in this repository is gated — field types, function
-// aliases, the runtime projection, the model versions, the shared bounds. This
-// pair was not, and the wording in the two files is identical, which is what a
-// port looks like rather than two independent implementations.
+// The structural invariants of a loaded model are checked in three places: the
+// engine's structure.zig, the TypeScript host's validate-model.ts, and — earlier,
+// and against source — the Go compiler. Every other shared name in this repository
+// is gated: field types, function aliases, the runtime projection, the model
+// versions, the shared bounds. These were not, and the wording in the engine and
+// host files is identical, which is what a port looks like rather than two
+// independent implementations.
 //
-// It had already drifted. The host rejected a prog binding carrying neither
-// `value` nor `expr` even when a prepare entry filled it; the engine consults
-// the prepare schedule and runs that model. A host stricter than the engine by
-// accident rather than by decision, with no test on either side failing.
+// Both halves had already drifted when this was written.
 //
-// So this checks three things:
+// The host rejected a prog binding carrying neither `value` nor `expr` even when a
+// prepare entry filled it; the engine consults the prepare schedule and runs that
+// model. A host stricter than the engine by accident rather than by decision, with
+// no test on either side failing.
+//
+// And the compiler, left out of this file on the grounds that its diagnostics are
+// worded for a different audience, was missing two rules outright: `route "x"`
+// twice, or a route taking a scene's name, compiled clean and produced a model the
+// engine refused to load — reported against no file and no line, which is the
+// failure this whole file exists to prevent.
+//
+// So this checks, for the engine and the host:
 //   - every rule in `shared` is present in BOTH files
 //   - every rule in `hostOnly` is present in the host and ABSENT from the engine
 //   - neither file carries a rule the spec does not list
 //
-// The last is the one that catches new drift: a rule added to one side alone
-// has to be classified here, as shared or as a host judgement with a reason,
-// before it can pass.
+// and then, for the compiler:
+//   - every shared rule names the diag code that catches it, or says why no
+//     source can reach that shape
+//   - every named code is both declared and actually raised
+//
+// The third and last bullets are the ones that catch new drift: a rule added to
+// one implementation alone has to be classified against the other two — as shared,
+// as a host judgement with a reason, or as unreachable by the compiler — before it
+// can pass.
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readdir, readFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);
 const spec = JSON.parse(await readFile(new URL("spec/structural-rules.json", root), "utf8"));
@@ -140,4 +155,89 @@ for (const rule of rules) {
 
 console.log(
   `structural rules OK — ${spec.shared.length} shared, ${spec.hostOnly.length} host-only`,
+);
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The compiler side
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The engine and the host are matched on message text, because they are a port
+// of one another and the text is the thing that drifted. The compiler is not a
+// port: its diagnostics are worded for an author looking at a .tu file, and
+// matching them on fragments would gate prose that is supposed to read
+// differently.
+//
+// Its error codes are the stable vocabulary instead. Every shared rule names
+// the code that catches it at compile time, or says why the compiler cannot
+// reach that shape at all; a rule with neither fails here. That is what makes
+// the section a gate rather than a note: a rule added to `shared` has to be
+// classified against three implementations, not two.
+const compiler = spec.compiler;
+assert.ok(compiler, "spec/structural-rules.json has no compiler section");
+
+const compilerCodesSource = await readFile(new URL(compiler.codes, root), "utf8");
+
+/** Every ErrorCode constant the compiler declares, by its string value. */
+const declaredCodes = new Set(
+  [...compilerCodesSource.matchAll(/ErrorCode\s*=\s*"([A-Za-z]+)"/g)].map(([, code]) => code),
+);
+
+/**
+ * Every diag code the compiler actually raises, across the whole pipeline.
+ *
+ * The stages are listed rather than just `internal/validate`, because where a
+ * rule is caught is the compiler's business and not this file's: a bare
+ * `name:type` binding is rejected by the parser, which is earlier and better
+ * than validating a lowered model would be. Gating on one stage would have
+ * pushed a check later to satisfy the gate, which is the wrong direction.
+ */
+const compilerSources = await Promise.all(
+  compiler.source.map(async (directory) => {
+    const files = (await readdir(new URL(`${directory}/`, root)))
+      .filter((name) => name.endsWith(".go") && !name.endsWith("_test.go"))
+      .map((name) => readFile(new URL(`${directory}/${name}`, root), "utf8"));
+    return (await Promise.all(files)).join("\n");
+  }),
+);
+const raisedCodes = new Set(
+  [...compilerSources.join("\n").matchAll(/diag\.Code([A-Za-z]+)/g)].map(([, code]) => code),
+);
+
+const classifiedByCompiler = new Map(compiler.rules.map((rule) => [rule.id, rule]));
+
+for (const rule of spec.shared) {
+  const entry = classifiedByCompiler.get(rule.id);
+  assert.ok(
+    entry,
+    `shared rule "${rule.id}" is not classified against the compiler.\n` +
+      `  Add it to spec/structural-rules.json's compiler.rules with the diag code that ` +
+      `catches it, or with an "unreachable" reason if no source can produce the shape.`,
+  );
+  assert.ok(
+    entry.code || entry.unreachable,
+    `compiler rule "${rule.id}" has neither a "code" nor an "unreachable" reason`,
+  );
+  if (!entry.code) continue;
+  assert.ok(
+    declaredCodes.has(entry.code),
+    `compiler rule "${rule.id}" names diag code ${entry.code}, which ${compiler.codes} does not declare`,
+  );
+  assert.ok(
+    raisedCodes.has(entry.code),
+    `compiler rule "${rule.id}" names diag code ${entry.code}, which no stage in ` +
+      `${compiler.source.join(", ")} raises — the classification is stale`,
+  );
+}
+
+for (const rule of compiler.rules) {
+  assert.ok(
+    spec.shared.some((shared) => shared.id === rule.id),
+    `compiler.rules classifies "${rule.id}", which is not a shared rule`,
+  );
+}
+
+const unreachable = compiler.rules.filter((rule) => rule.unreachable).length;
+console.log(
+  `compiler coverage OK — ${compiler.rules.length - unreachable} shared rules have a diag code, ` +
+    `${unreachable} recorded unreachable`,
 );

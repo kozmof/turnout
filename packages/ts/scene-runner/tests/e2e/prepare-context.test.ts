@@ -12,7 +12,7 @@
 import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { runZigServerHarness as runHarness } from "./zig-harness.js";
-import { buildNumber, isPureNumber, type AnyValue } from "runtime";
+import { buildNumber, isPureNumber, type AnyValue } from "turnout-runtime";
 
 const fixture = resolve(__dirname, "../fixtures/prepare-context.json");
 

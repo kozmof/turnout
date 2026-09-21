@@ -16,8 +16,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { runZigServerHarness as runHarness } from "./zig-harness.js";
-import { fromCanonicalValue, toCanonicalValue } from "runtime/zig-runtime";
-import type { AnyValue } from "runtime";
+import { fromCanonicalValue, toCanonicalValue } from "turnout-runtime/zig-runtime";
+import type { AnyValue } from "turnout-runtime";
 import type {
   ActionTrace,
   ExecutionTrace,

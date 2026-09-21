@@ -10,6 +10,7 @@ const preset = @import("turnout_runtime").preset;
 const runtime = @import("turnout_scene_runner").runner;
 const state_runtime = @import("turnout_scene_runner").state;
 const value = @import("turnout_runtime").value;
+const limits = @import("turnout_runtime").limits;
 
 const NativeAllocator = if (builtin.target.cpu.arch.isWasm()) struct {} else std.heap.DebugAllocator(.{});
 var native_allocator: NativeAllocator = if (builtin.target.cpu.arch.isWasm()) .{} else .init;
@@ -22,7 +23,7 @@ pub const max_create_request_bytes: usize = 16 * 1024 * 1024;
 pub const max_effect_result_bytes: usize = 16 * 1024 * 1024;
 pub const max_compute_request_bytes: usize = 16 * 1024 * 1024;
 pub const max_value_request_bytes: usize = 16 * 1024 * 1024;
-pub const max_input_nesting: usize = 128;
+pub const max_input_nesting: usize = limits.input_nesting;
 
 pub const Status = enum(u16) {
     ok = 0,
@@ -638,7 +639,7 @@ fn inferCombineType(context: std.json.Value, id: []const u8) !?[]const u8 {
 /// How deep the function and pipe walks may nest before giving up. Memoizing
 /// bounds how much *work* an inference does; it does nothing about how many
 /// frames a single chain costs, and the WASM build has a 1 MiB stack.
-pub const max_inference_depth: usize = 256;
+pub const max_inference_depth: usize = limits.inference_depth;
 
 /// The walks below are mutually recursive, so they name their error set rather
 /// than inferring one. Recording a memo or path entry is the only thing in them

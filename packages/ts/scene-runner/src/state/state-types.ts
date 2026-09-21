@@ -1,4 +1,4 @@
-import type { AnyValue } from "runtime";
+import type { AnyValue } from "turnout-runtime";
 
 /**
  * Read-only view of STATE. Callers that only need to inspect state (not mutate

@@ -17,4 +17,4 @@ export {
   type MergeOrigin,
   type ZigRuntimeExports,
   type ZigStatus,
-} from "runtime/zig-runtime";
+} from "turnout-runtime/zig-runtime";

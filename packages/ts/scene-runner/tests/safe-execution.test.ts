@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildNumber, isPureNumber } from "runtime";
+import { buildNumber, isPureNumber } from "turnout-runtime";
 import { executeRouteSafe, executeSceneSafe } from "../src/index.js";
 import { SceneRuntimeError } from "../src/errors.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";

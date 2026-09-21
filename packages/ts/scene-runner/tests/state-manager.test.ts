@@ -21,8 +21,8 @@ import {
   isPureBoolean,
   isPureNull,
   isArray,
-} from "runtime";
-import type { AnyValue } from "runtime";
+} from "turnout-runtime";
+import type { AnyValue } from "turnout-runtime";
 import { matchesSchemaType } from "../src/state/schema-types.js";
 import type { StateModel } from "../src/types/turnout-model_pb.js";
 

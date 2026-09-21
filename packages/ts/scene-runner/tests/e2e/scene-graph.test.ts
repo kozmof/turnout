@@ -10,7 +10,7 @@
 import { resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 import { runZigServerHarness as runHarness } from "./zig-harness.js";
-import { buildNumber, isPureBoolean, isPureString } from "runtime";
+import { buildNumber, isPureBoolean, isPureString } from "turnout-runtime";
 
 const fixture = resolve(__dirname, "../fixtures/scene-graph.json");
 

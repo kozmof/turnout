@@ -14,8 +14,14 @@ import { homedir, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { runZigServerHarness as runHarness } from "./zig-harness.js";
-import { buildBoolean, buildNumber, buildString, isPureNumber, isPureString } from "runtime";
-import type { AnyValue } from "runtime";
+import {
+  buildBoolean,
+  buildNumber,
+  buildString,
+  isPureNumber,
+  isPureString,
+} from "turnout-runtime";
+import type { AnyValue } from "turnout-runtime";
 
 type Case = {
   name: string;

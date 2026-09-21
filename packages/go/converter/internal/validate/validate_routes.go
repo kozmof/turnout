@@ -33,8 +33,32 @@ func validateRoutes(routes []*turnoutpb.RouteModel, knownScenes map[string]bool,
 			allKnownActions[actionID] = true
 		}
 	}
+	validateRouteIdentity(routes, knownScenes, ds)
 	for _, r := range routes {
 		validateRoute(r, knownScenes, knownActions, allKnownActions, growable, ds)
+	}
+}
+
+// validateRouteIdentity checks that every route has a name nothing else claims.
+//
+// Both rules are in spec/structural-rules.json's `shared` list, so the engine
+// already refuses a model that breaks either. The compiler did not, which is
+// the failure that list exists to prevent: a source with two `route "x"` blocks
+// compiled clean and produced a model that failed to load, reported against no
+// file and no line. Reporting it here puts it back where a scene-id collision
+// already was — at the source the author can fix.
+func validateRouteIdentity(routes []*turnoutpb.RouteModel, knownScenes map[string]bool, ds *diag.DiagSink) {
+	seen := make(map[string]bool, len(routes))
+	for _, r := range routes {
+		if seen[r.Id] {
+			ds.Append(diag.Errorf(diag.CodeDuplicateRouteID,
+				"duplicate route ID %q", r.Id))
+		}
+		seen[r.Id] = true
+		if knownScenes[r.Id] {
+			ds.Append(diag.Errorf(diag.CodeRouteIDConflictsWithSceneID,
+				"route ID %q conflicts with a scene of the same name; a host resolves an entry ID against both", r.Id))
+		}
 	}
 }
 

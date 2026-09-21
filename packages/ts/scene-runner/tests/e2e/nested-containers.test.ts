@@ -16,7 +16,7 @@ import {
   isArray,
   isPureNumber,
   isRecord,
-} from "runtime";
+} from "turnout-runtime";
 import { runZigServerHarness as runHarness } from "./zig-harness.js";
 
 const converterDir = resolve(__dirname, "../../../../go/converter");

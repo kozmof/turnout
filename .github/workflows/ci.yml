@@ -89,3 +89,12 @@ jobs:
       - name: Fuzz parser
         working-directory: packages/go/converter
         run: go test ./internal/parser -run='^$' -fuzz=FuzzParseFile -fuzztime=10s
+
+      # The two targets above stop at the front end. This one runs the whole
+      # pipeline, which is where the lowering paths for local expressions,
+      # template patterns and tuple patterns live — the least-covered code in
+      # the compiler and the newest part of the language. It gets the longer
+      # budget for that reason.
+      - name: Fuzz compile pipeline
+        working-directory: packages/go/converter
+        run: go test . -run='^$' -fuzz=FuzzCompileSource -fuzztime=30s

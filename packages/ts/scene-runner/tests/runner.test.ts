@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { createRouteRunner, createRunner, createSceneRunner } from "../src/runner.js";
 import { RunnerError, ModelValidationError } from "../src/errors.js";
 import { stateManagerFromUnchecked } from "../src/state/state-manager.js";
-import { buildNumber, isPureNumber } from "runtime";
+import { buildNumber, isPureNumber } from "turnout-runtime";
 import type { RouteModel, SceneBlock, TurnModel } from "../src/types/turnout-model_pb.js";
 
 const sceneA = {

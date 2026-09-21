@@ -44,26 +44,30 @@ type PanicReporter func(PanicReport)
 type Options struct {
 	Limits        Limits
 	PanicReporter PanicReporter
-	// ContainStateFile rejects any state_file directive that resolves outside
-	// the base directory, following symlinks. A compiler that reads a file the
-	// source names is an arbitrary read primitive otherwise, which matters as
-	// soon as the source is not the operator's own.
+	// AllowUnconfinedStateFile lets a state_file directive resolve to any path
+	// the process can read, including one outside the base directory and one
+	// reached by following a symlink out of it.
 	//
-	// Containment is also implied by passing a non-empty stateBasePath, for
-	// compatibility with callers written before this field existed. Set it
-	// explicitly when the base directory is the default one, since that is the
-	// case the implication does not cover.
-	ContainStateFile bool
+	// The zero value confines it, which is the safe direction and so the
+	// default one. A compiler that reads a file the source names is an
+	// arbitrary read primitive, and that matters the moment the source is not
+	// the operator's own — a .tu file from a package registry, a pull request,
+	// or a multi-tenant build. Confinement used to be opt-in through a
+	// ContainStateFile field, which meant every caller that had not thought
+	// about the question got the unsafe answer. Now not thinking about it is
+	// safe, and reaching outside the base directory has to be asked for.
+	//
+	// Set it only where the sources being compiled are as trusted as the
+	// process compiling them, and a schema genuinely lives outside the tree —
+	// a shared schema directory referenced by absolute path, say.
+	AllowUnconfinedStateFile bool
 }
 
 // containStateFile reports whether state_file resolution should be constrained
-// to the base directory.
-//
-// An explicit stateBasePath has always implied containment, and callers depend
-// on that, so it still does. The option is the way to ask for containment
-// without also overriding the base directory.
-func containStateFile(stateBasePath string, opts Options) bool {
-	return opts.ContainStateFile || stateBasePath != ""
+// to the base directory. Everything is contained unless a caller has explicitly
+// asked otherwise.
+func containStateFile(opts Options) bool {
+	return !opts.AllowUnconfinedStateFile
 }
 
 func normalizedLimits(l Limits) (Limits, Diagnostics) {
@@ -146,10 +150,11 @@ type CompileResult struct {
 // Compile runs parse → state-resolve → lower → validate for inputPath.
 //
 // stateBasePath overrides the directory used to resolve state_file directives.
-// Pass "" to default to the directory of inputPath — which also leaves
-// state_file resolution unconstrained, so a source may name any file the
-// process can read. Compiling sources you did not write calls for
-// CompileWithOptions and Options.ContainStateFile.
+// Pass "" to default to the directory of inputPath. Either way a state_file may
+// only resolve inside that directory: a source cannot name a file elsewhere on
+// the machine, and cannot reach one through a symlink. A caller that needs to
+// read a schema from outside it says so with CompileWithOptions and
+// Options.AllowUnconfinedStateFile.
 //
 // Returns (nil, errors) when any stage produces errors. On success returns
 // (*CompileResult, nil); non-fatal diagnostics are in CompileResult.Warnings.
@@ -172,15 +177,15 @@ func CompileWithOptions(inputPath, stateBasePath string, opts Options) (result *
 		}
 		return nil, Diagnostics{diag.Errorf(diag.CodeIOError, "cannot read %s: %v", inputPath, err)}
 	}
-	return compileBytes(inputPath, src, stateBasePath, limits.MaxStateFileBytes, containStateFile(stateBasePath, opts))
+	return compileBytes(inputPath, src, stateBasePath, limits.MaxStateFileBytes, containStateFile(opts))
 }
 
 // CompileSource runs parse → state-resolve → lower → validate for an in-memory
 // source string. name is used for error messages and to derive the default
 // stateBasePath (via filepath.Dir(name)); pass a non-empty stateBasePath to
 // override it. Unlike Compile, no file I/O is performed — except by a
-// state_file directive, whose resolution is unconstrained when stateBasePath is
-// empty. See Compile and Options.ContainStateFile.
+// state_file directive, which is confined to the base directory. See Compile
+// and Options.AllowUnconfinedStateFile.
 func CompileSource(name, src, stateBasePath string) (result *CompileResult, ds Diagnostics) {
 	return CompileSourceWithOptions(name, src, stateBasePath, Options{})
 }
@@ -196,7 +201,7 @@ func CompileSourceWithOptions(name, src, stateBasePath string, opts Options) (re
 	if int64(len(src)) > limits.MaxSourceBytes {
 		return nil, Diagnostics{diag.Errorf(diag.CodeInputTooLarge, "%s exceeds the %d-byte source limit", name, limits.MaxSourceBytes)}
 	}
-	return compileBytes(name, []byte(src), stateBasePath, limits.MaxStateFileBytes, containStateFile(stateBasePath, opts))
+	return compileBytes(name, []byte(src), stateBasePath, limits.MaxStateFileBytes, containStateFile(opts))
 }
 
 // CompileToModel runs parse → state-resolve → lower for an in-memory source
@@ -213,7 +218,7 @@ func CompileToModel(name, src, stateBasePath string) (result *LowerResult, ds Di
 }
 
 // CompileToModelWithOptions is CompileToModel with state_file containment
-// selectable through Options.ContainStateFile. Limits and panic telemetry in
+// relaxable through Options.AllowUnconfinedStateFile. Limits and panic telemetry in
 // opts are not used: this entry point reads no source file, and its panics are
 // already recovered into diagnostics.
 func CompileToModelWithOptions(name, src, stateBasePath string, opts Options) (result *LowerResult, ds Diagnostics) {
@@ -228,7 +233,7 @@ func CompileToModelWithOptions(name, src, stateBasePath string, opts Options) (r
 	}
 	var lr *LowerResult
 	var ds2 Diagnostics
-	if containStateFile(stateBasePath, opts) {
+	if containStateFile(opts) {
 		lr, ds2 = lower.LowerResolvingStateContained(turnFile, base)
 	} else {
 		lr, ds2 = lower.LowerResolvingState(turnFile, base)
@@ -251,7 +256,7 @@ func ResolveSchema(name, src, stateBasePath string) (schema Schema, order []stri
 }
 
 // ResolveSchemaWithOptions is ResolveSchema with state_file containment
-// selectable through Options.ContainStateFile. This is the entry point where it
+// relaxable through Options.AllowUnconfinedStateFile. This is the entry point where it
 // matters most: the cached-schema APIs trust a state_file schema and do not
 // re-read it, so this is the one place the external file is actually opened.
 func ResolveSchemaWithOptions(name, src, stateBasePath string, opts Options) (schema Schema, order []string, ds Diagnostics) {
@@ -265,7 +270,7 @@ func ResolveSchemaWithOptions(name, src, stateBasePath string, opts Options) (sc
 		return Schema{}, nil, ds1
 	}
 	var ds2 Diagnostics
-	if containStateFile(stateBasePath, opts) {
+	if containStateFile(opts) {
 		schema, order, ds2 = state.ResolveWithOrderContained(turnFile.StateSource, base)
 	} else {
 		schema, order, ds2 = state.ResolveWithOrder(turnFile.StateSource, base)

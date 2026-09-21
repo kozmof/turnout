@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { runHarness } from "../src/harness/harness.js";
-import { buildNumber } from "runtime";
+import { buildNumber } from "turnout-runtime";
 import type { TurnModel } from "../src/types/turnout-model_pb.js";
 
 // Minimal scene fixture — no compute, just an empty action so execution terminates.

@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { collectPublishFailures } from "../src/trace-utils.js";
 import type { ExecutionTrace } from "../src/types/harness-types.js";
-import { buildNull } from "runtime";
+import { buildNull } from "turnout-runtime";
 
 describe("collectPublishFailures", () => {
   it("returns failed publishes from a scene trace, located by scene + action", () => {

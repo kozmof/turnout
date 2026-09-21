@@ -89,8 +89,8 @@ the runtime only ever sees a model that already type-checks.
 | Path | What it is |
 | --- | --- |
 | `packages/go/converter` | The compiler and the `turnout` CLI |
-| `packages/ts/runtime` | Computation graph engine, value types, and builder API |
-| `packages/ts/scene-runner` | Runs compiled models through Zig/WASM and provides a Node bridge to the CLI |
+| `packages/ts/runtime` | `turnout-runtime` — computation graph engine, value types, and builder API |
+| `packages/ts/scene-runner` | `turnout-scene-runner` — runs compiled models through Zig/WASM and provides a Node bridge to the CLI |
 | `packages/zig` | The execution engine, its WASM ABI, and the native `turnout-run` host |
 | `apps/vscode/tu-language` | Syntax highlighting for `.tu` files |
 
@@ -110,15 +110,19 @@ go build -o turnout ./cmd/turnout
 
 Three commands are available.
 
-- `turnout convert <input.tu> [-o output] [-state-file path] [-contain-state-file] [-format hcl|json]` — compile to HCL or JSON
-- `turnout validate <input.tu> [-state-file path] [-contain-state-file]` — type-check without writing output
+- `turnout convert <input.tu> [-o output] [-state-file path] [-allow-unconfined-state-file] [-format hcl|json]` — compile to HCL or JSON
+- `turnout validate <input.tu> [-state-file path] [-allow-unconfined-state-file]` — type-check without writing output
 - `turnout version` — print the build version
 
-A source names the file its STATE comes from, so compiling one you did not
-write reads whatever that file names. Pass `-contain-state-file` to reject a
-`state_file` that resolves outside the base directory, following symlinks.
-`-state-file` sets that base directory and implies containment; the flag is how
-you ask for it when the base is the default one, the input's own directory.
+A source names the file its STATE comes from, so a compiler that resolves that
+name anywhere is an arbitrary read primitive for whoever wrote the source. It
+does not: a `state_file` must resolve inside the base directory, and a symlink
+out of it is rejected too. `-state-file` sets that base directory, which
+otherwise is the input's own.
+
+Pass `-allow-unconfined-state-file` when a schema genuinely lives outside the
+tree and the sources being compiled are as trusted as the machine compiling
+them. The Go API spells the same opt-out `Options.AllowUnconfinedStateFile`.
 
 Use `-format hcl` for canonical HCL that reads and diffs cleanly. Use
 `-format json` for the model the TypeScript runtime consumes. Both come from
@@ -323,13 +327,24 @@ model. The rest cover the type system, hooks, routes, and state shape.
 
 Several files in `spec/` are data rather than prose, each read by more than one
 language and gated against drift: `fn-aliases.json`, `field-types.json`,
-`runtime-projection.json`, `runtime-versions.json`, `limits.json`, and
-`structural-rules.json`. The first three pin shared names, the fourth pins
+`runtime-projection.json`, `runtime-versions.json`, `limits.json`,
+`structural-rules.json`, and `runtime-events.json`. The first three pin shared
+names, the fourth pins
 shared versions, and the fifth pins shared bounds — a limit the compiler and
 the engine each chose alone is how a model the compiler accepted became one the
-engine refused to load. The last pins the structural checks the engine and the
-TypeScript host both run, and records the two the host adds on purpose, so a
-rule appearing on one side alone has to be classified before it passes.
+engine refused to load. `structural-rules.json` pins the structural checks the engine and the
+TypeScript host both run, records the two the host adds on purpose, and maps
+each onto the compiler diagnostic that catches it at build time instead — so a
+rule appearing in one of the three alone has to be classified before it passes.
+`runtime-events.json` does the same for the event stream coming back out of the
+engine, which the model schema does not cover: the engine hand-encodes each
+event and the host hand-declares a union mirroring it, so an event or warning
+kind added on one side alone would otherwise be dropped in silence.
+
+Two of them are stronger than pinned: `fn-aliases.json` and `limits.json` are
+*generated* into each language rather than compared against it, so the sides
+cannot be edited into disagreement at all. `pnpm generate:fn-map` and
+`pnpm generate:limits` rewrite them, and `pnpm check` fails if either moved.
 `capabilities.json` lists what a host must be able to do, and
 `conformance/host/` holds the vectors that prove it can.
 

@@ -1,0 +1,34 @@
+//! AUTO-GENERATED. DO NOT EDIT.
+//! Source of truth: spec/limits.json
+//! Regenerate: node --experimental-strip-types scripts/gen-limits.ts
+//!
+//! The bounds the compiler and the engine both have to agree on. A limit one
+//! side chose alone is how a model the compiler accepted became one the engine
+//! refused to load; spec/limits.json is where they are chosen.
+
+/// How many nodes a STATE field type may be built from: one per `arr<`,
+/// one per `rec<`, and one for the primitive at the bottom.
+///
+/// This is the bound both languages hold, and the reason the rest are
+/// written down beside it. The engine parses a type into a pool of this
+/// many nodes; the compiler refuses a deeper type against the source file
+/// it parsed, so the error arrives with a line and column instead of as a
+/// model that will not load.
+pub const state_type_nodes: usize = 128;
+
+/// How deeply expressions may nest in source. Unlike the others this
+/// bounds a recursive descent rather than a data structure: past it the
+/// parser overflows the stack, which is not recoverable into a diagnostic.
+pub const source_expression_depth: usize = 256;
+
+/// How deeply a loaded model's JSON may nest.
+pub const model_nesting: usize = 128;
+
+/// How deeply JSON handed across the WASM ABI may nest.
+pub const input_nesting: usize = 128;
+
+/// How deeply an authoring compute graph may nest.
+pub const graph_depth: usize = 256;
+
+/// How deeply return-type inference may recurse.
+pub const inference_depth: usize = 256;

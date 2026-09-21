@@ -16,21 +16,77 @@
 export async function readWasmBytes(url: URL): Promise<Uint8Array> {
   if (url.protocol !== "file:") {
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`${url.href}: HTTP ${response.status}`);
+    if (!response.ok) {
+      const error = new Error(`${url.href}: HTTP ${response.status}`);
+      // A 404 is the network's way of saying the candidate is not there, which
+      // is what ENOENT says on a filesystem: a reason to try the next one. Any
+      // other status is a server that is there and unwell, and is the answer.
+      if (response.status === 404) markMissing(error);
+      throw error;
+    }
     return new Uint8Array(await response.arrayBuffer());
   }
   const { readFile } = await import("node:fs/promises");
   return readFile(url);
 }
 
-/** Whether a read failed because the file is not there. */
+/**
+ * Marks an error as "this candidate is not there", whatever the transport
+ * carried it. A filesystem says so with ENOENT and has since long before this
+ * package; a fetch says so with a status code, so it is tagged here rather than
+ * given a borrowed errno that would claim a filesystem was involved.
+ */
+const missingArtifact = Symbol.for("turnout.missingArtifact");
+
+function markMissing(error: Error): void {
+  (error as unknown as Record<PropertyKey, unknown>)[missingArtifact] = true;
+}
+
+/** Whether a read failed because the artifact is not where it was looked for. */
 export function isMissingFile(error: unknown): boolean {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "code" in error &&
-    (error as { code?: unknown }).code === "ENOENT"
-  );
+  if (typeof error !== "object" || error === null) return false;
+  if (missingArtifact in error) return true;
+  return "code" in error && (error as { code?: unknown }).code === "ENOENT";
+}
+
+/**
+ * The packaged engine artifacts, built from one source and shipped together.
+ *
+ * `ReleaseSafe` keeps the runtime's bounds and overflow checks; `ReleaseSmall`
+ * is about a seventh of the size for about 14% less throughput. See
+ * `packages/zig/build.zig`, which builds both and explains the split.
+ */
+const artifacts = {
+  fast: "turnout-runtime.wasm",
+  small: "turnout-runtime.compact.wasm",
+} as const;
+
+/**
+ * Where to look for the engine, in order, for a module loaded from `base`.
+ *
+ * Which of the two artifacts is right depends on the deployment rather than on
+ * the caller: a server or CLI has the module on local disk and pays only for
+ * how fast it runs, while a browser downloads it before anything can run, so
+ * its size is part of startup. Nobody was choosing — every host got the fast
+ * build, because it was the only name this list held.
+ *
+ * The deployment is legible from `base` without anyone being asked. A `file:`
+ * URL means a filesystem, so the module was never downloaded; anything else was
+ * fetched over a network that a browser is on the other end of. Each order
+ * falls back to the other artifact, so a package that ships only one still
+ * works, and both fall back to the monorepo build directory for a checkout that
+ * has not run `pnpm build`.
+ *
+ * A host that wants the other one regardless builds its own instance with
+ * `instantiateZigRuntime` and installs it with `setDefaultZigRuntimeClient`.
+ */
+export function engineCandidates(base: URL): readonly URL[] {
+  const downloaded = base.protocol !== "file:";
+  const order = downloaded ? [artifacts.small, artifacts.fast] : [artifacts.fast, artifacts.small];
+  return [
+    ...order.map((name) => new URL(`./${name}`, base)),
+    new URL(`../../../../zig/zig-out/bin/${artifacts.fast}`, base),
+  ];
 }
 
 /**

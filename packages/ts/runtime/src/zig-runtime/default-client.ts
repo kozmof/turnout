@@ -1,17 +1,16 @@
 import { instantiateZigRuntime, type ZigRuntimeClient } from "./client.js";
-import { readFirstAvailable } from "./wasm-bytes.js";
+import { engineCandidates, readFirstAvailable } from "./wasm-bytes.js";
 
 /**
- * Where the engine's bytes may be: the copy a built package carries next to
+ * Where the engine's bytes may be: the copies a built package carries next to
  * this file, then the one `zig build` leaves in the monorepo for a checkout
- * that has not run `pnpm build` yet. Order matters — a packaged copy is the
- * one that belongs to this install.
+ * that has not run `pnpm build` yet. Order matters — a packaged copy is the one
+ * that belongs to this install, and which packaged copy comes first depends on
+ * whether this module was read off a disk or downloaded. `engineCandidates`
+ * holds that reasoning, and is where it can be tested.
  */
 function runtimeBytesCandidates(): readonly URL[] {
-  return [
-    new URL("./turnout-runtime.wasm", import.meta.url),
-    new URL("../../../../zig/zig-out/bin/turnout-runtime.wasm", import.meta.url),
-  ];
+  return engineCandidates(new URL(import.meta.url));
 }
 
 /**

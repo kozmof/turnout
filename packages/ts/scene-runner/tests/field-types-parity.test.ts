@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { describe, it, expect } from "vitest";
-import { buildNumber, buildString, buildBoolean, buildArrayNumber } from "runtime";
+import { buildNumber, buildString, buildBoolean, buildArrayNumber } from "turnout-runtime";
 import { getSchemaTypeEntry, schemaTypeTable } from "../src/state/schema-types.js";
 import { matchesSchemaType } from "../src/state/state-manager.js";
 

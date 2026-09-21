@@ -1,0 +1,72 @@
+{
+  "why": [
+    "The model crossing the engine boundary is protobuf-defined and generated into both",
+    "languages. The event stream crossing back is not. The engine encodes each event by",
+    "hand in packages/zig/wasm/src/abi.zig, and the TypeScript host declares a hand-written",
+    "union mirroring it in runner-adapter.ts. Two independent descriptions of one wire",
+    "format, with nothing holding them together — the same shape as every other pair in",
+    "this repository that has since been gated.",
+    "",
+    "The failure it allows is quiet. A warning kind added on the engine side reaches the",
+    "host as a union member nothing handles: the `switch` has no arm for it, the warning is",
+    "dropped, and no test fails, because the host's type declares the kind does not exist.",
+    "An event kind added on the engine side is worse — `advanceZigRuntime` falls off the end",
+    "of its switch and returns undefined.",
+    "",
+    "So every kind either side speaks is listed here. A kind in the engine and not in this",
+    "file fails the gate; so does one in this file that the host does not name.",
+    "",
+    "This gates the vocabulary, not the payload. Whether the host reads every field of an",
+    "event it knows about is still the host's business and still untested here — the",
+    "conformance vectors in spec/conformance/host/ are where that lives."
+  ],
+  "engine": "packages/zig/wasm/src/abi.zig",
+  "engineEnums": "packages/zig/scene-runner/src/model.zig",
+  "host": "packages/ts/scene-runner/src/zig-runtime/runner-adapter.ts",
+  "events": [
+    {
+      "kind": "needEffect",
+      "why": "The engine is asking the host to run a hook — prepare, publish or extend — and will not advance until resumed."
+    },
+    {
+      "kind": "actionComplete",
+      "why": "One action finished. Carries its compute root, next action ids, publish outcomes, and any warnings."
+    },
+    {
+      "kind": "sceneChanged",
+      "why": "A route transition moved the run from one scene to another."
+    },
+    { "kind": "complete", "why": "The run finished on its own." },
+    { "kind": "cancelled", "why": "The run stopped because the host cancelled it." },
+    {
+      "kind": "mergeConflict",
+      "why": "An extend hook returned a model that collides with the running one. The host raises it as ModelMergeError rather than a runtime fault, so it is read before the ok/error status is."
+    }
+  ],
+  "actionWarnings": [
+    {
+      "kind": "merge",
+      "why": "A merge binding wrote to a STATE path the schema does not declare."
+    },
+    {
+      "kind": "uncheckedStateWrite",
+      "why": "The run has no STATE schema, so writes were accepted without type checking. Carries every path written."
+    },
+    {
+      "kind": "invalid_condition",
+      "why": "A next rule's condition binding is not a bool. Derived from NextRuleWarningKind, not a literal.",
+      "fromEnum": "NextRuleWarningKind"
+    },
+    {
+      "kind": "missing_program",
+      "why": "A next rule names a transition compute that carries no prog. Derived from NextRuleWarningKind, not a literal.",
+      "fromEnum": "NextRuleWarningKind"
+    }
+  ],
+  "sceneWarnings": [
+    {
+      "kind": "duplicate_enqueue",
+      "why": "A next rule pointed at an action that already ran in this scene."
+    }
+  ]
+}

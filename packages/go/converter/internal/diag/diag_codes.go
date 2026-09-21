@@ -146,6 +146,13 @@ const (
 	CodeUnresolvedAction     ErrorCode = "UnresolvedAction"
 	CodeMissingEntryScene    ErrorCode = "MissingEntryScene"
 	CodeUnresolvedEntryScene ErrorCode = "UnresolvedEntryScene"
+	// CodeDuplicateRouteID is the route counterpart of CodeDuplicateSceneID:
+	// two routes with one id make dispatch by entryId ambiguous.
+	CodeDuplicateRouteID ErrorCode = "DuplicateRouteID"
+	// CodeRouteIDConflictsWithSceneID is emitted when a route takes the name of
+	// a scene. A host resolves entryId against both namespaces, so a shared name
+	// has no defined meaning.
+	CodeRouteIDConflictsWithSceneID ErrorCode = "RouteIDConflictsWithSceneID"
 	// CodeWildcardTerminalUnresolvable is a warning emitted when a wildcard
 	// route pattern's terminal action name does not match any known action ID
 	// across all scenes, suggesting a likely typo.
