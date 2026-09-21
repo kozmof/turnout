@@ -85,22 +85,6 @@ func TestOverDeepTypeIsRejectedWithoutParsingIt(t *testing.T) {
 	}
 }
 
-// The registry interns composed types for the life of the process and never
-// releases them, so it needs a ceiling. This pins that the ceiling exists and
-// that a host can see how close it is — the only thing it can do about it.
-func TestRegistryReportsItsSize(t *testing.T) {
-	before := ast.RegisteredFieldTypes()
-	if before <= 0 || before > ast.MaxRegisteredFieldTypes {
-		t.Fatalf("registry size %d is outside (0, %d]", before, ast.MaxRegisteredFieldTypes)
-	}
-	if _, ok := ast.FieldTypeFromString("arr<arr<arr<arr<arr<str>>>>>"); !ok {
-		t.Fatal("a well-formed nested type must register")
-	}
-	if after := ast.RegisteredFieldTypes(); after < before {
-		t.Fatalf("registry shrank from %d to %d", before, after)
-	}
-}
-
 // The public vocabulary in spec/field-types.json must all still resolve. It is
 // a subset of the grammar rather than the whole of it, but it is the subset
 // both languages promise, so a bound that excluded any of it would be wrong.

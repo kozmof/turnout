@@ -22,13 +22,13 @@ func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel
 	var known bool
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_IfExpr:
-		ret, known = validateProtoLocalIf(b.Name, x.IfExpr.GetCond(), x.IfExpr.GetThen(), x.IfExpr.GetElseBranch(), sl, 0, false, ds)
+		ret, known = validateProtoLocalIf(b.Name, x.IfExpr.GetCond(), x.IfExpr.GetThen(), x.IfExpr.GetElseBranch(), sl, ast.FieldTypeInvalid, false, ds)
 	case *turnoutpb.LocalExprModel_CaseExpr:
-		ret, known = validateProtoLocalCase(b.Name, x.CaseExpr.GetSubject(), x.CaseExpr.GetArms(), sl, 0, false, ds)
+		ret, known = validateProtoLocalCase(b.Name, x.CaseExpr.GetSubject(), x.CaseExpr.GetArms(), sl, ast.FieldTypeInvalid, false, ds)
 	case *turnoutpb.LocalExprModel_PipeExpr:
-		ret, known = validateProtoLocalPipe(b.Name, x.PipeExpr.GetInitial(), x.PipeExpr.GetSteps(), sl, 0, false, ds)
+		ret, known = validateProtoLocalPipe(b.Name, x.PipeExpr.GetInitial(), x.PipeExpr.GetSteps(), sl, ast.FieldTypeInvalid, false, ds)
 	case *turnoutpb.LocalExprModel_Infix:
-		ret, known = validateProtoLocalInfix(b.Name, ast.InfixOp(x.Infix.GetOp()), x.Infix.GetLhs(), x.Infix.GetRhs(), sl, 0, false, ds)
+		ret, known = validateProtoLocalInfix(b.Name, ast.InfixOp(x.Infix.GetOp()), x.Infix.GetLhs(), x.Infix.GetRhs(), sl, ast.FieldTypeInvalid, false, ds)
 	default:
 		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 			"binding %q: unsupported extended expression type %T", b.Name, e.Expr))
@@ -51,7 +51,7 @@ func validateExtExprProto(b *turnoutpb.BindingModel, e *turnoutpb.LocalExprModel
 
 func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
 	if e == nil {
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 	switch x := e.Expr.(type) {
 	case *turnoutpb.LocalExprModel_Ref:
@@ -60,7 +60,7 @@ func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, sco
 		if !ok {
 			ds.Append(diag.Errorf(diag.CodeUndefinedRef,
 				"binding %q: reference %q is not defined", bindingName, name))
-			return 0, false
+			return ast.FieldTypeInvalid, false
 		}
 		return info.fieldType, true
 	case *turnoutpb.LocalExprModel_Lit:
@@ -70,10 +70,10 @@ func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, sco
 		if !itAllowed {
 			ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 				"binding %q: #it is only valid inside pipe step expressions", bindingName))
-			return 0, false
+			return ast.FieldTypeInvalid, false
 		}
-		if itType == 0 {
-			return 0, false
+		if itType == ast.FieldTypeInvalid {
+			return ast.FieldTypeInvalid, false
 		}
 		return itType, true
 	case *turnoutpb.LocalExprModel_Call:
@@ -89,7 +89,7 @@ func validateProtoLocalExpr(bindingName string, e *turnoutpb.LocalExprModel, sco
 	default:
 		ds.Append(diag.Errorf(diag.CodeUnsupportedConstruct,
 			"binding %q: unsupported local expression type %T", bindingName, e.Expr))
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 }
 
@@ -98,7 +98,7 @@ func validateProtoLocalCallExpr(bindingName, fn string, args []*turnoutpb.LocalE
 	if !ok {
 		ds.Append(diag.Errorf(diag.CodeUnknownFnAlias,
 			"binding %q: unknown function alias %q", bindingName, fn))
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 	types := make([]ast.FieldType, len(args))
 	known := make([]bool, len(args))
@@ -117,7 +117,7 @@ func validateProtoLocalInfix(bindingName string, op ast.InfixOp, lhs, rhs *turno
 	// dispatch and any arg-type check would use "add" as the default, producing
 	// a spurious ArgTypeMismatch if the RHS happens to be str. Skip validation.
 	if op == ast.InfixPlus && !lhsOK {
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 	// FnAliasForType resolves InfixPlus to "str_concat" or "add" based on the
 	// inferred lhs type. For all other operators it returns their fixed alias.
@@ -142,7 +142,7 @@ func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutp
 	if thenOK && elseOK && thenType != elseType {
 		ds.Append(diag.Errorf(diag.CodeBranchTypeMismatch,
 			"binding %q: if branches return %s and %s", bindingName, thenType, elseType))
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 	if thenOK {
 		return thenType, true
@@ -150,7 +150,7 @@ func validateProtoLocalIf(bindingName string, cond, thenExpr, elseExpr *turnoutp
 	if elseOK {
 		return elseType, true
 	}
-	return 0, false
+	return ast.FieldTypeInvalid, false
 }
 
 func validateProtoLocalCase(bindingName string, subject *turnoutpb.LocalExprModel, arms []*turnoutpb.LocalCaseArmModel, scope scopeLookup, itType ast.FieldType, itAllowed bool, ds *diag.DiagSink) (ast.FieldType, bool) {
@@ -431,17 +431,17 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 		return ast.FieldTypeBool, true
 	case fnmeta.FnKindArrGet:
 		if len(types) == 0 || !known[0] {
-			return 0, false
+			return ast.FieldTypeInvalid, false
 		}
 		if elem, isArray := types[0].TryElemType(); isArray {
 			return elem, true
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	case fnmeta.FnKindArrConcat:
 		if len(types) >= 1 && known[0] {
 			return types[0], true
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	case fnmeta.FnKindRecordGet:
 		if spec.ReturnType.Valid() {
 			return spec.ReturnType, true
@@ -449,12 +449,12 @@ func resolveLocalCallReturn(spec fnmeta.FnSpec, types []ast.FieldType, known []b
 		if len(types) >= 1 && known[0] {
 			return types[0].RecordValueType()
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	case fnmeta.FnKindRecordSet:
 		if len(types) >= 1 && known[0] {
 			return types[0], true
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	default:
 		return spec.ReturnType, true
 	}

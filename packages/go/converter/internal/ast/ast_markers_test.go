@@ -45,9 +45,10 @@ func TestMarkerMethods(t *testing.T) {
 // TestEnumStringOutOfBounds covers the default branches in String() methods,
 // which are reached only when an out-of-range enum value is used.
 func TestEnumStringOutOfBounds(t *testing.T) {
-	ft := FieldType(999)
-	if got := ft.String(); got != "FieldType(999)" {
-		t.Errorf("FieldType(999).String() = %q, want %q", got, "FieldType(999)")
+	// FieldType has no out-of-range representation to reach: a FieldType is its
+	// own spelling, so the one value String() special-cases is the empty one.
+	if got := FieldTypeInvalid.String(); got != "FieldType(invalid)" {
+		t.Errorf("FieldTypeInvalid.String() = %q, want %q", got, "FieldType(invalid)")
 	}
 
 	s := Sigil(99)

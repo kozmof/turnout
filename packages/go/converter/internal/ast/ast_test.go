@@ -73,7 +73,7 @@ func TestFieldTypeString(t *testing.T) {
 	}
 	for _, tc := range cases {
 		if got := tc.ft.String(); got != tc.want {
-			t.Errorf("FieldType(%d).String() = %q, want %q", int(tc.ft), got, tc.want)
+			t.Errorf("FieldType(%q).String() = %q, want %q", string(tc.ft), got, tc.want)
 		}
 	}
 }
@@ -95,6 +95,58 @@ func TestFieldTypeFromString(t *testing.T) {
 	}
 	if _, ok := ast.FieldTypeFromString(""); ok {
 		t.Error("FieldTypeFromString(\"\") should return false")
+	}
+}
+
+// A FieldType is a value, not a handle: equality is the spelling, the spelling
+// is canonical however it was written, and the pieces of a composed type are
+// themselves types spelled the way this package spells them. Nothing here
+// depends on what has been asked for before, which is the property the
+// process-global registry could not offer.
+func TestComposedFieldTypesAreValues(t *testing.T) {
+	canonical, ok := ast.FieldTypeFromString("rec<str, arr<rec<number, bool>>>")
+	if !ok {
+		t.Fatal("a well-formed composed type must resolve")
+	}
+
+	for _, spelling := range []string{
+		"rec<str,arr<rec<number,bool>>>",
+		"rec< str , arr< rec< number , bool > > >",
+		"  rec<str, arr<rec<number, bool>>>  ",
+	} {
+		ft, ok := ast.FieldTypeFromString(spelling)
+		if !ok {
+			t.Fatalf("FieldTypeFromString(%q) returned false", spelling)
+		}
+		if ft != canonical {
+			t.Errorf("FieldTypeFromString(%q) = %q, want %q", spelling, ft, canonical)
+		}
+	}
+
+	value, ok := canonical.RecordValueType()
+	if !ok {
+		t.Fatal("a record type must have a value type")
+	}
+	if value != ast.FieldType("arr<rec<number, bool>>") {
+		t.Errorf("value type = %q, want %q", value, "arr<rec<number, bool>>")
+	}
+	elem, ok := value.TryElemType()
+	if !ok {
+		t.Fatal("an array type must have an element type")
+	}
+	if elem != ast.FieldTypeRecordNumberBool {
+		t.Errorf("element type = %q, want %q", elem, ast.FieldTypeRecordNumberBool)
+	}
+	if key, ok := elem.RecordKeyType(); !ok || key != ast.FieldTypeNumber {
+		t.Errorf("key type = (%q, %v), want (%q, true)", key, ok, ast.FieldTypeNumber)
+	}
+
+	// Every piece is a type in its own right, spelled the way this package
+	// spells it — so a piece taken apart and put back together is the type it
+	// came from.
+	rebuilt, ok := ast.FieldTypeFromString("rec<str, " + value.String() + ">")
+	if !ok || rebuilt != canonical {
+		t.Errorf("rebuilt type = (%q, %v), want (%q, true)", rebuilt, ok, canonical)
 	}
 }
 

@@ -277,14 +277,15 @@ var methodMap = map[ast.FieldType]map[string]methodEntry{
 }
 
 // LookupMethod resolves a method name on an input type to its qualified runtime
-// name and output type. Returns ("", 0, false) for unknown method/type combinations.
+// name and output type. Returns ("", ast.FieldTypeInvalid, false) for unknown
+// method/type combinations.
 func LookupMethod(method string, inputType ast.FieldType) (qualName string, outputType ast.FieldType, ok bool) {
 	if byMethod, found := methodMap[inputType]; found {
 		if e, found := byMethod[method]; found {
 			return e.qualName, e.outputType, true
 		}
 	}
-	return "", 0, false
+	return "", ast.FieldTypeInvalid, false
 }
 
 // SplitQualifiedFn splits a qualified transform function name of the form
@@ -308,11 +309,11 @@ func TransformChainOutputType(receiverType ast.FieldType, fns []string) (ast.Fie
 	for _, fn := range fns {
 		_, method, ok := SplitQualifiedFn(fn)
 		if !ok {
-			return 0, false
+			return ast.FieldTypeInvalid, false
 		}
 		_, outType, found := LookupMethod(method, current)
 		if !found {
-			return 0, false
+			return ast.FieldTypeInvalid, false
 		}
 		current = outType
 	}

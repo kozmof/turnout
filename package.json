@@ -14,7 +14,7 @@
     "check:unicode-case": "sh scripts/check-unicode-case.sh",
     "check:runtime-versions": "node scripts/check-runtime-versions.mjs",
     "check:limits": "node scripts/check-limits.mjs",
-    "check:fieldtype": "! find packages/go/converter/internal -name '*.go' | xargs grep -En 'var [A-Za-z_, ]+ (ast\\.)?FieldType$' || (echo 'ERROR: bare FieldType declaration found (zero-value hazard — initialise to FieldTypeInvalid)' && exit 1)",
+    "check:fieldtype": "! find packages/go/converter/internal -name '*.go' | xargs grep -En 'var [A-Za-z_, ]+ (ast\\.)?FieldType$' || (echo 'ERROR: bare FieldType declaration found (zero-value hazard — initialise to FieldTypeInvalid)' && exit 1) && ! find packages/go/converter -name '*.go' -not -path '*/vendor/*' -not -path '*/internal/ast/*' | xargs grep -En '(^|[^A-Za-z0-9_])ast\\.FieldType\\(' || (echo 'ERROR: ast.FieldType(...) conversion outside internal/ast (bypasses canonicalisation — build types with ast.FieldTypeFromString)' && exit 1)",
     "build": "pnpm run build:zig:dist && (cd packages/ts/runtime && pnpm run build) && (cd packages/ts/scene-runner && pnpm run build)",
     "build:zig": "zig build --build-file packages/zig/build.zig wasm",
     "build:zig:dist": "zig build --build-file packages/zig/build.zig wasm-dist",

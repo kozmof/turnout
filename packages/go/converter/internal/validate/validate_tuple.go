@@ -25,7 +25,7 @@ func tupleInfo(e *turnoutpb.LocalExprModel, scope scopeLookup, bindingName strin
 		}
 		return out
 	}
-	ft, known := validateProtoLocalExpr(bindingName, e, scope, 0, false, ds)
+	ft, known := validateProtoLocalExpr(bindingName, e, scope, ast.FieldTypeInvalid, false, ds)
 	return tupleValueInfo{ft: ft, known: known, decl: subjectDeclaredType(e, scope), declName: subjectDeclaredTypeName(e, scope)}
 }
 

@@ -47,14 +47,12 @@ func loadFieldTypesSpec(t *testing.T) []fieldTypeSpecEntry {
 // name in the spec. The second direction is what catches a rename on one side
 // alone, which is the drift this file exists for.
 //
-// It iterates BaseFieldTypes rather than every FieldType the process holds.
-// Composed types are interned on first sight — `arr<arr<number>>` is a type the
-// grammar accepts and the spec does not list — so "every FieldType is in the
-// spec" was never a property of the type system. It was a property of the order
-// the tests happened to run in, and it held only while nothing had yet asked
-// for a composed type. spec/field-types.json is the vocabulary both languages
-// pre-declare, not the set of types they accept; spec/limits.json bounds the
-// latter.
+// It iterates BaseFieldTypes rather than trying to enumerate every FieldType,
+// which is not a set anything holds: a FieldType is a spelling, `arr<arr<number>>`
+// is a type the grammar accepts and the spec does not list, and so "every
+// FieldType is in the spec" was never a property of the type system.
+// spec/field-types.json is the vocabulary both languages pre-declare, not the
+// set of types they accept; spec/limits.json bounds the latter.
 func TestFieldTypesMatchSpec(t *testing.T) {
 	entries := loadFieldTypesSpec(t)
 

@@ -307,7 +307,7 @@ func validatePipe(b *turnoutpb.BindingModel, p *turnoutpb.PipeExpr, scope map[st
 		if !ok {
 			ds.Append(diag.Errorf(diag.CodeUnknownFnAlias,
 				"binding %q pipe step %d: unknown function alias %q", b.Name, i, step.Fn))
-			stepTypes = append(stepTypes, 0)
+			stepTypes = append(stepTypes, ast.FieldTypeInvalid)
 			stepKnown = append(stepKnown, false)
 			continue
 		}
@@ -514,12 +514,12 @@ func resolveExpectedReturn(spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool) (ast.
 		if elem, isArray := t1.TryElemType(); ok1 && isArray {
 			return elem, true
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	case fnmeta.FnKindArrConcat:
 		if ok1 {
 			return t1, true
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	case fnmeta.FnKindRecordGet:
 		if spec.ReturnType.Valid() {
 			return spec.ReturnType, true
@@ -527,12 +527,12 @@ func resolveExpectedReturn(spec fnmeta.FnSpec, t1 ast.FieldType, ok1 bool) (ast.
 		if ok1 && t1.IsRecord() {
 			return t1.RecordValueType()
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	case fnmeta.FnKindRecordSet:
 		if ok1 {
 			return t1, true
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	default:
 		return spec.ReturnType, true
 	}
@@ -543,7 +543,7 @@ func resolveArgType(bindingName string, arg *turnoutpb.ArgModel, scope map[strin
 		if info, ok := scope[*arg.Ref]; ok {
 			return info.fieldType, true
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 	if arg.Lit != nil {
 		return structpbFieldType(arg.Lit)
@@ -552,18 +552,18 @@ func resolveArgType(bindingName string, arg *turnoutpb.ArgModel, scope map[strin
 		if info, ok := scope[*arg.FuncRef]; ok {
 			return info.fieldType, true
 		}
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 	if arg.StepRef != nil && stepTypes != nil {
 		idx := int(*arg.StepRef)
-		if idx >= 0 && idx < len(stepTypes) && stepTypes[idx] != 0 {
+		if idx >= 0 && idx < len(stepTypes) && stepTypes[idx] != ast.FieldTypeInvalid {
 			return stepTypes[idx], true
 		}
 	}
 	if arg.Transform != nil {
 		return resolveTransformArgType(bindingName, arg.Transform, scope, ds)
 	}
-	return 0, false
+	return ast.FieldTypeInvalid, false
 }
 
 // resolveTransformArgType resolves the output type of a transform-chain arg.
@@ -572,7 +572,7 @@ func resolveArgType(bindingName string, arg *turnoutpb.ArgModel, scope map[strin
 func resolveTransformArgType(bindingName string, transform *turnoutpb.TransformArg, scope map[string]bindingInfo, ds *diag.DiagSink) (ast.FieldType, bool) {
 	info, ok := scope[transform.Ref]
 	if !ok {
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 	ft, resolved := fnmeta.TransformChainOutputType(info.fieldType, transform.Fn)
 	if !resolved && ds != nil {

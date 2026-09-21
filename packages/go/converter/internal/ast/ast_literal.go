@@ -97,17 +97,17 @@ func LiteralFieldType(lit Literal) (FieldType, bool) {
 		}
 		elemType, ok := LiteralFieldType(v.Elements[0])
 		if !ok {
-			return 0, false
+			return FieldTypeInvalid, false
 		}
 		for _, elem := range v.Elements[1:] {
 			t, ok := LiteralFieldType(elem)
 			if !ok || t != elemType {
-				return 0, false
+				return FieldTypeInvalid, false
 			}
 		}
 		return FieldTypeFromString("arr<" + elemType.String() + ">")
 	}
-	return 0, false
+	return FieldTypeInvalid, false
 }
 
 // LiteralToStructpb converts an ast.Literal to a *structpb.Value.

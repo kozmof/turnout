@@ -7,7 +7,6 @@ package ast
 import (
 	"fmt"
 	"strings"
-	"sync"
 )
 
 // ────────────────────────────────────────────────────────────
@@ -33,85 +32,80 @@ func (p Pos) String() string {
 // FieldType — recursively composable DSL value types
 // ────────────────────────────────────────────────────────────
 
-type FieldType int
+// FieldType is a DSL value type, and it is its own canonical spelling: the
+// value of a FieldType is the text that names it. Two field types are equal
+// when they are spelled the same, which is what the type system means by equal,
+// and nothing has to be interned to make that work — a composed type like
+// `arr<arr<number>>` is a value, not a handle into a table that has to outlive
+// every holder of it.
+//
+// Build one with FieldTypeFromString, which canonicalises the spelling.
+// Converting a string directly — FieldType("rec<str,number>") — produces a
+// value that may not be canonical and so may not compare equal to the same type
+// written properly; `pnpm run check:fieldtype` rejects that conversion outside
+// this package.
+//
+// The zero value is FieldTypeInvalid, which names no type.
+type FieldType string
 
+// The twelve base types are the vocabulary both languages pre-declare, in the
+// order spec/field-types.json lists them. They are not the whole of what the
+// type grammar accepts: `arr<` and `rec<` compose to any depth MaxTypeNodes
+// allows, and a composed type is as ordinary a FieldType as these are.
 const (
-	FieldTypeInvalid FieldType = iota
-	FieldTypeNumber
-	FieldTypeStr
-	FieldTypeBool
-	FieldTypeArrNumber
-	FieldTypeArrStr
-	FieldTypeArrBool
-	FieldTypeRecordStrNumber
-	FieldTypeRecordStrStr
-	FieldTypeRecordStrBool
-	FieldTypeRecordNumberNumber
-	FieldTypeRecordNumberStr
-	FieldTypeRecordNumberBool
-	fieldTypeSentinel
+	FieldTypeInvalid            FieldType = ""
+	FieldTypeNumber             FieldType = "number"
+	FieldTypeStr                FieldType = "str"
+	FieldTypeBool               FieldType = "bool"
+	FieldTypeArrNumber          FieldType = "arr<number>"
+	FieldTypeArrStr             FieldType = "arr<str>"
+	FieldTypeArrBool            FieldType = "arr<bool>"
+	FieldTypeRecordStrNumber    FieldType = "rec<str, number>"
+	FieldTypeRecordStrStr       FieldType = "rec<str, str>"
+	FieldTypeRecordStrBool      FieldType = "rec<str, bool>"
+	FieldTypeRecordNumberNumber FieldType = "rec<number, number>"
+	FieldTypeRecordNumberStr    FieldType = "rec<number, str>"
+	FieldTypeRecordNumberBool   FieldType = "rec<number, bool>"
 )
 
-type fieldTypeKind uint8
-
-const (
-	fieldTypePrimitive fieldTypeKind = iota
-	fieldTypeArray
-	fieldTypeRecord
-)
-
-type fieldTypeDesc struct {
-	name             string
-	kind             fieldTypeKind
-	elem, key, value FieldType
+// baseFieldTypes is the constant vocabulary above in declaration order. It is
+// written out rather than derived, because a FieldType is a name rather than a
+// position in a range and there is nothing to iterate over.
+var baseFieldTypes = []FieldType{
+	FieldTypeNumber, FieldTypeStr, FieldTypeBool,
+	FieldTypeArrNumber, FieldTypeArrStr, FieldTypeArrBool,
+	FieldTypeRecordStrNumber, FieldTypeRecordStrStr, FieldTypeRecordStrBool,
+	FieldTypeRecordNumberNumber, FieldTypeRecordNumberStr, FieldTypeRecordNumberBool,
 }
-
-var (
-	fieldTypesMu sync.RWMutex
-	fieldTypes   = map[FieldType]fieldTypeDesc{
-		FieldTypeNumber: {name: "number", kind: fieldTypePrimitive}, FieldTypeStr: {name: "str", kind: fieldTypePrimitive}, FieldTypeBool: {name: "bool", kind: fieldTypePrimitive},
-		FieldTypeArrNumber: {name: "arr<number>", kind: fieldTypeArray, elem: FieldTypeNumber}, FieldTypeArrStr: {name: "arr<str>", kind: fieldTypeArray, elem: FieldTypeStr}, FieldTypeArrBool: {name: "arr<bool>", kind: fieldTypeArray, elem: FieldTypeBool},
-		FieldTypeRecordStrNumber: {name: "rec<str, number>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeNumber}, FieldTypeRecordStrStr: {name: "rec<str, str>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeStr}, FieldTypeRecordStrBool: {name: "rec<str, bool>", kind: fieldTypeRecord, key: FieldTypeStr, value: FieldTypeBool},
-		FieldTypeRecordNumberNumber: {name: "rec<number, number>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeNumber}, FieldTypeRecordNumberStr: {name: "rec<number, str>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeStr}, FieldTypeRecordNumberBool: {name: "rec<number, bool>", kind: fieldTypeRecord, key: FieldTypeNumber, value: FieldTypeBool},
-	}
-	fieldTypesByName = map[string]FieldType{
-		"number": FieldTypeNumber, "str": FieldTypeStr, "bool": FieldTypeBool, "arr<number>": FieldTypeArrNumber, "arr<str>": FieldTypeArrStr, "arr<bool>": FieldTypeArrBool,
-		"rec<str, number>": FieldTypeRecordStrNumber, "rec<str, str>": FieldTypeRecordStrStr, "rec<str, bool>": FieldTypeRecordStrBool, "rec<number, number>": FieldTypeRecordNumberNumber, "rec<number, str>": FieldTypeRecordNumberStr, "rec<number, bool>": FieldTypeRecordNumberBool,
-	}
-	nextFieldType = fieldTypeSentinel
-)
 
 // BaseFieldTypes returns the field types declared as constants, in declaration
 // order. These are the vocabulary the two languages pre-declare and that
 // spec/field-types.json enumerates.
 //
 // They are not the whole of what the type grammar accepts. `arr<` and `rec<`
-// compose to any depth the runtime can hold, and anything past this list is
-// interned on first sight — so the registry is open where this list is closed,
-// and only this list can be checked against the spec.
+// compose to any depth the runtime can hold, and only this list can be checked
+// against the spec.
 func BaseFieldTypes() []FieldType {
-	types := make([]FieldType, 0, int(fieldTypeSentinel)-1)
-	for ft := FieldTypeInvalid + 1; ft < fieldTypeSentinel; ft++ {
-		types = append(types, ft)
-	}
-	return types
+	return append([]FieldType(nil), baseFieldTypes...)
 }
 
-func fieldTypeDescriptor(ft FieldType) (fieldTypeDesc, bool) {
-	fieldTypesMu.RLock()
-	d, ok := fieldTypes[ft]
-	fieldTypesMu.RUnlock()
-	return d, ok
+// Valid reports whether ft names a type. It re-parses, because a FieldType
+// carries its spelling and nothing else; call it where a value's provenance is
+// in doubt, not in a loop.
+func (ft FieldType) Valid() bool {
+	name, ok := parseFieldTypeString(string(ft))
+	return ok && name == string(ft)
 }
-func (ft FieldType) Valid() bool { _, ok := fieldTypeDescriptor(ft); return ok }
+
+// String returns the type's spelling. It does not validate: a canonical
+// FieldType is already its own name, and String is on the lowering path, where
+// re-parsing a deep type on every call would cost more than the whole of what
+// it is called for.
 func (ft FieldType) String() string {
 	if ft == FieldTypeInvalid {
 		return "FieldType(invalid)"
 	}
-	if d, ok := fieldTypeDescriptor(ft); ok {
-		return d.name
-	}
-	return fmt.Sprintf("FieldType(%d)", int(ft))
+	return string(ft)
 }
 func (ft FieldType) ProtoString() string { return ft.String() }
 
@@ -155,11 +149,10 @@ func typeNodeCount(s string) int {
 	return strings.Count(s, "arr<") + strings.Count(s, "rec<") + 1
 }
 
-// FieldTypeRejection says why FieldTypeFromString returned false. The three
-// are one `false` to a caller that only wants the type, and three different
-// mistakes to a caller that has to explain it: a spelling that is not a type, a
-// type too deep for the runtime to represent, and a type this process has no
-// room left to intern.
+// FieldTypeRejection says why FieldTypeFromString returned false. The two are
+// one `false` to a caller that only wants the type, and two different mistakes
+// to a caller that has to explain it: a spelling that is not a type, and a type
+// too deep for the runtime to represent.
 type FieldTypeRejection int
 
 const (
@@ -168,10 +161,6 @@ const (
 	// FieldTypeRejectedTooDeep means s names a well-formed type with more than
 	// MaxTypeNodes nodes.
 	FieldTypeRejectedTooDeep
-	// FieldTypeRejectedRegistryFull means s names a type that would have been
-	// accepted, in a process that has already interned
-	// MaxRegisteredFieldTypes of them.
-	FieldTypeRejectedRegistryFull
 )
 
 // WhyFieldTypeRejected classifies a spelling FieldTypeFromString rejected, and
@@ -182,19 +171,17 @@ func WhyFieldTypeRejected(s string) (FieldTypeRejection, int) {
 	if nodes > MaxTypeNodes {
 		return FieldTypeRejectedTooDeep, nodes
 	}
-	if _, _, ok := parseFieldTypeCore(s); !ok {
-		return FieldTypeRejectedSpelling, nodes
-	}
-	// It parses, so the only thing that can have refused it is the registry.
-	return FieldTypeRejectedRegistryFull, nodes
+	// Depth is the only thing besides the spelling that can refuse a type.
+	return FieldTypeRejectedSpelling, nodes
 }
 
-// parseFieldTypeString parses a field type spelling, rejecting anything past
-// MaxTypeNodes before recursing. The check is here rather than in the recursive
-// core so it runs once per type rather than once per level.
-func parseFieldTypeString(s string) (string, fieldTypeDesc, bool) {
+// parseFieldTypeString parses a field type spelling and returns its canonical
+// form, rejecting anything past MaxTypeNodes before recursing. The check is
+// here rather than in the recursive core so it runs once per type rather than
+// once per level.
+func parseFieldTypeString(s string) (string, bool) {
 	if typeNodeCount(s) > MaxTypeNodes {
-		return "", fieldTypeDesc{}, false
+		return "", false
 	}
 	return parseFieldTypeCore(s)
 }
@@ -202,124 +189,96 @@ func parseFieldTypeString(s string) (string, fieldTypeDesc, bool) {
 // parseFieldTypeCore is parseFieldTypeString's recursive body. Its depth is
 // bounded by its caller: every level strips an `arr<` or `rec<` prefix, so it
 // descends at most typeNodeCount(s) times.
-func parseFieldTypeCore(s string) (string, fieldTypeDesc, bool) {
+func parseFieldTypeCore(s string) (string, bool) {
 	s = strings.TrimSpace(s)
 	if s == "number" || s == "str" || s == "bool" {
-		return s, fieldTypeDesc{name: s, kind: fieldTypePrimitive}, true
+		return s, true
 	}
 	if strings.HasPrefix(s, "arr<") && strings.HasSuffix(s, ">") {
-		inner, _, ok := parseFieldTypeCore(s[4 : len(s)-1])
+		inner, ok := parseFieldTypeCore(s[4 : len(s)-1])
 		if !ok {
-			return "", fieldTypeDesc{}, false
+			return "", false
 		}
-		return "arr<" + inner + ">", fieldTypeDesc{kind: fieldTypeArray}, true
+		return "arr<" + inner + ">", true
 	}
 	if strings.HasPrefix(s, "rec<") && strings.HasSuffix(s, ">") {
 		key, value, ok := splitRecordParams(s[4 : len(s)-1])
 		if !ok {
-			return "", fieldTypeDesc{}, false
+			return "", false
 		}
-		keyName, _, keyOK := parseFieldTypeCore(key)
+		keyName, keyOK := parseFieldTypeCore(key)
 		if !keyOK || (keyName != "str" && keyName != "number") {
-			return "", fieldTypeDesc{}, false
+			return "", false
 		}
-		valueName, _, valueOK := parseFieldTypeCore(value)
+		valueName, valueOK := parseFieldTypeCore(value)
 		if !valueOK {
-			return "", fieldTypeDesc{}, false
+			return "", false
 		}
-		return "rec<" + keyName + ", " + valueName + ">", fieldTypeDesc{kind: fieldTypeRecord}, true
+		return "rec<" + keyName + ", " + valueName + ">", true
 	}
-	return "", fieldTypeDesc{}, false
+	return "", false
 }
 
-// MaxRegisteredFieldTypes bounds the process-global type registry.
+// FieldTypeFromString returns the FieldType a spelling names, canonicalised:
+// `rec<str,number>` and `rec< str , number >` both produce
+// FieldTypeRecordStrNumber. It reports false for a spelling that is not a type
+// and for one deeper than MaxTypeNodes; WhyFieldTypeRejected says which.
 //
-// Composed types are interned on first sight and never released, because a
-// FieldType is an integer that has to keep meaning the same thing for as long
-// as anything holds it. That is fine for a CLI, which exits. It is not fine for
-// the callers the cached-schema API exists for — an LSP, an incremental
-// checker, the Node bridge — which compile source they did not write, for as
-// long as the process lives.
-//
-// The bound is far above any real schema and is not a budget to design
-// against: reaching it means something is generating type spellings, not
-// writing them. Registration past it fails rather than growing, which does make
-// the outcome depend on what the process compiled earlier. That is the lesser
-// of the two, and the honest fix is to stop interning into a global at all —
-// see RegisteredFieldTypes for what a caller can do in the meantime.
-const MaxRegisteredFieldTypes = 4096
-
-// RegisteredFieldTypes returns how many field types are interned, base types
-// included. A long-lived host can watch it to know whether it is approaching
-// MaxRegisteredFieldTypes, which it cannot recover from without restarting.
-func RegisteredFieldTypes() int {
-	fieldTypesMu.RLock()
-	defer fieldTypesMu.RUnlock()
-	return len(fieldTypesByName)
-}
-
+// Nothing is registered, cached, or retained. Two compiles in one process see
+// the same types for the same spellings and nothing of each other's, and a
+// FieldType stays meaningful for as long as its holder does — which is what the
+// cached-schema API needs of one.
 func FieldTypeFromString(s string) (FieldType, bool) {
-	name, desc, ok := parseFieldTypeString(s)
+	name, ok := parseFieldTypeString(s)
 	if !ok {
 		return FieldTypeInvalid, false
 	}
-	fieldTypesMu.RLock()
-	existing, found := fieldTypesByName[name]
-	fieldTypesMu.RUnlock()
-	if found {
-		return existing, true
-	}
-	if desc.kind == fieldTypeArray {
-		desc.elem, _ = FieldTypeFromString(name[4 : len(name)-1])
-	} else if desc.kind == fieldTypeRecord {
-		keyName, valueName, _ := splitRecordParams(name[4 : len(name)-1])
-		desc.key, _ = FieldTypeFromString(keyName)
-		desc.value, _ = FieldTypeFromString(valueName)
-	}
-	desc.name = name
-	fieldTypesMu.Lock()
-	defer fieldTypesMu.Unlock()
-	if existing, found := fieldTypesByName[name]; found {
-		return existing, true
-	}
-	// Re-checked under the write lock: the read in RegistryFull is only a hint.
-	if len(fieldTypesByName) >= MaxRegisteredFieldTypes {
-		return FieldTypeInvalid, false
-	}
-	ft := nextFieldType
-	nextFieldType++
-	fieldTypes[ft] = desc
-	fieldTypesByName[name] = ft
-	return ft, true
+	return FieldType(name), true
 }
-func (ft FieldType) IsRecord() bool {
-	d, ok := fieldTypeDescriptor(ft)
-	return ok && d.kind == fieldTypeRecord
-}
+
+// The shape tests below read the canonical spelling rather than a stored
+// descriptor. A canonical `arr<T>` is `arr<` + T + `>` and a canonical
+// `rec<K, V>` is `rec<` + K + `, ` + V + `>`, so the element, key and value
+// types are substrings of the type that contains them, already canonical
+// themselves.
+
+func (ft FieldType) IsRecord() bool { return ft.hasShape("rec<") }
 func (ft FieldType) RecordKeyType() (FieldType, bool) {
-	d, ok := fieldTypeDescriptor(ft)
-	if !ok || d.kind != fieldTypeRecord {
-		return FieldTypeInvalid, false
-	}
-	return d.key, true
+	key, _, ok := ft.recordParams()
+	return key, ok
 }
 func (ft FieldType) RecordValueType() (FieldType, bool) {
-	d, ok := fieldTypeDescriptor(ft)
-	if !ok || d.kind != fieldTypeRecord {
-		return FieldTypeInvalid, false
-	}
-	return d.value, true
+	_, value, ok := ft.recordParams()
+	return value, ok
 }
-func (ft FieldType) IsArray() bool {
-	d, ok := fieldTypeDescriptor(ft)
-	return ok && d.kind == fieldTypeArray
-}
+func (ft FieldType) IsArray() bool { return ft.hasShape("arr<") }
 func (ft FieldType) TryElemType() (FieldType, bool) {
-	d, ok := fieldTypeDescriptor(ft)
-	if !ok || d.kind != fieldTypeArray {
+	if !ft.IsArray() {
 		return FieldTypeInvalid, false
 	}
-	return d.elem, true
+	return ft.inner(), true
+}
+
+// hasShape reports whether ft is spelled as the given constructor applied to
+// something. The something is not re-parsed: a FieldType built through
+// FieldTypeFromString is canonical all the way down.
+func (ft FieldType) hasShape(prefix string) bool {
+	return len(ft) > len(prefix)+1 && strings.HasPrefix(string(ft), prefix) && strings.HasSuffix(string(ft), ">")
+}
+
+// inner returns what a constructor was applied to: the `T` of `arr<T>`, or the
+// `K, V` of `rec<K, V>`.
+func (ft FieldType) inner() FieldType { return ft[4 : len(ft)-1] }
+
+func (ft FieldType) recordParams() (FieldType, FieldType, bool) {
+	if !ft.IsRecord() {
+		return FieldTypeInvalid, FieldTypeInvalid, false
+	}
+	key, value, ok := splitRecordParams(string(ft.inner()))
+	if !ok {
+		return FieldTypeInvalid, FieldTypeInvalid, false
+	}
+	return FieldType(key), FieldType(value), true
 }
 
 // ────────────────────────────────────────────────────────────

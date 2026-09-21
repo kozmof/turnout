@@ -12,22 +12,15 @@ import (
 // size rather than its spelling, and reports whether it did. A misspelled type
 // is left to the caller, which knows what to suggest in its own context.
 //
-// The type text is deliberately not quoted into either message. A type that hit
-// either limit is long by definition, and the position already points at it.
+// The type text is deliberately not quoted into the message. A type that hit
+// the limit is long by definition, and the position already points at it.
 func (p *parser) reportTypeLimit(t lexer.Token) bool {
-	switch reason, nodes := ast.WhyFieldTypeRejected(t.Value); reason {
-	case ast.FieldTypeRejectedTooDeep:
+	if reason, nodes := ast.WhyFieldTypeRejected(t.Value); reason == ast.FieldTypeRejectedTooDeep {
 		p.errorWithCode(t, diag.CodeTypeTooDeep,
 			"type nests %d levels; the runtime holds at most %d", nodes, ast.MaxTypeNodes)
 		return true
-	case ast.FieldTypeRejectedRegistryFull:
-		p.errorWithCode(t, diag.CodeTypeRegistryFull,
-			"cannot register another composed type: this process has interned the maximum of %d",
-			ast.MaxRegisteredFieldTypes)
-		return true
-	default:
-		return false
 	}
+	return false
 }
 
 // ─── parseFieldType ──────────────────────────────────────────────────────────
@@ -45,10 +38,10 @@ func (p *parser) parseFieldType(typeErrCode diag.ErrorCode) (ast.FieldType, bool
 		ft, ok := ast.FieldTypeFromString(t.Value)
 		if !ok {
 			if p.reportTypeLimit(t) {
-				return 0, false
+				return ast.FieldTypeInvalid, false
 			}
 			p.errorWithCode(t, typeErrCode, "unknown array type %q", t.Value)
-			return 0, false
+			return ast.FieldTypeInvalid, false
 		}
 		return ft, true
 	case lexer.TokIdent:
@@ -56,16 +49,16 @@ func (p *parser) parseFieldType(typeErrCode diag.ErrorCode) (ast.FieldType, bool
 		if !ok {
 			if p.reportTypeLimit(t) {
 				p.advance()
-				return 0, false
+				return ast.FieldTypeInvalid, false
 			}
 			p.errorWithCode(t, typeErrCode, "unknown type %q; expected number, str, bool, or arr<T>", t.Value)
-			return 0, false
+			return ast.FieldTypeInvalid, false
 		}
 		p.advance()
 		return ft, true
 	default:
 		p.errorf(t, "expected type, got %s %q", kindName(t.Kind), t.Value)
-		return 0, false
+		return ast.FieldTypeInvalid, false
 	}
 }
 
@@ -87,7 +80,7 @@ func (p *parser) parseBindingType() (ast.FieldType, ast.Type, bool) {
 			if !p.reportTypeLimit(t) {
 				p.errorWithCode(t, diag.CodeParseSyntaxError, "unknown array type %q", t.Value)
 			}
-			return 0, nil, false
+			return ast.FieldTypeInvalid, nil, false
 		}
 		return ft, nil, true
 	case lexer.TokIdent:
@@ -107,7 +100,7 @@ func (p *parser) parseBindingType() (ast.FieldType, ast.Type, bool) {
 		return ast.FieldTypeInvalid, ast.NewNamedType(p.posOf(t), t.Value), true
 	default:
 		p.errorf(t, "expected type, got %s %q", kindName(t.Kind), t.Value)
-		return 0, nil, false
+		return ast.FieldTypeInvalid, nil, false
 	}
 }
 

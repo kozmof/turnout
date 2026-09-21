@@ -239,7 +239,4 @@ const (
 	// descends. Past it the parser exhausts the goroutine stack, which Go
 	// cannot recover into a diagnostic.
 	CodeExpressionTooDeep ErrorCode = "ExpressionTooDeep"
-	// CodeTypeRegistryFull reports that no new composed type can be interned in
-	// this process. It is a property of the process, not of the source.
-	CodeTypeRegistryFull ErrorCode = "TypeRegistryFull"
 )
